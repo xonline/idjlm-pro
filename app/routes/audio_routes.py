@@ -1,38 +1,27 @@
+from flask import Blueprint, send_file, abort
 import os
-from flask import Blueprint, send_file, jsonify
 
-bp = Blueprint("audio", __name__, url_prefix="/api")
+bp = Blueprint("audio", __name__, url_prefix="/api/audio")
 
 
-@bp.route("/audio/<path:file_path>", methods=["GET"])
-def serve_audio(file_path):
-    """
-    Serve MP3 file with range request support for HTML5 audio seeking.
-    GET /api/audio/<path:file_path>
-    """
+@bp.route("/<track_id>", methods=["GET"])
+def get_audio(track_id):
+    """Serve MP3 file with range request support."""
+    from app import get_track_store
+
+    track_store = get_track_store()
+    track = next((t for t in track_store.values() if t.id == track_id), None)
+    if not track:
+        abort(404)
+
+    if not os.path.exists(track.file_path):
+        abort(404)
+
     try:
-        # Ensure absolute path and normalize
-        file_path = os.path.abspath(file_path)
-
-        if not os.path.exists(file_path):
-            return jsonify({"error": "Audio file not found"}), 404
-
-        if not os.path.isfile(file_path):
-            return jsonify({"error": "Path is not a file"}), 400
-
-        if not file_path.lower().endswith('.mp3'):
-            return jsonify({"error": "Only MP3 files are supported"}), 400
-
-        if not os.access(file_path, os.R_OK):
-            return jsonify({"error": "Audio file is not readable"}), 403
-
-        # Send file with conditional=True for range request support
         return send_file(
-            file_path,
+            track.file_path,
             mimetype="audio/mpeg",
-            conditional=True,
-            as_attachment=False
+            as_attachment=False,
         )
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        abort(500)

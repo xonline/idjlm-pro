@@ -1,162 +1,67 @@
-import os
+from flask import Blueprint, jsonify, request
 import json
-from flask import Blueprint, request, jsonify
 
-bp = Blueprint("bulk", __name__, url_prefix="/api")
+bp = Blueprint("bulk", __name__, url_prefix="/api/bulk")
 
 
 @bp.route("/taxonomy", methods=["GET"])
 def get_taxonomy():
-    """
-    Get full taxonomy.
-    GET /api/taxonomy
-    """
-    try:
-        from app import get_taxonomy
-
-        return jsonify(get_taxonomy()), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    """Get full taxonomy."""
+    from app import get_taxonomy
+    return jsonify(get_taxonomy())
 
 
-@bp.route("/taxonomy", methods=["PUT"])
-def update_taxonomy():
-    """
-    Replace entire taxonomy and write to file.
-    PUT /api/taxonomy
-    body: { "genres": { ... } }
-    """
-    try:
-        from app import get_taxonomy
+@bp.route("/taxonomy/<genre>", methods=["PUT"])
+def update_genre(genre):
+    """Update genre definition."""
+    from app import get_taxonomy
 
-        data = request.get_json() or {}
-        new_taxonomy = data  # Accept full taxonomy object
-
-        if not new_taxonomy:
-            return jsonify({"error": "Taxonomy data is required"}), 400
-
-        # Update in-memory taxonomy
-        taxonomy = get_taxonomy()
-        taxonomy.clear()
-        taxonomy.update(new_taxonomy)
-
-        # Write back to taxonomy.json
-        taxonomy_path = os.path.join(
-            os.path.dirname(__file__), "..", "..", "taxonomy.json"
-        )
-        with open(taxonomy_path, "w") as f:
-            json.dump(taxonomy, f, indent=2)
-
-        return jsonify({"ok": True}), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    taxonomy = get_taxonomy()
+    data = request.json or {}
+    found = False
+    for g in taxonomy.get("genres", []):
+        if g["name"] == genre:
+            g.update(data)
+            found = True
+            break
+    return jsonify({"success": found})
 
 
-@bp.route("/taxonomy/genre", methods=["POST"])
+@bp.route("/taxonomy", methods=["POST"])
 def add_genre():
-    """
-    Add a new genre to taxonomy.
-    POST /api/taxonomy/genre
-    body: { "name": "Cumbia", "description": "...", "subgenres": { "Name": "desc" } }
-    """
-    try:
-        from app import get_taxonomy
+    """Add new genre."""
+    from app import get_taxonomy
 
-        data = request.get_json() or {}
-        genre_name = data.get("name", "").strip()
-        description = data.get("description", "")
-        subgenres = data.get("subgenres", {})
-
-        if not genre_name:
-            return jsonify({"error": "Genre name is required"}), 400
-
-        taxonomy = get_taxonomy()
-
-        # Add genre
-        if "genres" not in taxonomy:
-            taxonomy["genres"] = {}
-
-        taxonomy["genres"][genre_name] = {
-            "description": description,
-            "subgenres": subgenres
-        }
-
-        # Write back to file
-        taxonomy_path = os.path.join(
-            os.path.dirname(__file__), "..", "..", "taxonomy.json"
-        )
-        with open(taxonomy_path, "w") as f:
-            json.dump(taxonomy, f, indent=2)
-
-        return jsonify(taxonomy), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    taxonomy = get_taxonomy()
+    data = request.json or {}
+    if "name" in data:
+        if not any(g["name"] == data["name"] for g in taxonomy.get("genres", [])):
+            taxonomy.setdefault("genres", []).append(data)
+            return jsonify({"success": True}), 201
+    return jsonify({"success": False}), 400
 
 
-@bp.route("/taxonomy/genre/<name>", methods=["DELETE"])
-def delete_genre(name):
-    """
-    Remove a genre from taxonomy.
-    DELETE /api/taxonomy/genre/<name>
-    """
-    try:
-        from app import get_taxonomy
+@bp.route("/taxonomy/<genre>", methods=["DELETE"])
+def delete_genre(genre):
+    """Delete genre."""
+    from app import get_taxonomy
 
-        taxonomy = get_taxonomy()
-
-        if "genres" not in taxonomy:
-            return jsonify({"error": "No genres in taxonomy"}), 404
-
-        if name not in taxonomy["genres"]:
-            return jsonify({"error": f"Genre '{name}' not found"}), 404
-
-        del taxonomy["genres"][name]
-
-        # Write back to file
-        taxonomy_path = os.path.join(
-            os.path.dirname(__file__), "..", "..", "taxonomy.json"
-        )
-        with open(taxonomy_path, "w") as f:
-            json.dump(taxonomy, f, indent=2)
-
-        return jsonify({"ok": True}), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    taxonomy = get_taxonomy()
+    original_len = len(taxonomy.get("genres", []))
+    taxonomy["genres"] = [g for g in taxonomy.get("genres", []) if g["name"] != genre]
+    return jsonify({"success": len(taxonomy["genres"]) < original_len})
 
 
 @bp.route("/stats", methods=["GET"])
 def get_stats():
-    """
-    Get library statistics.
-    GET /api/stats
-    """
-    try:
-        from app import get_track_store
+    """Get track statistics."""
+    from app import get_track_store
 
-        track_store = get_track_store()
-        tracks = list(track_store.values())
-
-        total = len(tracks)
-        analyzed = sum(1 for t in tracks if t.analysis_done)
-        classified = sum(1 for t in tracks if t.classification_done)
-        approved = sum(1 for t in tracks if t.review_status == "approved")
-        skipped = sum(1 for t in tracks if t.review_status == "skipped")
-        written = sum(1 for t in tracks if t.tags_written)
-        errors = sum(1 for t in tracks if t.error)
-
-        return jsonify({
-            "total": total,
-            "analyzed": analyzed,
-            "classified": classified,
-            "approved": approved,
-            "skipped": skipped,
-            "written": written,
-            "errors": errors
-        }), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    track_store = get_track_store()
+    tracks = list(track_store.values())
+    return jsonify({
+        "total": len(tracks),
+        "analyzed": len([t for t in tracks if t.bpm]),
+        "classified": len([t for t in tracks if t.classified_genre]),
+        "approved": len([t for t in tracks if t.approved]),
+    })

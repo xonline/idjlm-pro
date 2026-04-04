@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DJ Library Manager</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>DJ Library Manager</h1>
+        <p>Organize, analyze, and enrich your music library with AI</p>
+    </header>
+
+    <div class="container">
+        <!-- NAVIGATION -->
+        <div class="nav">
+            <button class="nav-btn active" data-tab="import">Import</button>
+            <button class="nav-btn" data-tab="tracks">Tracks</button>
+            <button class="nav-btn" data-tab="review">Review</button>
+            <button class="nav-btn" data-tab="taxonomy">Taxonomy</button>
+            <button class="nav-btn" data-tab="stats">Stats</button>
+            <button class="nav-btn" data-tab="settings">Settings</button>
+        </div>
+
+        <!-- TAB: IMPORT -->
+        <div id="tab-import" class="content-tab active">
+            <div class="panel">
+                <div class="panel-title">Import Music Library</div>
+                <p class="text-muted" style="margin-bottom: 16px;">Select a folder, analyze, classify, and import your MP3s.</p>
+
+                <button class="btn" id="pick-folder-btn">Pick Folder</button>
+                <div id="folder-display" class="text-muted" style="margin: 12px 0; padding: 12px; background: var(--color-surface-light); border-radius: var(--radius);">No folder selected</div>
+
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0;">
+                    <button class="btn" id="import-btn">1. Scan for MP3s</button>
+                    <button class="btn btn-warning" id="analyze-btn">2. Analyze</button>
+                    <button class="btn btn-secondary" id="classify-btn">3. Classify</button>
+                    <button class="btn btn-success" id="finalize-btn">4. Finalize</button>
+                </div>
+
+                <p class="text-muted">Select tracks below using checkboxes, then click buttons in order.</p>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">Import Preview</div>
+                <table id="import-table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="check-all" /></th>
+                            <th>Title</th>
+                            <th>Artist</th>
+                            <th>BPM</th>
+                            <th>Key</th>
+                            <th>Genre</th>
+                            <th>Subgenre</th>
+                            <th>Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB: TRACKS -->
+        <div id="tab-tracks" class="content-tab">
+            <div class="panel">
+                <div class="panel-title">Music Library</div>
+                <p class="text-muted">Double-click a row to edit. Use genre and BPM filters.</p>
+            </div>
+
+            <div class="panel">
+                <table id="track-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Artist</th>
+                            <th>BPM</th>
+                            <th>Key</th>
+                            <th>Genre</th>
+                            <th>Subgenre</th>
+                            <th>Approved</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB: REVIEW -->
+        <div id="tab-review" class="content-tab">
+            <div class="panel">
+                <div class="panel-title">Review Queue</div>
+                <p class="text-muted">Approve AI suggestions or skip for manual review. Click ✓ or ✗.</p>
+                <button class="btn btn-success" id="write-tags-btn">Write Approved Tags</button>
+            </div>
+
+            <div class="panel">
+                <table id="review-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Artist</th>
+                            <th>AI Suggestion</th>
+                            <th>Confidence</th>
+                            <th>BPM</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB: TAXONOMY -->
+        <div id="tab-taxonomy" class="content-tab">
+            <div class="panel">
+                <div class="panel-title">Genre Taxonomy</div>
+                <button class="btn" id="add-genre-btn">Add Genre</button>
+                <div id="taxonomy-list" style="margin-top: 16px;"></div>
+            </div>
+
+            <!-- Camelot Wheel -->
+            <div class="panel">
+                <div class="panel-title">Camelot Key Wheel</div>
+                <div class="camelot-wheel">🎵</div>
+                <p class="text-muted text-center" style="font-size: 12px;">Musical keys for beatmatching and energy transitions</p>
+            </div>
+        </div>
+
+        <!-- TAB: STATS -->
+        <div id="tab-stats" class="content-tab">
+            <div class="panel">
+                <div class="panel-title">Library Statistics</div>
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-title">Total Tracks</div>
+                        <div style="font-size: 28px; font-weight: 700;" id="stat-total">0</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Analyzed</div>
+                        <div style="font-size: 28px; font-weight: 700; color: var(--color-primary);" id="stat-analyzed">0</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Classified</div>
+                        <div style="font-size: 28px; font-weight: 700; color: var(--color-secondary);" id="stat-classified">0</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Approved</div>
+                        <div style="font-size: 28px; font-weight: 700; color: var(--color-success);" id="stat-approved">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: SETTINGS -->
+        <div id="tab-settings" class="content-tab">
+            <div class="panel">
+                <div class="panel-title">API Keys</div>
+
+                <div>
+                    <label>Gemini API Key (required)</label>
+                    <input type="password" id="gemini-key-input" placeholder="Enter your API key" />
+                    <div class="text-muted">Status: <span id="gemini-status">unset</span></div>
+                </div>
+
+                <div>
+                    <label>Spotify Client ID (optional)</label>
+                    <input type="password" id="spotify-id-input" placeholder="Optional" />
+                    <div class="text-muted">Status: <span id="spotify-status">unset</span></div>
+                </div>
+
+                <div>
+                    <label>Spotify Client Secret (optional)</label>
+                    <input type="password" id="spotify-secret-input" placeholder="Optional" />
+                </div>
+
+                <button class="btn" id="save-settings-btn">Save Settings</button>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">Session Management</div>
+                <button class="btn" id="save-session-btn">Save Session</button>
+                <button class="btn btn-secondary" id="load-session-btn">Load Session</button>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">Export</div>
+                <button class="btn" id="export-m3u-btn">Export M3U Playlist</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT MODAL -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <button class="close">&times;</button>
+            <div class="modal-title">Edit Track</div>
+            <input type="hidden" id="edit-track-id" />
+
+            <label>Genre Override</label>
+            <input type="text" id="edit-genre" />
+
+            <label>Subgenre Override</label>
+            <input type="text" id="edit-subgenre" />
+
+            <label>BPM Override</label>
+            <input type="number" id="edit-bpm" step="0.1" />
+
+            <label>Key Override</label>
+            <input type="text" id="edit-key" placeholder="e.g., 8B" />
+
+            <label>Year Override</label>
+            <input type="number" id="edit-year" />
+
+            <button class="btn" id="save-edit-btn">Save</button>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

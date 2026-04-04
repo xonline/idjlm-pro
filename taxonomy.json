@@ -1,0 +1,46 @@
+{
+  "genres": [
+    {
+      "name": "Salsa",
+      "subgenres": ["Cuban", "Puerto Rican", "Timba"],
+      "bpm_range": [160, 220],
+      "artists": ["Oscar D'León", "Willie Colón", "Tito Puente"]
+    },
+    {
+      "name": "Bachata",
+      "subgenres": ["Traditional", "Moderna", "Urbano"],
+      "bpm_range": [100, 130],
+      "artists": ["Juan Luis Guerra", "Romeo Santos", "Anthony Santos"]
+    },
+    {
+      "name": "Kizomba",
+      "subgenres": ["Kizomba", "Urbankiz", "Semba"],
+      "bpm_range": [90, 115],
+      "artists": ["Zouk Machine", "Kimbra", "Bonga"]
+    },
+    {
+      "name": "Cha Cha",
+      "subgenres": ["Cuban", "Cha Cha Rubato"],
+      "bpm_range": [120, 128],
+      "artists": ["Pérez Prado", "La Sonora Matancera"]
+    },
+    {
+      "name": "Merengue",
+      "subgenres": ["Traditional", "Moderno", "Perico Ripiao"],
+      "bpm_range": [120, 160],
+      "artists": ["Johnny Ventura", "Grupo Manía"]
+    },
+    {
+      "name": "Reggaeton",
+      "subgenres": ["Reggaeton", "Trap Latino", "Dembow"],
+      "bpm_range": [90, 110],
+      "artists": ["Daddy Yankee", "Don Omar", "Wisin y Yandel"]
+    },
+    {
+      "name": "Zouk",
+      "subgenres": ["Zouk", "Zouk-Love", "Modern Zouk"],
+      "bpm_range": [110, 135],
+      "artists": ["Zouk Machine", "Kassav'", "Edith Lefel"]
+    }
+  ]
+}
