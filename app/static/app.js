@@ -201,17 +201,40 @@ function initLibraryToolbar() {
       showProgressInStatsBar('Analyzing audio...');
       try {
         const result = await apiFetch('/api/analyze', { method: 'POST' });
-        if (result) {
-          window.tracks = result.tracks || window.tracks;
-          renderTracks();
-          updateStats();
-          showToast('Analysis complete', 'success');
+        if (result && result.op_id) {
+          // Stream progress via SSE
+          connectToProgress(
+            result.op_id,
+            result.total,
+            (current, total, message) => {
+              const pct = Math.round((current / total) * 100);
+              showProgressInStatsBar(`${current} / ${total} analyzing...`);
+              const fill = document.getElementById('stat-progress-fill');
+              if (fill) fill.style.width = pct + '%';
+            },
+            (data) => {
+              // SSE complete event
+              hideProgressInStatsBar();
+              const fill = document.getElementById('stat-progress-fill');
+              if (fill) fill.style.width = '0%';
+              window.tracks = data.tracks || window.tracks;
+              renderTracks();
+              updateStats();
+              updateToolbarButtonStates();
+              showToast('Analysis complete', 'success');
+              btnAnalyze.disabled = false;
+            },
+            (err) => {
+              hideProgressInStatsBar();
+              showToast('Analysis stream error: ' + err.message, 'error');
+              btnAnalyze.disabled = false;
+            }
+          );
         }
       } catch (e) {
+        hideProgressInStatsBar();
         showToast('Analysis failed: ' + e.message, 'error');
         btnAnalyze.disabled = false;
-      } finally {
-        hideProgressInStatsBar();
       }
     });
   }
@@ -222,17 +245,40 @@ function initLibraryToolbar() {
       showProgressInStatsBar('Classifying genres...');
       try {
         const result = await apiFetch('/api/classify', { method: 'POST' });
-        if (result) {
-          window.tracks = result.tracks || window.tracks;
-          renderTracks();
-          updateStats();
-          showToast('Classification complete', 'success');
+        if (result && result.op_id) {
+          // Stream progress via SSE
+          connectToProgress(
+            result.op_id,
+            result.total,
+            (current, total, message) => {
+              const pct = Math.round((current / total) * 100);
+              showProgressInStatsBar(`${current} / ${total} classifying...`);
+              const fill = document.getElementById('stat-progress-fill');
+              if (fill) fill.style.width = pct + '%';
+            },
+            (data) => {
+              // SSE complete event
+              hideProgressInStatsBar();
+              const fill = document.getElementById('stat-progress-fill');
+              if (fill) fill.style.width = '0%';
+              window.tracks = data.tracks || window.tracks;
+              renderTracks();
+              updateStats();
+              updateToolbarButtonStates();
+              showToast('Classification complete', 'success');
+              btnClassify.disabled = false;
+            },
+            (err) => {
+              hideProgressInStatsBar();
+              showToast('Classification stream error: ' + err.message, 'error');
+              btnClassify.disabled = false;
+            }
+          );
         }
       } catch (e) {
+        hideProgressInStatsBar();
         showToast('Classification failed: ' + e.message, 'error');
         btnClassify.disabled = false;
-      } finally {
-        hideProgressInStatsBar();
       }
     });
   }
@@ -265,17 +311,40 @@ function initLibraryToolbar() {
       showProgressInStatsBar('Writing tags...');
       try {
         const result = await apiFetch('/api/review/write', { method: 'POST' });
-        if (result) {
-          window.tracks = result.tracks || window.tracks;
-          renderTracks();
-          updateStats();
-          showToast('Tags written successfully', 'success');
+        if (result && result.op_id) {
+          // Stream progress via SSE
+          connectToProgress(
+            result.op_id,
+            result.total,
+            (current, total, message) => {
+              const pct = Math.round((current / total) * 100);
+              showProgressInStatsBar(`${current} / ${total} writing...`);
+              const fill = document.getElementById('stat-progress-fill');
+              if (fill) fill.style.width = pct + '%';
+            },
+            (data) => {
+              // SSE complete event
+              hideProgressInStatsBar();
+              const fill = document.getElementById('stat-progress-fill');
+              if (fill) fill.style.width = '0%';
+              window.tracks = data.tracks || window.tracks;
+              renderTracks();
+              updateStats();
+              updateToolbarButtonStates();
+              showToast('Tags written successfully', 'success');
+              btnWriteTags.disabled = false;
+            },
+            (err) => {
+              hideProgressInStatsBar();
+              showToast('Write stream error: ' + err.message, 'error');
+              btnWriteTags.disabled = false;
+            }
+          );
         }
       } catch (e) {
+        hideProgressInStatsBar();
         showToast('Write failed: ' + e.message, 'error');
         btnWriteTags.disabled = false;
-      } finally {
-        hideProgressInStatsBar();
       }
     });
   }
@@ -2208,28 +2277,6 @@ function connectToProgress(opId, total, onProgress, onComplete, onError) {
   return eventSource;
 }
 
-function showProgressBar(message, total) {
-  const overlay = document.getElementById('spinner-overlay');
-  const msg = document.getElementById('spinner-message');
-  msg.innerHTML = `
-    <div style="text-align: center;">
-      <div>${message}</div>
-      <div class="sse-progress-bar-wrapper">
-        <div class="sse-progress-bar-fill" style="width: 0%"></div>
-      </div>
-      <div id="progress-text" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">0/${total}</div>
-    </div>
-  `;
-  overlay.style.display = 'flex';
-}
-
-function updateProgressBar(current, total, message) {
-  const pct = Math.round((current / total) * 100);
-  const fill = document.querySelector('.sse-progress-bar-fill');
-  const text = document.getElementById('progress-text');
-  if (fill) fill.style.width = pct + '%';
-  if (text) text.textContent = `${current}/${total}`;
-}
 
 // Track detail panel
 function openTrackDetail(track) {
