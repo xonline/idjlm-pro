@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 import os
 import json
+import time
 
 bp = Blueprint("import", __name__, url_prefix="/api/import")
 
@@ -53,7 +54,7 @@ def analyze():
 
 @bp.route("/analyze/stream", methods=["POST"])
 def analyze_stream():
-    """SSE stream for analysis progress with auto-save every 30 tracks."""
+    """SSE stream for analysis progress with ETA and auto-save every 30 tracks."""
     from app.services.analyzer import analyze_track
 
     data = request.json or {}
@@ -64,12 +65,23 @@ def analyze_stream():
     total = len(selected)
 
     def generate():
+        start_time = time.time()
         for i, track in enumerate(selected):
             try:
                 analyze_track(track)
-                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"success\"})}\n\n"
+                elapsed = time.time() - start_time
+                rate = (i + 1) / elapsed if elapsed > 0 else 0
+                remaining = (total - (i + 1)) / rate if rate > 0 else 0
+                eta_str = f"{int(remaining // 60)}m {int(remaining % 60)}s" if remaining > 60 else f"{int(remaining)}s"
+                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"success\", \"eta\": eta_str, \"rate\": round(rate, 1)})}
+"""
             except Exception as e:
-                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"error\", \"error\": str(e)})}\n\n"
+                elapsed = time.time() - start_time
+                rate = (i + 1) / elapsed if elapsed > 0 else 0
+                remaining = (total - (i + 1)) / rate if rate > 0 else 0
+                eta_str = f"{int(remaining // 60)}m {int(remaining % 60)}s" if remaining > 60 else f"{int(remaining)}s"
+                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"error\", \"error\": str(e), \"eta\": eta_str, \"rate\": round(rate, 1)})}
+"""
             
             # Auto-save every 30 tracks
             if (i + 1) % 30 == 0:
@@ -80,7 +92,8 @@ def analyze_stream():
                 except Exception:
                     pass  # Never block progress for auto-save
         
-        yield f"data: {json.dumps({\"complete\": True, \"total\": total})}\n\n"
+        yield f"data: {json.dumps({\"complete\": True, \"total\": total})}
+"""
 
     return Response(
         stream_with_context(generate()),
@@ -116,7 +129,7 @@ def classify():
 
 @bp.route("/classify/stream", methods=["POST"])
 def classify_stream():
-    """SSE stream for classification progress with auto-save every 30 tracks."""
+    """SSE stream for classification progress with ETA and auto-save every 30 tracks."""
     from app.services.classifier import classify_tracks
     from app.services.enricher import enrich_tracks
 
@@ -128,13 +141,24 @@ def classify_stream():
     total = len(selected)
 
     def generate():
+        start_time = time.time()
         for i, track in enumerate(selected):
             try:
                 classify_tracks([track])
                 enrich_tracks([track])
-                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"success\", \"genre\": track.classified_genre or \"—\", \"confidence\": round(track.classification_confidence or 0, 2)})}\n\n"
+                elapsed = time.time() - start_time
+                rate = (i + 1) / elapsed if elapsed > 0 else 0
+                remaining = (total - (i + 1)) / rate if rate > 0 else 0
+                eta_str = f"{int(remaining // 60)}m {int(remaining % 60)}s" if remaining > 60 else f"{int(remaining)}s"
+                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"success\", \"genre\": track.classified_genre or \"—\", \"confidence\": round(track.classification_confidence or 0, 2), \"eta\": eta_str, \"rate\": round(rate, 1)})}
+"""
             except Exception as e:
-                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"error\", \"error\": str(e)})}\n\n"
+                elapsed = time.time() - start_time
+                rate = (i + 1) / elapsed if elapsed > 0 else 0
+                remaining = (total - (i + 1)) / rate if rate > 0 else 0
+                eta_str = f"{int(remaining // 60)}m {int(remaining % 60)}s" if remaining > 60 else f"{int(remaining)}s"
+                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"error\", \"error\": str(e), \"eta\": eta_str, \"rate\": round(rate, 1)})}
+"""
             
             # Auto-save every 30 tracks
             if (i + 1) % 30 == 0:
@@ -145,7 +169,8 @@ def classify_stream():
                 except Exception:
                     pass  # Never block progress for auto-save
         
-        yield f"data: {json.dumps({\"complete\": True, \"total\": total})}\n\n"
+        yield f"data: {json.dumps({\"complete\": True, \"total\": total})}
+"""
 
     return Response(
         stream_with_context(generate()),
