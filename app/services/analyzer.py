@@ -93,6 +93,8 @@ def analyze_track(track: Track) -> Track:
     """
     Analyze audio features: BPM, key (Camelot), energy (1-10).
     Populates: analyzed_bpm, analyzed_key, analyzed_energy, analysis_done=True
+    Applies BPM correction: if > 160, halve it; if < 70, double it.
+    Sets bpm_corrected=True if a correction was applied.
     Sets track.error on exception.
     """
     if track.error:
@@ -106,6 +108,14 @@ def analyze_track(track: Track) -> Track:
         onset_env = librosa.onset.onset_strength(y=y, sr=sr)
         bpm, _ = librosa.beat.beat_track(y=y, sr=sr, onset_envelope=onset_env)
         track.analyzed_bpm = float(bpm)
+
+        # BPM half/double correction for Latin dance tempos
+        if track.analyzed_bpm > 160:
+            track.analyzed_bpm = track.analyzed_bpm / 2
+            track.bpm_corrected = True
+        elif track.analyzed_bpm < 70:
+            track.analyzed_bpm = track.analyzed_bpm * 2
+            track.bpm_corrected = True
 
         # Key detection via chroma features
         chroma = librosa.feature.chroma_cqt(y=y, sr=sr)

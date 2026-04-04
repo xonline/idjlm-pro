@@ -93,5 +93,11 @@ Get credentials at https://developer.spotify.com/dashboard (free).
 
 ## Changelog
 
+### v2.0.0 — 2026-04-04
+- Duplicate track detector (scan + remove)
+- Album art auto-fetch from Spotify + embed in ID3
+- BPM half/double auto-correction for Latin dance tempos
+- Smart playlist builder with BPM range, energy, and key filters
+
 ### v1.9.0 — 2026-04-04
 - Rebranded to IDLM Pro (Intelligent DJ Library Manager)

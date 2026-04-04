@@ -96,6 +96,12 @@ def _enrich_track(track: Track, sp: Optional[object]) -> Track:
                     seen.add(g)
             track.spotify_genres = deduped
 
+        # Album art URL
+        album = result.get("album", {})
+        images = album.get("images", [])
+        if images:
+            track.album_art_url = images[0].get("url")
+
         track.enrichment_done = True
 
     except Exception as e:

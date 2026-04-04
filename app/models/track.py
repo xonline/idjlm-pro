@@ -22,6 +22,7 @@ class Track:
     analyzed_bpm: Optional[float] = None
     analyzed_key: Optional[str] = None       # Camelot notation e.g. "8B"
     analyzed_energy: Optional[int] = None    # 1-10
+    bpm_corrected: bool = False              # True if BPM was half/doubled for correction
     analysis_done: bool = False
 
     # AI classification
@@ -36,6 +37,7 @@ class Track:
     spotify_artist: Optional[str] = None
     spotify_year: Optional[str] = None
     spotify_genres: list = field(default_factory=list)
+    album_art_url: Optional[str] = None      # Album art URL from Spotify
     enrichment_done: bool = False
 
     # Review state: "pending" | "approved" | "skipped" | "edited"
@@ -51,6 +53,10 @@ class Track:
     # Write state
     tags_written: bool = False
     error: Optional[str] = None
+
+    # Duplicate detection
+    is_duplicate: bool = False
+    duplicate_of: Optional[str] = None       # file_path of the original track
 
     def to_dict(self) -> dict:
         return asdict(self)

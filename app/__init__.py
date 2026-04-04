@@ -37,6 +37,7 @@ def create_app() -> Flask:
     from app.routes.session_routes import bp as session_bp
     from app.routes.watch_routes import bp as watch_bp
     from app.routes.export_routes import bp as export_bp
+    from app.routes.duplicate_routes import bp as duplicate_bp
 
     app.register_blueprint(import_bp)
     app.register_blueprint(track_bp)
@@ -47,6 +48,7 @@ def create_app() -> Flask:
     app.register_blueprint(session_bp)
     app.register_blueprint(watch_bp)
     app.register_blueprint(export_bp)
+    app.register_blueprint(duplicate_bp)
 
     @app.route("/")
     def index():

@@ -1,5 +1,6 @@
-from mutagen.id3 import ID3, TCON, COMM, TBPM, TKEY, TDRC
+from mutagen.id3 import ID3, TCON, COMM, TBPM, TKEY, TDRC, APIC
 from mutagen.mp3 import MP3
+import requests
 
 from app.models.track import Track
 
@@ -24,6 +25,7 @@ def write_tags(track: Track) -> Track:
     Write approved tag changes to ID3.
     Only writes fields where final_* differs from existing_*.
     Uses: track.final_genre, track.final_subgenre, track.final_bpm, track.final_key, track.final_year
+    Also writes album art if track.album_art_url is set.
     Sets track.tags_written=True on success, track.error on failure.
     """
     if track.error:
@@ -54,6 +56,24 @@ def write_tags(track: Track) -> Track:
         # Year: final_year vs existing_year
         if track.final_year and track.final_year != track.existing_year:
             _write_frame(tags, TDRC, track.final_year, "TDRC")
+
+        # Album art from Spotify
+        if track.album_art_url:
+            try:
+                response = requests.get(track.album_art_url, timeout=10)
+                if response.status_code == 200:
+                    image_data = response.content
+                    apic = APIC(
+                        encoding=3,
+                        mime='image/jpeg',
+                        type=3,  # Cover (front)
+                        desc='Cover',
+                        data=image_data
+                    )
+                    tags['APIC:'] = apic
+            except Exception as img_err:
+                # Log image fetch failure but don't fail the entire tag write
+                print(f"Warning: Failed to fetch/write album art for {track.filename}: {str(img_err)}")
 
         # Save to file
         mp3.save(v2_version=4)
