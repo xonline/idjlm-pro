@@ -18,9 +18,30 @@ def get_taxonomy() -> dict:
     return _taxonomy
 
 
+def _load_settings_from_home():
+    """Load API keys and settings from ~/.xdj_library_manager/settings.json if available."""
+    settings_file = os.path.expanduser("~/.xdj_library_manager/settings.json")
+    if os.path.exists(settings_file):
+        try:
+            with open(settings_file) as f:
+                settings = json.load(f)
+                # Load into environment variables
+                for key, value in settings.items():
+                    os.environ[key] = value
+        except Exception:
+            pass  # Silently ignore if settings file is unreadable
+
+
 def create_app() -> Flask:
     app = Flask(__name__, template_folder="../templates", static_folder="static")
     CORS(app)
+
+    # Load user-level settings first (persistent across app launches)
+    _load_settings_from_home()
+    
+    # Load .env file (may override or supplement settings)
+    from dotenv import load_dotenv, find_dotenv
+    load_dotenv(find_dotenv())
 
     # Load taxonomy
     taxonomy_path = os.path.join(os.path.dirname(__file__), "..", "taxonomy.json")

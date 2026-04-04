@@ -52,3 +52,21 @@ def get_stats():
         "classified": len([t for t in tracks if t.classified_genre]),
         "approved": len([t for t in tracks if t.approved]),
     })
+
+
+@bp.route("/status", methods=["GET"])
+def get_status():
+    """Get session status including track counts and last save time."""
+    from app import get_track_store
+    from app.services.session_service import get_last_save_time
+
+    track_store = get_track_store()
+    tracks = list(track_store.values())
+    
+    return jsonify({
+        "track_count": len(tracks),
+        "analyzed": len([t for t in tracks if t.bpm]),
+        "classified": len([t for t in tracks if t.classified_genre]),
+        "approved": len([t for t in tracks if t.approved]),
+        "last_saved": get_last_save_time(),
+    })

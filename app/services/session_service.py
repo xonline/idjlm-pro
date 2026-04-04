@@ -4,9 +4,14 @@ import os
 from datetime import datetime
 from app.models.track import Track
 
+# Global tracking for last save time
+_last_save_time = None
+
 
 def save_session(track_store: dict, folder: str = None):
     """Persist track store to session.json."""
+    global _last_save_time
+    
     if folder is None:
         folder = os.path.expanduser("~/Music")
 
@@ -19,6 +24,8 @@ def save_session(track_store: dict, folder: str = None):
 
     with open(session_file, "w") as f:
         json.dump(session_data, f, indent=2)
+    
+    _last_save_time = datetime.now().isoformat()
 
 
 def load_session(folder: str = None) -> list:
@@ -42,3 +49,9 @@ def load_session(folder: str = None) -> list:
             pass
 
     return tracks
+
+
+def get_last_save_time() -> str:
+    """Get the last save timestamp (ISO format)."""
+    global _last_save_time
+    return _last_save_time or "never"

@@ -5,6 +5,18 @@ from dotenv import load_dotenv, find_dotenv
 bp = Blueprint("settings", __name__, url_prefix="/api/settings")
 
 
+def _get_settings_dir():
+    """Get user-level settings directory (~/.xdj_library_manager)."""
+    settings_dir = os.path.expanduser("~/.xdj_library_manager")
+    os.makedirs(settings_dir, exist_ok=True)
+    return settings_dir
+
+
+def _get_settings_file():
+    """Get path to user-level settings.json file."""
+    return os.path.join(_get_settings_dir(), "settings.json")
+
+
 @bp.route("/", methods=["GET"])
 def get_settings():
     """Get current API key status (masked) and model config."""
@@ -22,30 +34,57 @@ def get_settings():
 
 @bp.route("/", methods=["POST"])
 def update_settings():
-    """Update .env file with new API keys."""
+    """Update settings in ~/.xdj_library_manager/settings.json and .env."""
+    import json
+    
     data = request.json or {}
+    settings_file = _get_settings_file()
     env_file = find_dotenv() or ".env"
 
     try:
-        env_vars = {}
-        if os.path.exists(env_file):
-            for line in open(env_file):
-                if "=" in line and not line.startswith("#"):
-                    k, v = line.split("=", 1)
-                    env_vars[k.strip()] = v.strip()
+        # Load existing settings from user home directory
+        settings = {}
+        if os.path.exists(settings_file):
+            with open(settings_file) as f:
+                settings = json.load(f)
 
         # Update with new values
         if "gemini_key" in data:
-            env_vars["GEMINI_API_KEY"] = data["gemini_key"]
+            settings["GEMINI_API_KEY"] = data["gemini_key"]
+            os.environ["GEMINI_API_KEY"] = data["gemini_key"]
         if "spotify_id" in data:
-            env_vars["SPOTIFY_CLIENT_ID"] = data["spotify_id"]
+            settings["SPOTIFY_CLIENT_ID"] = data["spotify_id"]
+            os.environ["SPOTIFY_CLIENT_ID"] = data["spotify_id"]
         if "spotify_secret" in data:
-            env_vars["SPOTIFY_CLIENT_SECRET"] = data["spotify_secret"]
+            settings["SPOTIFY_CLIENT_SECRET"] = data["spotify_secret"]
+            os.environ["SPOTIFY_CLIENT_SECRET"] = data["spotify_secret"]
 
-        # Write back
-        with open(env_file, "w") as f:
-            for k, v in env_vars.items():
-                f.write(f"{k}={v}\n")
+        # Write to user home directory (persistent across app launches)
+        with open(settings_file, "w") as f:
+            json.dump(settings, f, indent=2)
+
+        # Also attempt to write to .env if it's writable (bundled .env may be read-only)
+        try:
+            env_vars = {}
+            if os.path.exists(env_file):
+                for line in open(env_file):
+                    if "=" in line and not line.startswith("#"):
+                        k, v = line.split("=", 1)
+                        env_vars[k.strip()] = v.strip()
+
+            if "gemini_key" in data:
+                env_vars["GEMINI_API_KEY"] = data["gemini_key"]
+            if "spotify_id" in data:
+                env_vars["SPOTIFY_CLIENT_ID"] = data["spotify_id"]
+            if "spotify_secret" in data:
+                env_vars["SPOTIFY_CLIENT_SECRET"] = data["spotify_secret"]
+
+            with open(env_file, "w") as f:
+                for k, v in env_vars.items():
+                    f.write(f"{k}={v}\n")
+        except (OSError, IOError):
+            # .env file is read-only (bundled .app), but settings.json was saved above
+            pass
 
         return jsonify({"success": True})
     except Exception as e:

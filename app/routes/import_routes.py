@@ -53,7 +53,7 @@ def analyze():
 
 @bp.route("/analyze/stream", methods=["POST"])
 def analyze_stream():
-    """SSE stream for analysis progress."""
+    """SSE stream for analysis progress with auto-save every 30 tracks."""
     from app.services.analyzer import analyze_track
 
     data = request.json or {}
@@ -67,13 +67,20 @@ def analyze_stream():
         for i, track in enumerate(selected):
             try:
                 analyze_track(track)
-                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"success\"})}
-\n\n"
+                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"success\"})}\n\n"
             except Exception as e:
-                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"error\", \"error\": str(e)})}
-\n\n"
-        yield f"data: {json.dumps({\"complete\": True, \"total\": total})}
-\n\n"
+                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"error\", \"error\": str(e)})}\n\n"
+            
+            # Auto-save every 30 tracks
+            if (i + 1) % 30 == 0:
+                try:
+                    from app.services.session_service import save_session
+                    from app import get_track_store
+                    save_session(get_track_store())
+                except Exception:
+                    pass  # Never block progress for auto-save
+        
+        yield f"data: {json.dumps({\"complete\": True, \"total\": total})}\n\n"
 
     return Response(
         stream_with_context(generate()),
@@ -109,7 +116,7 @@ def classify():
 
 @bp.route("/classify/stream", methods=["POST"])
 def classify_stream():
-    """SSE stream for classification progress."""
+    """SSE stream for classification progress with auto-save every 30 tracks."""
     from app.services.classifier import classify_tracks
     from app.services.enricher import enrich_tracks
 
@@ -125,13 +132,20 @@ def classify_stream():
             try:
                 classify_tracks([track])
                 enrich_tracks([track])
-                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"success\", \"genre\": track.classified_genre or \"—\", \"confidence\": round(track.classification_confidence or 0, 2)})}
-\n\n"
+                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"success\", \"genre\": track.classified_genre or \"—\", \"confidence\": round(track.classification_confidence or 0, 2)})}\n\n"
             except Exception as e:
-                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"error\", \"error\": str(e)})}
-\n\n"
-        yield f"data: {json.dumps({\"complete\": True, \"total\": total})}
-\n\n"
+                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"error\", \"error\": str(e)})}\n\n"
+            
+            # Auto-save every 30 tracks
+            if (i + 1) % 30 == 0:
+                try:
+                    from app.services.session_service import save_session
+                    from app import get_track_store
+                    save_session(get_track_store())
+                except Exception:
+                    pass  # Never block progress for auto-save
+        
+        yield f"data: {json.dumps({\"complete\": True, \"total\": total})}\n\n"
 
     return Response(
         stream_with_context(generate()),
@@ -142,6 +156,23 @@ def classify_stream():
             "Connection": "keep-alive",
         },
     )
+
+
+@bp.route("/classify/low-confidence", methods=["POST"])
+def classify_low_confidence():
+    """Re-run classification only on tracks below confidence threshold."""
+    from app import get_track_store, get_taxonomy
+    
+    data = request.get_json() or {}
+    threshold = int(data.get("threshold", 70))
+    track_store = get_track_store()
+    
+    low_conf = [
+        fp for fp, t in track_store.items()
+        if t.analysis_done and (t.proposed_confidence is None or t.proposed_confidence < threshold)
+    ]
+    
+    return jsonify({"track_paths": low_conf, "count": len(low_conf)})
 
 
 @bp.route("/finalize", methods=["POST"])
