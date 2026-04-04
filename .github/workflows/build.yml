@@ -7,8 +7,83 @@ on:
   workflow_dispatch:
 
 jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create release with notes
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Latest Build' }}
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          body: |
+            ## XDJ Library Manager
+
+            Automatically classify your DJ music library by genre and sub-genre using AI — in bulk.
+            Built for DJs with large Latin dance collections.
+
+            ---
+
+            ## Download
+
+            | Platform | File |
+            |----------|------|
+            | Mac | `XDJ-Library-Manager-mac.zip` |
+            | Windows | `XDJ-Library-Manager-windows.zip` |
+
+            **Mac:** Unzip and double-click `XDJ Library Manager.app`
+            **Windows:** Unzip and double-click `XDJ Library Manager.exe`
+
+            **Mac first launch:** macOS may say unidentified developer. Right-click the .app, click Open, then Open anyway. Only needed once.
+
+            No Python. No Terminal. No installation needed.
+
+            ---
+
+            ## First-time setup
+
+            You need a free Gemini API key to use AI classification.
+            1. Go to https://aistudio.google.com/ and sign in with Google
+            2. Click Get API key and Create API key
+            3. Open the app, go to the Settings tab, paste your key and Save
+
+            ---
+
+            ## What's included
+
+            - Import: scan any folder of MP3s including subfolders, reads all existing tags
+            - Analyse: detects BPM, musical key in Camelot notation, energy level 1-10
+            - AI Classification: Gemini suggests genre and sub-genre with confidence score
+            - Review queue: approve, skip, or manually edit each track's proposed tags
+            - Bulk approve: accept everything above a confidence threshold in one click
+            - Write tags: saves approved changes to MP3 ID3 tags (genre, comment, BPM, key)
+            - Spotify enrichment: optionally pulls year and popularity (needs Spotify API keys)
+            - Folder watcher: auto-imports new MP3s dropped into a watched folder
+            - Session save/load: resume where you left off
+            - Taxonomy editor: add or remove genres and sub-genres on the fly
+
+            Genres included: Salsa (7 sub-genres), Bachata (4), Kizomba (5), Cha Cha, Merengue, Reggaeton, Zouk
+
+            ---
+
+            ## Changelog
+
+            ### v1.0.0 - Initial release
+            - First public release
+            - Mac and Windows standalone app, no installation needed
+            - AI genre and sub-genre classification via Gemini 1.5 Flash
+            - BPM, Camelot key, energy analysis via librosa
+            - Review queue with bulk approve
+            - ID3 tag writer
+            - Folder watcher, session save/load, taxonomy editor
+
   build-mac:
+    needs: create-release
     runs-on: macos-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -47,14 +122,17 @@ jobs:
       - name: Zip .app
         run: cd dist && zip -r "../XDJ-Library-Manager-mac.zip" "XDJ Library Manager.app"
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
         with:
-          name: mac-build
-          path: XDJ-Library-Manager-mac.zip
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest' }}
+          files: XDJ-Library-Manager-mac.zip
 
   build-windows:
+    needs: create-release
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -94,48 +172,8 @@ jobs:
       - name: Zip output
         run: Compress-Archive -Path "dist\XDJ Library Manager" -DestinationPath "XDJ-Library-Manager-windows.zip"
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-build
-          path: XDJ-Library-Manager-windows.zip
-
-  release:
-    needs: [build-mac, build-windows]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download Mac build
-        uses: actions/download-artifact@v4
-        with:
-          name: mac-build
-
-      - name: Download Windows build
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-build
-
-      - name: Create or update release
+      - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest' }}
-          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Latest Build' }}
-          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
-          body: |
-            ## Download
-
-            | Platform | File |
-            |----------|------|
-            | 🍎 Mac   | `XDJ-Library-Manager-mac.zip` |
-            | 🪟 Windows | `XDJ-Library-Manager-windows.zip` |
-
-            **Mac:** Unzip → double-click `XDJ Library Manager.app`
-            **Windows:** Unzip → double-click `XDJ Library Manager.exe`
-
-            No Python, no Terminal, no installation needed.
-
-            > ⚠️ First launch: Mac may say "unidentified developer" — right-click the .app → Open → Open anyway.
-          files: |
-            XDJ-Library-Manager-mac.zip
-            XDJ-Library-Manager-windows.zip
+          files: XDJ-Library-Manager-windows.zip
