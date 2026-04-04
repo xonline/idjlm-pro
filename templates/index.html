@@ -147,134 +147,6 @@
 
       </div>
 
-      <!-- Review Tab -->
-      <section id="tab-review" class="tab">
-        <div class="tab-header">
-          <div class="tab-header-left">
-            <h1>Review &amp; Approve</h1>
-            <p>Check AI-suggested tags before writing to files</p>
-          </div>
-          <div class="review-controls">
-            <div class="threshold-control">
-              <label for="confidence-slider">Min. Confidence</label>
-              <input
-                type="range"
-                id="confidence-slider"
-                min="50"
-                max="100"
-                value="80"
-                class="slider"
-              >
-              <span id="confidence-value">80%</span>
-              <button id="btn-bulk-approve" class="btn btn-primary">
-                Bulk Approve ≥ <span id="threshold-pct">80</span>%
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="review-list" id="review-list">
-          <div class="empty-state">No pending tracks to review</div>
-        </div>
-
-        <div class="review-footer">
-          <div class="approved-count">
-            <span id="approved-count">0</span> tracks approved
-          </div>
-          <div class="review-footer-buttons">
-            <div class="export-dropdown">
-              <button id="btn-export-playlist" class="btn btn-secondary dropdown-toggle">
-                📥 Export Playlist
-              </button>
-              <div id="export-menu" class="dropdown-menu" style="display: none;">
-                <button class="dropdown-item" id="btn-export-all-approved">M3U All Approved</button>
-                <button class="dropdown-item" id="btn-export-show-formats">CSV / JSON / Rekordbox…</button>
-                <div style="border-top: 1px solid #333; margin: 8px 0;"></div>
-                <label class="dropdown-item-checkbox">
-                  <input type="checkbox" id="checkbox-split-m3u">
-                  <span>Split playlist into</span>
-                  <select id="select-chunk-size" style="margin: 0 4px; background: var(--bg-subtle); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; padding: 1px 4px; font-size: 12px;">
-                    <option value="500" selected>500</option>
-                    <option value="1000">1000</option>
-                    <option value="100">100</option>
-                  </select>
-                  <span>tracks/file</span>
-                </label>
-                <button class="dropdown-item" id="btn-export-cue-sheet">📋 Export Cue Sheet (JSON)</button>
-              </div>
-            </div>
-            <div class="sync-button-container">
-              <button id="btn-sync-apple-music" class="btn btn-secondary">🎵 Sync Apple Music</button>
-              <div class="sync-button-tooltip">Import your Apple Music library into this tool</div>
-            </div>
-            <button id="btn-write-tags" class="btn btn-primary" disabled>
-              Write Approved Tags to Files
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <!-- Taxonomy Tab -->
-      <section id="tab-taxonomy" class="tab">
-        <div class="tab-header">
-          <div class="tab-header-left">
-            <h1>Genre Taxonomy</h1>
-            <p>Define genres and sub-genres used for AI classification</p>
-          </div>
-          <button id="btn-add-genre" class="btn btn-primary">+ Add Genre</button>
-        </div>
-
-        <div id="taxonomy-list" class="taxonomy-list">
-          <!-- Populated by JavaScript -->
-        </div>
-
-        <button id="btn-save-taxonomy" class="btn btn-primary" style="margin-top: 20px;">
-          Save Taxonomy
-        </button>
-      </section>
-
-      <!-- Setlist Tab -->
-      <section id="tab-setlist" class="tab">
-        <div class="tab-header">
-          <div class="tab-header-left">
-            <h1>Setlist Builder</h1>
-            <p>Build and manage your DJ setlist with harmonic compatibility suggestions</p>
-          </div>
-        </div>
-
-        <div id="setlist-empty-state" class="empty-state" style="padding: 60px 20px;">
-          Add tracks from the Tracks tab to build your setlist
-        </div>
-
-        <div id="setlist-main" class="setlist-container" style="display: none;">
-          <!-- Current Setlist -->
-          <div class="setlist-panel">
-            <div class="setlist-panel-header">Current Setlist</div>
-            <div id="setlist-tracks" class="setlist-tracks">
-              <div class="setlist-empty">No tracks added yet</div>
-            </div>
-            <div class="setlist-footer">
-              <div class="setlist-footer-info">
-                <span id="setlist-count">0 tracks</span> • <span id="setlist-duration">0:00</span>
-              </div>
-              <div class="setlist-footer-buttons">
-                <button id="btn-setlist-export" class="btn btn-secondary" disabled>
-                  📥 Export M3U
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Suggestions Panel -->
-          <div class="setlist-panel">
-            <div class="setlist-panel-header">Harmonic Suggestions</div>
-            <div id="setlist-suggestions-container" class="setlist-suggestions">
-              <p style="color: var(--text-secondary); font-size: 12px;">Select a track to see compatible suggestions</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <!-- Set Planner Tab -->
       <section id="tab-setplan" class="tab">
         <div class="tab-header">
@@ -317,98 +189,41 @@
 
           <div id="setplan-results"></div>
         </div>
-      </section>
 
-      <!-- Stats Tab -->
-      <section id="tab-stats" class="tab">
-        <div class="tab-header">
-          <div class="tab-header-left">
-            <h1>Library Statistics</h1>
-            <p>Insights into your track collection</p>
+        <!-- Manual Setlist -->
+        <h2 class="settings-section-title" style="margin-top:32px;padding:0 24px;">Manual Setlist</h2>
+        <div id="setlist-subpanel" style="padding:0 24px 24px;">
+          <div id="setlist-empty-state" class="empty-state" style="padding: 60px 20px;">
+            Add tracks from the Tracks tab to build your setlist
           </div>
-        </div>
 
-        <!-- Stats Cards -->
-        <div class="stats-cards-grid">
-          <div class="stats-card">
-            <div class="stats-card-label">Total Tracks</div>
-            <div class="stats-card-value" id="stats-card-total">0</div>
+          <div id="setlist-main" class="setlist-container" style="display: none;">
+            <!-- Current Setlist -->
+            <div class="setlist-panel">
+              <div class="setlist-panel-header">Current Setlist</div>
+              <div id="setlist-tracks" class="setlist-tracks">
+                <div class="setlist-empty">No tracks added yet</div>
+              </div>
+              <div class="setlist-footer">
+                <div class="setlist-footer-info">
+                  <span id="setlist-count">0 tracks</span> • <span id="setlist-duration">0:00</span>
+                </div>
+                <div class="setlist-footer-buttons">
+                  <button id="btn-setlist-export" class="btn btn-secondary" disabled>
+                    📥 Export M3U
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Suggestions Panel -->
+            <div class="setlist-panel">
+              <div class="setlist-panel-header">Harmonic Suggestions</div>
+              <div id="setlist-suggestions-container" class="setlist-suggestions">
+                <p style="color: var(--text-secondary); font-size: 12px;">Select a track to see compatible suggestions</p>
+              </div>
+            </div>
           </div>
-          <div class="stats-card">
-            <div class="stats-card-label">Classified</div>
-            <div class="stats-card-value" id="stats-card-classified">0</div>
-          </div>
-          <div class="stats-card">
-            <div class="stats-card-label">Approved</div>
-            <div class="stats-card-value" id="stats-card-approved">0</div>
-          </div>
-          <div class="stats-card">
-            <div class="stats-card-label">Written to Files</div>
-            <div class="stats-card-value" id="stats-card-written">0</div>
-          </div>
-        </div>
-
-        <!-- Genre Breakdown Chart -->
-        <div class="chart-section">
-          <h3>Genre Distribution</h3>
-          <div class="chart-container">
-            <canvas id="chart-genres" style="max-height: 300px;"></canvas>
-          </div>
-        </div>
-
-        <!-- BPM Distribution Chart -->
-        <div class="chart-section">
-          <h3>BPM Distribution</h3>
-          <div class="chart-container">
-            <canvas id="chart-bpm" style="max-height: 300px;"></canvas>
-          </div>
-        </div>
-
-        <!-- Year Breakdown Chart -->
-        <div class="chart-section">
-          <h3>Release Year Distribution</h3>
-          <div class="chart-container">
-            <canvas id="chart-years" style="max-height: 300px;"></canvas>
-          </div>
-        </div>
-
-        <!-- Sub-genre List -->
-        <div class="chart-section">
-          <h3>Top Sub-Genres</h3>
-          <div id="subgenre-list" class="subgenre-list"></div>
-        </div>
-      </section>
-
-      <!-- Wheel Tab -->
-      <section id="tab-wheel" class="tab">
-        <div class="tab-header">
-          <div class="tab-header-left">
-            <h1>Camelot Wheel</h1>
-            <p>Musical key compatibility guide — tap a key to filter by compatibility</p>
-          </div>
-        </div>
-
-        <div class="wheel-container">
-          <svg id="camelot-wheel-svg" width="450" height="450" style="max-width: 100%;"></svg>
-        </div>
-
-        <div id="wheel-stats" class="wheel-stats">
-          <!-- Populated by JS -->
-        </div>
-      </section>
-
-      <!-- Duplicates Tab -->
-      <section id="tab-duplicates" class="tab">
-        <div class="tab-header">
-          <div class="tab-header-left">
-            <h1>Duplicate Detection</h1>
-            <p>Find and remove duplicate tracks from your library</p>
-          </div>
-          <button id="btn-scan-duplicates" class="btn btn-primary">Scan for Duplicates</button>
-        </div>
-
-        <div id="duplicates-results" class="duplicates-list">
-          <!-- Populated by JS -->
         </div>
       </section>
 
@@ -483,6 +298,20 @@
             <button class="btn btn-primary" id="btn-validate-keys">Check Keys</button>
           </div>
           <div id="key-validation-results"></div>
+        </div>
+
+        <!-- Duplicate Detector -->
+        <h2 class="settings-section-title" style="margin-top:32px;padding:0 24px;">Duplicate Detector</h2>
+        <div id="duplicates-subpanel" style="padding:0 24px 24px;">
+          <div class="card-header" style="margin-bottom: 1rem;">
+            <h3>Duplicate Detection</h3>
+            <p class="card-desc">Find and remove duplicate tracks from your library</p>
+          </div>
+          <button id="btn-scan-duplicates" class="btn btn-primary" style="margin-bottom: 1rem;">Scan for Duplicates</button>
+
+          <div id="duplicates-results" class="duplicates-list">
+            <!-- Populated by JS -->
+          </div>
         </div>
       </section>
 
@@ -606,6 +435,15 @@
           <div id="settings-status" class="status-area" style="display: none; margin-top: 20px;">
             <div class="status-message" id="settings-message"></div>
           </div>
+        </div>
+
+        <!-- Taxonomy Section -->
+        <div class="settings-section" id="settings-taxonomy-section">
+          <h2 class="settings-section-title">Taxonomy</h2>
+          <p class="settings-section-desc">Define genres and sub-genres used by the AI classifier.</p>
+          <button class="btn btn-secondary" id="btn-add-genre">+ Add Genre</button>
+          <div id="taxonomy-list" class="taxonomy-list"></div>
+          <button class="btn btn-primary" id="btn-save-taxonomy">Save Taxonomy</button>
         </div>
       </section>
     </main>
