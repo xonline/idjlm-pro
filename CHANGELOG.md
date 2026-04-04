@@ -6,6 +6,8 @@ All notable changes to IDJLM Pro are documented here.
 
 ## [2.4.0] — 2026-04-05
 
+![v2.4.0 screenshot](docs/screenshot-v2.4.0.png)
+
 ### UI Redesign — Single Library View
 - **Sidebar trimmed to 4 items** — Library, Organise, Set Planner, Settings
 - **Library toolbar** — folder picker + Analyze All + Classify All + Approve ≥N% + Write Tags on one row
