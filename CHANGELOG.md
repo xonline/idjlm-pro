@@ -83,3 +83,109 @@ All notable changes to IDLM Pro are documented here.
 
 ### Rebrand
 - Rebranded to IDLM Pro (Intelligent DJ Library Manager)
+
+---
+
+## [1.8.0] — 2026-04-03
+
+### Stats Tab
+- **Library Stats tab** — summary cards: Total Tracks, Classified, Approved, Written to Files
+- **Genre Distribution chart** — horizontal bar chart (Chart.js) showing track count per genre
+- **BPM Distribution chart** — bar chart bucketed into ranges: 60–79, 80–89, 90–99, 100–109, 110–119, 120+
+- **Release Year Distribution chart** — decade breakdown: Pre-2000, 2000s, 2010s, 2020s
+- **Top Sub-Genres list** — top 10 sub-genres with count badges; all charts update live when tab activated
+
+### Camelot Wheel in Review Modal
+- **SVG Camelot wheel** — 12 positions × 2 rings (inner = minor A keys, outer = major B keys)
+- Active track key highlighted in purple; compatible adjacent keys highlighted in green
+- Renders automatically when opening any track's edit/review modal
+
+---
+
+## [1.7.0] — 2026-04-03
+
+### Audio Preview
+- **Inline audio player in Review tab** — play/pause button per track, progress bar with seek-by-click
+- Single shared audio element (one track plays at a time); active track shows pause icon in green
+- Audio streamed via `GET /api/audio/<path:file_path>`
+
+### M3U Export UI in Review Tab
+- **Export Playlist dropdown** in Review footer — "Export All Approved" or "Export by Genre…"
+- Genre selector modal dynamically lists unique genres from approved tracks
+- Triggers file download via `/api/export/m3u?genre=X&status=approved`
+
+---
+
+## [1.6.0] — 2026-04-03
+
+### Session Save / Resume
+- **Resume Session banner** on Import tab — shows on page load when a previous session exists; displays track count, folder path, last saved timestamp
+- **Save Session button** — `POST /api/session/save`; persists all track data to disk
+- **Resume button** — `POST /api/session/load`; restores full library state without re-scanning
+
+### Folder Watcher
+- **Watch Folder toggle** in Import controls — `POST /api/watch/start` / `POST /api/watch/stop`
+- Polls `GET /api/watch/poll` every 5 seconds; newly detected MP3s added automatically to the track table
+- Status line shows watched path while active
+
+---
+
+## [1.5.0] — 2026-04-02
+
+### Export Formats
+- **Rekordbox XML export** — `GET /api/export/rekordbox` — valid Rekordbox 6.0 DJ_PLAYLISTS XML with COLLECTION + PLAYLISTS nodes; URL-encoded file Location paths
+- **CSV export** — `GET /api/export/csv` — columns: title, artist, album, year, genre, subgenre, bpm, key, energy, confidence, file_path
+- **JSON export** — `GET /api/export/json` — array of track objects with all metadata fields
+- All export endpoints support query filters: genre, subgenre, status, bpm_min/max, energy_min/max, key
+
+---
+
+## [1.4.0] — 2026-04-02
+
+### Bulk Operations
+- **Bulk approve by threshold** — approve all tracks with confidence ≥ N% in one click
+- **Bulk tag write** — write all approved tracks' ID3 tags in a single batch operation with SSE progress stream
+- **Bulk select with checkboxes** — floating action bar for batch approve / skip / delete on selected tracks
+- **Text search** — client-side track filtering with 333 ms debounce
+
+---
+
+## [1.3.0] — 2026-04-01
+
+### Spotify Enrichment
+- **Spotify metadata enrichment** — searches Spotify by artist + title; fills missing year, album art URL, and genre data
+- Gap-fill only — never overwrites existing tags
+- Skips gracefully when `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` not configured
+- Album art URL stored on track; embedded into ID3 `APIC` frame via mutagen
+
+---
+
+## [1.2.0] — 2026-04-01
+
+### Review Workflow + Tag Writing
+- **Review tab** — side-by-side current vs proposed tags per track; approve / skip / edit individually
+- **Confidence threshold slider** — bulk approve all tracks above chosen threshold
+- **Tag writer service** — writes approved changes to ID3 via mutagen: GENRE→TCON, sub-genre→COMM, BPM→TBPM, KEY→TKEY, YEAR→TDRC
+- Only writes fields that changed and were approved; backs up nothing (git is the safety net)
+
+---
+
+## [1.1.0] — 2026-03-31
+
+### AI Classification
+- **Claude AI classifier** — sends audio features + metadata + taxonomy to Claude API; returns genre, sub-genre, confidence (0–100), and reasoning text
+- Batches up to 10 tracks per API call to reduce cost
+- Taxonomy-aware — sub-genre definitions from `taxonomy.json` included in every prompt
+- **Taxonomy tab** — add, rename, or remove genres and sub-genres; AI adapts immediately to changes
+
+---
+
+## [1.0.0] — 2026-03-30
+
+### Initial Release
+- **MP3 scanner** — walks a folder recursively, finds all MP3 files, reads existing ID3 tags (title, artist, album, year, genre, comment, BPM, key) via mutagen
+- **Audio analysis** — librosa pipeline per track: BPM detection, musical key → Camelot notation (1A–12B), energy score (1–10 scale), waveform amplitude array (60 points)
+- **Dark-themed single-page app** — Flask + vanilla JS; tabs: Import, Tracks, Review, Taxonomy, Settings
+- **In-memory track store** — session-scoped dict keyed by file path; all state lives server-side
+- **Settings tab** — Anthropic API key, Spotify credentials, batch size, auto-approve threshold
+- **Import workflow** — enter folder path → scan → analyze → classify → review → write tags
