@@ -948,6 +948,42 @@ function renderTracks() {
     tdStatus.appendChild(badge);
     row.appendChild(tdStatus);
 
+    // Approve cell
+    const approveTd = document.createElement('td');
+    approveTd.className = 'approve-col';
+    if (track.proposed_genre) {
+      const approveBtn = document.createElement('button');
+      const st = track.review_status;
+      approveBtn.className = 'approve-btn' + (st === 'approved' ? ' approved' : st === 'skipped' ? ' skipped' : '');
+      approveBtn.textContent = st === 'approved' ? '✓' : st === 'skipped' ? '–' : '✓';
+      approveBtn.title = st === 'approved' ? 'Approved — click to undo' : 'Click to approve';
+      approveBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const newStatus = track.review_status === 'approved' ? 'pending' : 'approved';
+        try {
+          await apiFetch('/api/tracks/' + encodeURIComponent(track.file_path), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ review_status: newStatus })
+          });
+          const found = window.tracks.find(x => x.file_path === track.file_path);
+          if (found) found.review_status = newStatus;
+          renderTracks();
+          updateStats();
+          updateToolbarButtonStates();
+        } catch (err) {
+          showToast('Could not update status', 'error');
+        }
+      });
+      approveTd.appendChild(approveBtn);
+    } else {
+      const dash = document.createElement('span');
+      dash.style.cssText = 'color:var(--text-placeholder);font-size:11px;';
+      dash.textContent = '—';
+      approveTd.appendChild(dash);
+    }
+    row.appendChild(approveTd);
+
     // Action
     const tdAction = document.createElement('td');
     tdAction.style.textAlign = 'center';

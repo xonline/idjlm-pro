@@ -84,9 +84,9 @@ def get_track(file_path):
 @bp.route("/tracks/<path:file_path>", methods=["PUT"])
 def update_track(file_path):
     """
-    Update track overrides (genre, subgenre, bpm, key, year).
+    Update track overrides (genre, subgenre, bpm, key, year) or review_status.
     PUT /api/tracks/<file_path>
-    body: { "override_genre": "...", "override_subgenre": "...", ... }
+    body: { "override_genre": "...", "override_subgenre": "...", ... } or { "review_status": "approved|pending|skipped" }
     """
     try:
         from app import get_track_store
@@ -98,6 +98,11 @@ def update_track(file_path):
 
         track = track_store[file_path]
         data = request.get_json() or {}
+
+        # Update review_status if provided
+        if "review_status" in data:
+            track.review_status = data["review_status"]
+            return jsonify(track.to_dict()), 200
 
         # Update overrides if provided
         if "override_genre" in data:
