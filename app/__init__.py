@@ -47,6 +47,7 @@ def create_app() -> Flask:
     from app.routes.duplicate_routes import bp as duplicate_bp
     from app.routes.progress_routes import bp as progress_bp
     from app.routes.setlist_routes import bp as setlist_bp
+    from app.routes.latin_routes import bp as latin_bp
 
     app.register_blueprint(import_bp)
     app.register_blueprint(track_bp)
@@ -60,6 +61,7 @@ def create_app() -> Flask:
     app.register_blueprint(duplicate_bp)
     app.register_blueprint(progress_bp)
     app.register_blueprint(setlist_bp)
+    app.register_blueprint(latin_bp)
 
     @app.route("/")
     def index():

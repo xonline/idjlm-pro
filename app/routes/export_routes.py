@@ -1,6 +1,7 @@
 import io
 import csv
 import json
+import zipfile
 import xml.etree.ElementTree as ET
 from urllib.parse import quote
 from flask import Blueprint, request, send_file, jsonify
@@ -8,11 +9,23 @@ from flask import Blueprint, request, send_file, jsonify
 bp = Blueprint("export", __name__, url_prefix="/api")
 
 
+def _generate_m3u_content(tracks: list) -> str:
+    """Helper function to generate M3U content from a list of tracks."""
+    m3u_lines = ["#EXTM3U"]
+    for track in tracks:
+        artist = track.display_artist
+        title = track.display_title
+        extinf_line = f"#EXTINF:0,{artist} - {title}"
+        m3u_lines.append(extinf_line)
+        m3u_lines.append(track.file_path)
+    return "\n".join(m3u_lines)
+
+
 @bp.route("/export/m3u", methods=["GET"])
 def export_m3u():
     """
     Export filtered tracks as M3U playlist.
-    GET /api/export/m3u?genre=...&subgenre=...&status=approved&bpm_min=90&bpm_max=130&energy_min=5&energy_max=9&key=8B&filename=my-playlist.m3u
+    GET /api/export/m3u?genre=...&subgenre=...&status=approved&bpm_min=90&bpm_max=130&energy_min=5&energy_max=9&key=8B&filename=my-playlist.m3u&split=true
     Optional query params:
     - genre: filter by genre
     - subgenre: filter by subgenre
@@ -23,6 +36,7 @@ def export_m3u():
     - energy_max: maximum energy 1-10 (int)
     - key: Camelot key filter e.g. "8B" (str)
     - filename: custom download filename (default: "idlm-playlist.m3u")
+    - split: "true" to create ZIP with multiple M3U files if >100 tracks (optional)
     """
     try:
         from app import get_track_store
@@ -37,6 +51,7 @@ def export_m3u():
         energy_max = request.args.get("energy_max", "").strip()
         key = request.args.get("key", "").strip() or None
         filename = request.args.get("filename", "idlm-playlist.m3u").strip()
+        split = request.args.get("split", "false").strip().lower() == "true"
 
         # Parse numeric filters
         try:
@@ -87,20 +102,34 @@ def export_m3u():
         if key:
             tracks = [t for t in tracks if t.final_key == key]
 
-        # Generate M3U content
-        m3u_lines = ["#EXTM3U"]
+        # Handle split: if split=true and >100 tracks, return ZIP with multiple M3U files
+        if split and len(tracks) > 100:
+            # Split into chunks of 100
+            chunks = [tracks[i:i + 100] for i in range(0, len(tracks), 100)]
 
-        for track in tracks:
-            # Format: #EXTINF:duration,artist - title
-            artist = track.display_artist
-            title = track.display_title
-            extinf_line = f"#EXTINF:0,{artist} - {title}"
-            m3u_lines.append(extinf_line)
-            m3u_lines.append(track.file_path)
+            # Create ZIP file in memory
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for idx, chunk in enumerate(chunks, start=1):
+                    m3u_content = _generate_m3u_content(chunk)
+                    # Use genre in filename if available, else generic name
+                    base_name = genre if genre else "playlist"
+                    m3u_filename = f"{base_name}-{idx}.m3u"
+                    zf.writestr(m3u_filename, m3u_content)
 
-        m3u_content = "\n".join(m3u_lines)
+            zip_buffer.seek(0)
+            zip_filename = filename.replace('.m3u', '.zip')
 
-        # Return as file download
+            return send_file(
+                zip_buffer,
+                mimetype="application/zip",
+                as_attachment=True,
+                download_name=zip_filename
+            )
+
+        # Default: single M3U file
+        m3u_content = _generate_m3u_content(tracks)
+
         return send_file(
             io.BytesIO(m3u_content.encode('utf-8')),
             mimetype="audio/x-mpegurl",

@@ -65,6 +65,12 @@ class Track:
     # Approval learning
     approval_logged: bool = False
 
+    # Latin music analysis
+    clave_pattern: Optional[str] = None      # "2-3", "3-2", or None
+    clave_confidence: Optional[int] = None   # 0-100
+    suggested_cues: Optional[list] = None    # [{label, position_sec, type}]
+    latin_analysis_done: bool = False
+
     def to_dict(self) -> dict:
         return asdict(self)
 
