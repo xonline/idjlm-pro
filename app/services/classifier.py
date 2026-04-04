@@ -6,14 +6,15 @@ from google.api_core.exceptions import ResourceExhausted
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY", ""))
 
+# Stable, current Gemini model names (as of 2025-04)
+# Preview models with dates are deprecated; use stable versions instead
 MODELS_BY_PRIORITY = [
-    "gemini-2.5-pro-preview-05-06",
-    "gemini-2.5-flash-preview-04-17",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
     "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-    "gemini-1.5-flash",
 ]
-DEFAULT_MODEL = "gemini-2.5-flash-preview-04-17"
+DEFAULT_MODEL = "gemini-2.5-flash"
 
 
 def _get_model(preferred: str = None) -> str:
@@ -96,7 +97,7 @@ def classify_tracks(tracks, batch_size=10):
             except:
                 results = []
 
-            # Apply results
+            # Apply results to tracks
             for j, result in enumerate(results):
                 if j < len(batch):
                     track = batch[j]
