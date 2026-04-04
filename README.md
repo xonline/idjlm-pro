@@ -51,8 +51,8 @@ No Python or terminal required — just open and run.
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/xonline/IDJLM-Pro.git
-cd IDJLM-Pro
+git clone https://github.com/xonline/idjlm-pro.git
+cd idjlm-pro
 
 # 2. Copy the config template and add your API key(s)
 cp config.example.env .env
