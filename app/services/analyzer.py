@@ -126,6 +126,16 @@ def analyze_track(track: Track) -> Track:
         rms = librosa.feature.rms(S=S)
         track.analyzed_energy = _normalize_energy(rms, sr, hop_length=512)
 
+        # Waveform thumbnail: 60 amplitude points across full track
+        num_points = 60
+        chunk = max(1, len(y) // num_points)
+        points = []
+        for i in range(num_points):
+            segment = y[i * chunk:(i + 1) * chunk]
+            points.append(float(np.max(np.abs(segment))) if len(segment) else 0.0)
+        max_amp = max(points) if max(points) > 0 else 1.0
+        track.waveform_data = [round(p / max_amp, 3) for p in points]
+
         track.analysis_done = True
 
     except Exception as e:

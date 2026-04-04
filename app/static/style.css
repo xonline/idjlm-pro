@@ -2442,3 +2442,17 @@ body.light .taxonomy-subgenres {
   opacity: 1;
 }
 }
+
+/* Waveform thumbnail */
+.wave-col {
+  width: 90px;
+  min-width: 90px;
+  padding: 4px 6px !important;
+  vertical-align: middle;
+}
+
+canvas.waveform-thumb {
+  display: block;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.03);
+}

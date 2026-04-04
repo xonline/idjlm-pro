@@ -780,6 +780,38 @@ function sortTracks(tracks) {
   return sorted;
 }
 
+function drawWaveformThumb(canvas, data) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  const midY = h / 2;
+  const barW = Math.max(1, w / data.length);
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Subtle center line
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, midY);
+  ctx.lineTo(w, midY);
+  ctx.stroke();
+
+  // Bars — teal gradient matching app accent colour
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, 'rgba(0,210,190,0.9)');
+  grad.addColorStop(1, 'rgba(0,210,190,0.3)');
+  ctx.fillStyle = grad;
+
+  data.forEach((amp, i) => {
+    const barH = Math.max(1, amp * midY);
+    const x = i * barW;
+    // Draw mirrored bar (top + bottom)
+    ctx.fillRect(x, midY - barH, barW - 1, barH);
+    ctx.fillRect(x, midY, barW - 1, barH);
+  });
+}
+
 function getConfidenceBadgeClass(confidence) {
   if (confidence >= 80) return 'confidence-high';
   if (confidence >= 60) return 'confidence-medium';
@@ -807,7 +839,7 @@ function renderTracks() {
     const row = document.createElement('tr');
     row.className = 'empty-state';
     const cell = document.createElement('td');
-    cell.colSpan = '11';
+    cell.colSpan = '12';
     cell.textContent = 'No tracks match filters';
     row.appendChild(cell);
     tbody.appendChild(row);
@@ -841,6 +873,23 @@ function renderTracks() {
     const tdArtist = document.createElement('td');
     tdArtist.textContent = track.display_artist || '—';
     row.appendChild(tdArtist);
+
+    // Waveform thumbnail
+    const tdWave = document.createElement('td');
+    tdWave.className = 'wave-col';
+    if (track.waveform_data && track.waveform_data.length) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 80;
+      canvas.height = 24;
+      canvas.className = 'waveform-thumb';
+      drawWaveformThumb(canvas, track.waveform_data);
+      tdWave.appendChild(canvas);
+    } else {
+      tdWave.textContent = '—';
+      tdWave.style.color = 'var(--text-muted)';
+      tdWave.style.textAlign = 'center';
+    }
+    row.appendChild(tdWave);
 
     // Genre (with color chip)
     const tdGenre = document.createElement('td');

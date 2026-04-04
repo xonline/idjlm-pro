@@ -22,6 +22,7 @@ class Track:
     analyzed_bpm: Optional[float] = None
     analyzed_key: Optional[str] = None       # Camelot notation e.g. "8B"
     analyzed_energy: Optional[int] = None    # 1-10
+    waveform_data: Optional[list] = None     # 60 normalised amplitude points (0.0–1.0)
     bpm_corrected: bool = False              # True if BPM was half/doubled for correction
     analysis_done: bool = False
 
