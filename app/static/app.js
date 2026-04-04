@@ -8,6 +8,34 @@ let importState = { tracks: [], folder: "" };
 let taxonomy = {};
 let stats = {};
 let activeStream = null; // Track active SSE connection
+let currentAudioTrack = null; // Track currently playing in mini player
+
+// === MINI PLAYER SETUP ===
+function initMiniPlayer() {
+  const container = document.getElementById("mini-player");
+  if (!container) {
+    const html = `
+      <div id="mini-player" style="display:none; position:fixed; bottom:0; left:0; right:0; background:#1a1a2e; border-top:1px solid #333; padding:10px 20px; display:flex; align-items:center; gap:16px; z-index:1000;">
+        <span id="player-title" style="flex:0 0 auto; font-size:13px; min-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></span>
+        <audio id="audio-player" controls style="flex:1; min-width:200px;"></audio>
+        <button onclick="document.getElementById('mini-player').style.display='none'" style="background:none; border:none; color:#fff; cursor:pointer; font-size:18px; padding:0;">✕</button>
+      </div>
+    `;
+    document.body.insertAdjacentHTML("beforeend", html);
+  }
+}
+
+function playTrack(trackId, trackTitle, trackArtist) {
+  currentAudioTrack = trackId;
+  const audioPlayer = document.getElementById("audio-player");
+  const playerTitle = document.getElementById("player-title");
+  const miniPlayer = document.getElementById("mini-player");
+  
+  playerTitle.innerText = `${trackTitle} — ${trackArtist}`;
+  audioPlayer.src = `${API_BASE}/audio/${encodeURIComponent(trackId)}`;
+  miniPlayer.style.display = "flex";
+  audioPlayer.play();
+}
 
 // === PAGE TITLE UPDATES ===
 function updatePageTitle() {
@@ -33,6 +61,7 @@ document.querySelectorAll(".nav-btn").forEach((btn) => {
     document.querySelectorAll(".content-tab").forEach((t) => (t.style.display = "none"));
     document.getElementById(`tab-${currentTab}`).style.display = "block";
     if (currentTab === "stats") loadStats();
+    if (currentTab === "review") loadReview();
     updatePageTitle();
   });
 });
@@ -344,10 +373,22 @@ async function loadReview() {
   const tbody = document.querySelector("#review-table tbody");
   tbody.innerHTML = "";
   pending.forEach((t) => {
+    const currentGenre = t.existing_genre || "none";
+    const proposedGenre = t.classified_genre || "—";
+    const hasChange = currentGenre !== proposedGenre && proposedGenre !== "—";
+    const currentStyle = !t.existing_genre ? "color: var(--color-text-muted);" : "";
+    const proposedStyle = hasChange ? "background-color: rgba(76, 175, 80, 0.15);" : "";
+    const arrowStyle = hasChange ? "color: var(--color-success); font-weight: 600;" : "color: var(--color-text-muted);";
+    
     const row = `<tr data-review-id="${t.id}">
       <td>${t.existing_title || "—"}</td>
-      <td>${t.existing_artist || "—"}</td>
-      <td>${t.classified_genre || "—"} / ${t.classified_subgenre || "—"}</td>
+      <td>
+        <button class="btn-play-small" onclick="playTrack('${t.id}', '${(t.existing_title || "Track").replace(/'/g, "\\'")}'', '${(t.existing_artist || "Unknown").replace(/'/g, "\\'")}'')" title="Play preview">▶</button>
+      </td>
+      <td style="${currentStyle}">${currentGenre}</td>
+      <td style="${arrowStyle}" title="${hasChange ? 'Change detected' : 'No change'}">${hasChange ? '→' : '—'}</td>
+      <td style="${proposedStyle}">${proposedGenre}</td>
+      <td>${t.classified_subgenre || "—"}</td>
       <td>${(t.classification_confidence || 0).toFixed(2)}</td>
       <td>${t.bpm ? t.bpm.toFixed(1) : "—"} BPM</td>
       <td>
@@ -616,6 +657,7 @@ window.addEventListener("click", (e) => {
 
 // === INIT ===
 initProgressBar();
+initMiniPlayer();
 loadTracks();
 loadSettings();
 loadModelSettings();
