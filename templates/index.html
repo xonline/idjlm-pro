@@ -36,6 +36,10 @@
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg></span>
           <span>Stats</span>
         </button>
+        <button class="nav-btn" data-tab="setlist">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span>
+          <span>Setlist</span>
+        </button>
         <button class="nav-btn" data-tab="wheel">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9" y2="9.01"/><line x1="15" y1="9" x2="15" y2="9.01"/></svg></span>
           <span>Wheel</span>
@@ -174,27 +178,29 @@
             <h1>Music Library</h1>
             <p>All imported tracks with their current and suggested tags</p>
           </div>
-          <div class="controls-row">
-            <div class="filter-controls">
-              <select id="filter-genre" class="input-select">
-                <option value="">All Genres</option>
-              </select>
-              <select id="filter-status" class="input-select">
-                <option value="">All Status</option>
-                <option value="pending">Pending Review</option>
-                <option value="approved">Approved</option>
-                <option value="skipped">Skipped</option>
-                <option value="written">Written</option>
-              </select>
-            </div>
-            <div class="search-controls">
-              <input
-                type="text"
-                id="search-tracks"
-                placeholder="Search title or artist…"
-                class="input-text"
-              >
-            </div>
+        </div>
+
+        <div class="controls-row">
+          <div class="filter-controls">
+            <select id="filter-genre" class="input-select">
+              <option value="">All Genres</option>
+            </select>
+            <select id="filter-status" class="input-select">
+              <option value="">All Status</option>
+              <option value="pending">Pending Review</option>
+              <option value="approved">Approved</option>
+              <option value="skipped">Skipped</option>
+              <option value="written">Written</option>
+            </select>
+          </div>
+          <div class="search-controls">
+            <input
+              type="text"
+              id="search-tracks"
+              placeholder="Search title or artist…"
+              class="input-text"
+            >
+            <button id="btn-search-clear" class="btn btn-secondary" style="padding: 10px 12px; display: none;">×</button>
           </div>
         </div>
 
@@ -202,6 +208,7 @@
           <table class="tracks-table">
             <thead>
               <tr>
+                <th class="checkbox-col"><input type="checkbox" id="checkbox-select-all"></th>
                 <th class="sortable" data-sort="display_title">Title</th>
                 <th class="sortable" data-sort="display_artist">Artist</th>
                 <th class="sortable" data-sort="final_genre">Genre</th>
@@ -216,7 +223,7 @@
             </thead>
             <tbody id="tracks-tbody">
               <tr class="empty-state">
-                <td colspan="10">No tracks imported yet</td>
+                <td colspan="11">No tracks imported yet</td>
               </tr>
             </tbody>
           </table>
@@ -267,9 +274,13 @@
                 📥 Export Playlist
               </button>
               <div id="export-menu" class="dropdown-menu" style="display: none;">
-                <button class="dropdown-item" id="btn-export-all-approved">Export All Approved</button>
-                <button class="dropdown-item" id="btn-export-by-genre">Export by Genre...</button>
+                <button class="dropdown-item" id="btn-export-all-approved">M3U All Approved</button>
+                <button class="dropdown-item" id="btn-export-show-formats">CSV / JSON / Rekordbox…</button>
               </div>
+            </div>
+            <div class="sync-button-container">
+              <button id="btn-sync-apple-music" class="btn btn-secondary">🎵 Sync Apple Music</button>
+              <div class="sync-button-tooltip">Import your Apple Music library into this tool</div>
             </div>
             <button id="btn-write-tags" class="btn btn-primary" disabled>
               Write Approved Tags to Files
@@ -295,6 +306,48 @@
         <button id="btn-save-taxonomy" class="btn btn-primary" style="margin-top: 20px;">
           Save Taxonomy
         </button>
+      </section>
+
+      <!-- Setlist Tab -->
+      <section id="tab-setlist" class="tab">
+        <div class="tab-header">
+          <div class="tab-header-left">
+            <h1>Setlist Builder</h1>
+            <p>Build and manage your DJ setlist with harmonic compatibility suggestions</p>
+          </div>
+        </div>
+
+        <div id="setlist-empty-state" class="empty-state" style="padding: 60px 20px;">
+          Add tracks from the Tracks tab to build your setlist
+        </div>
+
+        <div id="setlist-main" class="setlist-container" style="display: none;">
+          <!-- Current Setlist -->
+          <div class="setlist-panel">
+            <div class="setlist-panel-header">Current Setlist</div>
+            <div id="setlist-tracks" class="setlist-tracks">
+              <div class="setlist-empty">No tracks added yet</div>
+            </div>
+            <div class="setlist-footer">
+              <div class="setlist-footer-info">
+                <span id="setlist-count">0 tracks</span> • <span id="setlist-duration">0:00</span>
+              </div>
+              <div class="setlist-footer-buttons">
+                <button id="btn-setlist-export" class="btn btn-secondary" disabled>
+                  📥 Export M3U
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Suggestions Panel -->
+          <div class="setlist-panel">
+            <div class="setlist-panel-header">Harmonic Suggestions</div>
+            <div id="setlist-suggestions-container" class="setlist-suggestions">
+              <p style="color: var(--text-secondary); font-size: 12px;">Select a track to see compatible suggestions</p>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- Stats Tab -->
@@ -395,23 +448,83 @@
         <div class="tab-header">
           <div class="tab-header-left">
             <h1>Settings</h1>
-            <p>Configure API keys for AI classification</p>
+            <p>Configure API keys, AI models, and enrichment services</p>
           </div>
         </div>
 
         <div class="settings-form">
+          <!-- AI Classification Section -->
           <div class="settings-section-label">AI Classification</div>
+
+          <div class="form-group">
+            <label for="settings-ai-model">AI Model</label>
+            <select id="settings-ai-model" class="input-select">
+              <option value="claude">Claude (Anthropic)</option>
+              <option value="gemini">Gemini (Google)</option>
+              <option value="ollama">Ollama (Local)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="settings-anthropic-key">Anthropic API Key</label>
+            <input
+              type="password"
+              id="settings-anthropic-key"
+              placeholder="Enter your Claude API key"
+              class="input-text"
+            >
+            <div class="settings-hint">Get free key at <a href="https://console.anthropic.com/account/keys" target="_blank">console.anthropic.com</a></div>
+          </div>
+
           <div class="form-group">
             <label for="settings-gemini-key">Gemini API Key</label>
             <input
               type="password"
               id="settings-gemini-key"
-              placeholder="Enter your Gemini API key"
+              placeholder="Enter your Gemini API key (optional)"
               class="input-text"
             >
             <div class="settings-hint">Get free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></div>
           </div>
 
+          <div class="form-group">
+            <label for="settings-ollama-model">Ollama Model</label>
+            <input
+              type="text"
+              id="settings-ollama-model"
+              placeholder="e.g., mistral, neural-chat"
+              class="input-text"
+            >
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="settings-batch-size">Batch Size</label>
+              <input
+                type="number"
+                id="settings-batch-size"
+                min="1"
+                max="20"
+                value="5"
+                class="input-text"
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="settings-auto-approve">Auto-Approve Threshold (%)</label>
+              <input
+                type="range"
+                id="settings-auto-approve"
+                min="0"
+                max="100"
+                value="80"
+                class="slider"
+              >
+              <span id="settings-auto-approve-value" style="color: var(--accent); font-weight: 700;">80%</span>
+            </div>
+          </div>
+
+          <!-- Spotify Section -->
           <div class="settings-section-label">Spotify Enrichment <span class="settings-section-optional">(optional)</span></div>
 
           <div class="form-group">
@@ -434,6 +547,17 @@
             >
           </div>
 
+          <div class="form-group">
+            <label for="settings-spotify-enabled">
+              <input
+                type="checkbox"
+                id="settings-spotify-enabled"
+                style="width: auto; margin-right: 8px;"
+              >
+              Enable Spotify Enrichment
+            </label>
+          </div>
+
           <button id="btn-save-settings" class="btn btn-primary">Save Settings</button>
 
           <div id="settings-status" class="status-area" style="display: none; margin-top: 20px;">
@@ -442,6 +566,145 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- Track Detail Slide-in Panel -->
+  <div id="track-detail-overlay" class="track-detail-overlay" style="display: none;"></div>
+  <div id="track-detail-panel" class="track-detail-panel" style="display: none;">
+    <div class="track-detail-header">
+      <span id="track-detail-title-header">Track Details</span>
+      <button class="track-detail-close" id="track-detail-close">&times;</button>
+    </div>
+    <div class="track-detail-content">
+      <!-- Track Header -->
+      <div class="track-detail-section">
+        <div class="track-title-display" id="track-detail-title"></div>
+        <div class="track-artist-display" id="track-detail-artist"></div>
+        <div class="track-album-display" id="track-detail-album"></div>
+        <img id="track-detail-album-art" class="track-album-art" style="display: none;">
+      </div>
+
+      <!-- Metadata Grid -->
+      <div class="track-detail-section">
+        <div class="track-detail-section-title">Track Information</div>
+        <div class="track-metadata-grid">
+          <div class="track-metadata-item">
+            <div class="track-metadata-label">BPM</div>
+            <div class="track-metadata-value" id="track-detail-bpm">—</div>
+          </div>
+          <div class="track-metadata-item">
+            <div class="track-metadata-label">Key</div>
+            <div class="track-metadata-value" id="track-detail-key">—</div>
+          </div>
+          <div class="track-metadata-item">
+            <div class="track-metadata-label">Year</div>
+            <div class="track-metadata-value" id="track-detail-year">—</div>
+          </div>
+          <div class="track-metadata-item">
+            <div class="track-metadata-label">Duration</div>
+            <div class="track-metadata-value" id="track-detail-duration">—</div>
+          </div>
+          <div class="track-metadata-item">
+            <div class="track-metadata-label">Format</div>
+            <div class="track-metadata-value" id="track-detail-format">—</div>
+          </div>
+          <div class="track-metadata-item">
+            <div class="track-metadata-label">Size</div>
+            <div class="track-metadata-value" id="track-detail-size">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Classification -->
+      <div class="track-detail-section">
+        <div class="track-detail-section-title">AI Classification</div>
+        <div class="track-ai-section">
+          <div style="margin-bottom: 8px;">
+            <span style="color: var(--text-primary); font-weight: 600; font-size: 13px;" id="track-detail-genre">—</span>
+            <span style="color: var(--text-secondary); font-size: 12px;"> / </span>
+            <span style="color: var(--text-primary); font-weight: 600; font-size: 13px;" id="track-detail-subgenre">—</span>
+            <span class="track-ai-confidence badge confidence-high" id="track-detail-confidence-badge">—</span>
+          </div>
+          <div class="track-ai-reasoning" id="track-detail-reasoning" style="display: none;"></div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="track-detail-actions">
+        <button id="btn-track-detail-add-setlist" class="btn btn-primary">Add to Setlist</button>
+        <button id="btn-track-detail-edit" class="btn btn-secondary">Edit Tags</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulk Edit Modal -->
+  <div id="bulk-edit-modal" class="modal" style="display: none;">
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h2>Bulk Edit</h2>
+        <button class="modal-close" id="bulk-edit-close">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 16px;" id="bulk-edit-count">0 tracks selected</p>
+
+        <div class="form-group">
+          <label for="bulk-genre">Genre (optional)</label>
+          <select id="bulk-genre" class="input-select">
+            <option value="">— No change —</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="bulk-subgenre">Sub-Genre (optional)</label>
+          <input type="text" id="bulk-subgenre" class="input-text" placeholder="Leave blank for no change">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="bulk-bpm">BPM (optional)</label>
+            <input type="number" id="bulk-bpm" class="input-text" min="40" max="200" placeholder="—">
+          </div>
+
+          <div class="form-group">
+            <label for="bulk-year">Year (optional)</label>
+            <input type="number" id="bulk-year" class="input-text" min="1900" max="2100" placeholder="—">
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="bulk-edit-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="bulk-edit-save" class="btn btn-primary">Apply Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Format Modal -->
+  <div id="export-format-modal" class="modal" style="display: none;">
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h2>Export Library</h2>
+        <button class="modal-close" id="export-format-close">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 16px;">Choose export format:</p>
+
+        <div class="form-group">
+          <label for="export-genre-filter">Genre Filter (optional)</label>
+          <select id="export-genre-filter" class="input-select">
+            <option value="">All Genres</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-export-csv">📄 CSV</button>
+        <button class="btn btn-secondary" id="btn-export-json">📋 JSON</button>
+        <button class="btn btn-secondary" id="btn-export-rekordbox">🎛️ Rekordbox</button>
+      </div>
+    </div>
   </div>
 
   <!-- Edit Modal -->

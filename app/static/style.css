@@ -1961,3 +1961,484 @@ body.light .taxonomy-subgenres {
 .playlist-export-buttons {
   display: flex; gap: 12px; flex-wrap: wrap;
 }
+
+/* ============================================================================
+   SSE Progress Bar
+   ============================================================================ */
+
+.sse-progress-container {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.sse-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.sse-progress-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.sse-progress-cancel {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.sse-progress-bar-wrapper {
+  background-color: var(--bg-subtle);
+  border-radius: var(--radius-pill);
+  height: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.sse-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+  transition: width 0.3s ease;
+  animation: shimmer 2s infinite;
+}
+
+.sse-progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.sse-progress-track {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* ============================================================================
+   Track Detail Slide-in Panel
+   ============================================================================ */
+
+.track-detail-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 900;
+  animation: fadeIn 0.2s ease;
+}
+
+.track-detail-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 380px;
+  height: 100vh;
+  background-color: var(--bg-panel);
+  border-left: 1px solid var(--border);
+  z-index: 950;
+  overflow-y: auto;
+  animation: slideInRight 0.3s ease;
+  box-shadow: var(--shadow-lg);
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.track-detail-header {
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+}
+
+.track-detail-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.track-detail-close:hover {
+  color: var(--text-primary);
+}
+
+.track-detail-content {
+  padding: 20px;
+}
+
+.track-detail-section {
+  margin-bottom: 24px;
+}
+
+.track-detail-section:last-child {
+  margin-bottom: 0;
+}
+
+.track-detail-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.track-title-display {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-loud);
+  margin-bottom: 4px;
+}
+
+.track-artist-display {
+  font-size: 14px;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.track-album-display {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.track-album-art {
+  width: 100%;
+  height: 200px;
+  background-color: var(--bg-subtle);
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  margin-bottom: 12px;
+}
+
+.track-metadata-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.track-metadata-item {
+  background-color: var(--bg-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+}
+
+.track-metadata-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.track-metadata-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.track-ai-section {
+  background-color: var(--bg-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.track-ai-confidence {
+  display: inline-block;
+  margin-left: 8px;
+}
+
+.track-ai-reasoning {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.track-detail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.track-detail-actions button {
+  width: 100%;
+}
+
+/* ============================================================================
+   Setlist Tab
+   ============================================================================ */
+
+.setlist-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  height: calc(100vh - 280px);
+}
+
+.setlist-panel {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.setlist-panel-header {
+  background-color: var(--bg-subtle);
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.setlist-tracks {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.setlist-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 20px;
+}
+
+.setlist-track-item {
+  background-color: var(--bg-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  cursor: grab;
+}
+
+.setlist-track-item:active {
+  cursor: grabbing;
+}
+
+.setlist-track-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.setlist-track-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.setlist-track-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.setlist-track-remove {
+  padding: 4px 8px;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.setlist-suggestions {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.setlist-suggestions-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.setlist-suggestion-item {
+  background-color: var(--bg-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.setlist-suggestion-item:last-child {
+  margin-bottom: 0;
+}
+
+.setlist-suggestion-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.setlist-suggestion-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.setlist-suggestion-reason {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.setlist-suggestion-score {
+  background-color: var(--accent);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.setlist-footer {
+  background-color: var(--bg-subtle);
+  border-top: 1px solid var(--border);
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.setlist-footer-info {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.setlist-footer-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+/* ============================================================================
+   Bulk Select
+   ============================================================================ */
+
+.bulk-actions-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--bg-subtle);
+  border-top: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  z-index: 100;
+  animation: slideIn 0.2s ease;
+}
+
+.bulk-actions-count {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.bulk-actions-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.checkbox-col {
+  width: 40px;
+  text-align: center;
+}
+
+.checkbox-col input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* ============================================================================
+   Sync Button with Tooltip
+   ============================================================================ */
+
+.sync-button-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sync-button-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  margin-bottom: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 50;
+}
+
+.sync-button-container:hover .sync-button-tooltip {
+  opacity: 1;
+}
+}

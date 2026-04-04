@@ -6,11 +6,14 @@
 window.tracks = [];
 window.taxonomy = {};
 window.currentSort = { field: 'display_title', direction: 'asc' };
+window.setlist = [];
+window.selectedTracks = new Set();
 let statsInterval = null;
 let currentEditPath = null;
 let currentAudioPlayer = null;
 let isWatching = false;
 let watchPollInterval = null;
+let searchDebounceTimer = null;
 let chartInstances = {
   genres: null,
   bpm: null,
@@ -804,7 +807,7 @@ function renderTracks() {
     const row = document.createElement('tr');
     row.className = 'empty-state';
     const cell = document.createElement('td');
-    cell.colSpan = '10';
+    cell.colSpan = '11';
     cell.textContent = 'No tracks match filters';
     row.appendChild(cell);
     tbody.appendChild(row);
@@ -815,10 +818,19 @@ function renderTracks() {
   sorted.forEach(track => {
     const row = document.createElement('tr');
     row.style.cursor = 'pointer';
-    row.addEventListener('click', () => openEditModal(track.file_path));
 
     const confidenceClass = getConfidenceBadgeClass(track.confidence || 0);
     const statusBadge = getStatusBadge(track.review_status);
+
+    // Checkbox (new column for bulk select)
+    const tdCheckbox = document.createElement('td');
+    tdCheckbox.className = 'checkbox-col';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.dataset.filePath = track.file_path;
+    checkbox.addEventListener('click', (e) => e.stopPropagation());
+    tdCheckbox.appendChild(checkbox);
+    row.appendChild(tdCheckbox);
 
     // Title
     const tdTitle = document.createElement('td');
@@ -875,6 +887,18 @@ function renderTracks() {
     tdAction.style.gap = '4px';
     tdAction.style.justifyContent = 'center';
 
+    const btnDetails = document.createElement('button');
+    btnDetails.className = 'btn btn-secondary';
+    btnDetails.style.padding = '4px 8px';
+    btnDetails.style.fontSize = '12px';
+    btnDetails.title = 'View details';
+    btnDetails.textContent = '▼';
+    btnDetails.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openTrackDetail(track);
+    });
+    tdAction.appendChild(btnDetails);
+
     const btnPlay = document.createElement('button');
     btnPlay.className = 'btn btn-secondary';
     btnPlay.style.padding = '4px 8px';
@@ -886,6 +910,18 @@ function renderTracks() {
       playTrack(track);
     });
     tdAction.appendChild(btnPlay);
+
+    const btnSetlist = document.createElement('button');
+    btnSetlist.className = 'btn btn-secondary';
+    btnSetlist.style.padding = '4px 8px';
+    btnSetlist.style.fontSize = '12px';
+    btnSetlist.title = 'Add to setlist';
+    btnSetlist.textContent = '+';
+    btnSetlist.addEventListener('click', (e) => {
+      e.stopPropagation();
+      addTrackToSetlist(track.file_path);
+    });
+    tdAction.appendChild(btnSetlist);
 
     const btnEdit = document.createElement('button');
     btnEdit.className = 'btn btn-secondary';
@@ -1981,6 +2017,637 @@ function toggleTheme() {
 }
 
 // ============================================================================
+// Round 2 Features: Progress Streaming, Track Detail Panel, Setlist Builder,
+// Search, Bulk Select, Apple Music Sync, Enhanced Settings, Export
+// ============================================================================
+
+// SSE Progress streaming
+function connectToProgress(opId, total, onProgress, onComplete, onError) {
+  const eventSource = new EventSource(`/api/progress/${opId}`);
+
+  eventSource.addEventListener('progress', (event) => {
+    const data = JSON.parse(event.data);
+    if (onProgress) {
+      onProgress(data.current, data.total, data.message);
+    }
+  });
+
+  eventSource.addEventListener('complete', (event) => {
+    eventSource.close();
+    const data = JSON.parse(event.data);
+    if (onComplete) {
+      onComplete(data);
+    }
+  });
+
+  eventSource.addEventListener('error', (event) => {
+    eventSource.close();
+    if (onError) {
+      onError(event);
+    }
+  });
+
+  return eventSource;
+}
+
+function showProgressBar(message, total) {
+  const overlay = document.getElementById('spinner-overlay');
+  const msg = document.getElementById('spinner-message');
+  msg.innerHTML = `
+    <div style="text-align: center;">
+      <div>${message}</div>
+      <div class="sse-progress-bar-wrapper">
+        <div class="sse-progress-bar-fill" style="width: 0%"></div>
+      </div>
+      <div id="progress-text" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">0/${total}</div>
+    </div>
+  `;
+  overlay.style.display = 'flex';
+}
+
+function updateProgressBar(current, total, message) {
+  const pct = Math.round((current / total) * 100);
+  const fill = document.querySelector('.sse-progress-bar-fill');
+  const text = document.getElementById('progress-text');
+  if (fill) fill.style.width = pct + '%';
+  if (text) text.textContent = `${current}/${total}`;
+}
+
+// Track detail panel
+function openTrackDetail(track) {
+  const overlay = document.getElementById('track-detail-overlay');
+  const panel = document.getElementById('track-detail-panel');
+
+  if (!overlay || !panel) return;
+
+  const detailContent = document.querySelector('.track-detail-content');
+  if (!detailContent) return;
+
+  // Format metadata
+  const bpm = track.final_bpm || track.estimated_bpm || 'N/A';
+  const key = track.final_key || track.estimated_key || 'N/A';
+  const year = track.final_year || 'N/A';
+  const duration = track.duration ? Math.round(track.duration) : 'N/A';
+  const format = track.file_extension?.toUpperCase() || 'Unknown';
+  const size = track.file_size ? (track.file_size / 1024 / 1024).toFixed(1) : 'N/A';
+
+  // Build AI classification section
+  let aiSection = '';
+  if (track.final_genre || track.proposed_genre) {
+    const genre = track.final_genre || track.proposed_genre;
+    const subgenre = track.final_subgenre || track.proposed_subgenre || 'N/A';
+    const confidence = track.confidence_score ? Math.round(track.confidence_score) : 'N/A';
+    const reasoning = track.reasoning || '';
+
+    aiSection = `
+      <div class="track-detail-section">
+        <h4>AI Classification</h4>
+        <div class="track-detail-classification">
+          <div class="classification-item">
+            <span class="label">Genre:</span>
+            <span class="value">${escapeHtml(genre)}</span>
+          </div>
+          <div class="classification-item">
+            <span class="label">Sub-genre:</span>
+            <span class="value">${escapeHtml(subgenre)}</span>
+          </div>
+          <div class="classification-item">
+            <span class="label">Confidence:</span>
+            <span class="value">
+              <span class="confidence-badge" style="background-color: ${confidence >= 80 ? '#4CAF50' : confidence >= 60 ? '#FF9800' : '#f44336'};">
+                ${confidence}%
+              </span>
+            </span>
+          </div>
+          ${reasoning ? `<div class="classification-item" style="grid-column: 1/-1;"><span class="label">Reasoning:</span><span class="value reasoning-text">${escapeHtml(reasoning)}</span></div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  detailContent.innerHTML = `
+    <div class="track-detail-section">
+      <h3 class="track-detail-title-header">${escapeHtml(track.display_title || 'Unknown')}</h3>
+      <div class="track-detail-artist">${escapeHtml(track.display_artist || 'Unknown')}</div>
+      <div class="track-detail-album">${escapeHtml(track.album || '')}</div>
+    </div>
+
+    <div class="track-detail-section">
+      <h4>Metadata</h4>
+      <div class="metadata-grid">
+        <div class="metadata-item"><span class="label">BPM:</span> <span class="value">${escapeHtml(String(bpm))}</span></div>
+        <div class="metadata-item"><span class="label">Key:</span> <span class="value">${escapeHtml(key)}</span></div>
+        <div class="metadata-item"><span class="label">Year:</span> <span class="value">${escapeHtml(String(year))}</span></div>
+        <div class="metadata-item"><span class="label">Duration:</span> <span class="value">${escapeHtml(String(duration))}s</span></div>
+        <div class="metadata-item"><span class="label">Format:</span> <span class="value">${escapeHtml(format)}</span></div>
+        <div class="metadata-item"><span class="label">Size:</span> <span class="value">${escapeHtml(String(size))} MB</span></div>
+      </div>
+    </div>
+
+    ${aiSection}
+
+    <div class="track-detail-actions">
+      <button class="btn btn-primary" onclick="addTrackToSetlist('${track.file_path.replace(/'/g, "\\'")}')">Add to Setlist</button>
+    </div>
+  `;
+
+  overlay.classList.add('open');
+  panel.classList.add('open');
+}
+
+function closeTrackDetail() {
+  const overlay = document.getElementById('track-detail-overlay');
+  const panel = document.getElementById('track-detail-panel');
+
+  if (overlay) overlay.classList.remove('open');
+  if (panel) panel.classList.remove('open');
+}
+
+// Setlist builder
+function initSetlistTab() {
+  const currentSetlistContainer = document.getElementById('setlist-current-tracks');
+  const suggestionsContainer = document.getElementById('setlist-suggestions');
+
+  if (!currentSetlistContainer || !suggestionsContainer) return;
+
+  // Handle "Add to Setlist" buttons in track list
+  document.addEventListener('click', (e) => {
+    if (e.target.dataset.action === 'add-to-setlist') {
+      const filePath = e.target.dataset.filePath;
+      addTrackToSetlist(filePath);
+    }
+    if (e.target.dataset.action === 'remove-from-setlist') {
+      const filePath = e.target.dataset.filePath;
+      removeTrackFromSetlist(filePath);
+    }
+  });
+}
+
+function addTrackToSetlist(filePath) {
+  const track = window.tracks.find(t => t.file_path === filePath);
+  if (!track) return;
+
+  if (!window.setlist.find(t => t.file_path === filePath)) {
+    window.setlist.push(track);
+    renderSetlist();
+    showToast('Track added to setlist', 'success');
+  } else {
+    showToast('Track already in setlist', 'info');
+  }
+}
+
+function removeTrackFromSetlist(filePath) {
+  window.setlist = window.setlist.filter(t => t.file_path !== filePath);
+  renderSetlist();
+  showToast('Track removed from setlist', 'success');
+}
+
+function renderSetlist() {
+  const currentContainer = document.getElementById('setlist-current-tracks');
+  const suggestionsContainer = document.getElementById('setlist-suggestions');
+  const footerDiv = document.querySelector('.setlist-footer');
+
+  if (!currentContainer) return;
+
+  // Render current setlist
+  currentContainer.innerHTML = '';
+  let totalDuration = 0;
+
+  window.setlist.forEach((track, idx) => {
+    const duration = track.duration || 0;
+    totalDuration += duration;
+
+    const item = document.createElement('div');
+    item.className = 'setlist-track-item';
+    item.innerHTML = `
+      <span class="setlist-track-number">${idx + 1}</span>
+      <div class="setlist-track-info">
+        <div class="setlist-track-title">${escapeHtml(track.display_title || 'Unknown')}</div>
+        <div class="setlist-track-meta">${escapeHtml(track.display_artist || '')} — ${track.final_key || 'N/A'} @ ${track.final_bpm || '?'} BPM</div>
+      </div>
+      <span class="setlist-track-duration">${Math.round(duration)}s</span>
+      <button class="btn btn-small" data-action="remove-from-setlist" data-file-path="${track.file_path}">Remove</button>
+    `;
+    currentContainer.appendChild(item);
+  });
+
+  // Render harmonic suggestions if setlist not empty
+  if (window.setlist.length > 0 && suggestionsContainer) {
+    const lastTrack = window.setlist[window.setlist.length - 1];
+    const suggestions = findHarmonicCompatible(lastTrack);
+
+    suggestionsContainer.innerHTML = '<h4>Harmonic Suggestions</h4>';
+    suggestions.slice(0, 5).forEach(suggestion => {
+      const item = document.createElement('div');
+      item.className = 'setlist-suggestion-item';
+      item.innerHTML = `
+        <div class="setlist-suggestion-info">
+          <div class="suggestion-title">${escapeHtml(suggestion.track.display_title || 'Unknown')}</div>
+          <div class="suggestion-meta">${escapeHtml(suggestion.track.display_artist || '')} — ${suggestion.score.toFixed(0)}% match</div>
+        </div>
+        <button class="btn btn-small" data-action="add-to-setlist" data-file-path="${suggestion.track.file_path}">Add</button>
+      `;
+      suggestionsContainer.appendChild(item);
+    });
+  }
+
+  // Update footer with duration
+  if (footerDiv) {
+    const mins = Math.floor(totalDuration / 60);
+    const secs = Math.floor(totalDuration % 60);
+    footerDiv.innerHTML = `<span>Duration: ${mins}m ${secs}s | ${window.setlist.length} tracks</span>`;
+  }
+}
+
+function findHarmonicCompatible(track) {
+  if (!track.final_key) return [];
+
+  const camelotWheel = {
+    '1A': ['12A', '2A', '1B'], '1B': ['12B', '2B', '1A'],
+    '2A': ['1A', '3A', '2B'], '2B': ['1B', '3B', '2A'],
+    '3A': ['2A', '4A', '3B'], '3B': ['2B', '4B', '3A'],
+    '4A': ['3A', '5A', '4B'], '4B': ['3B', '5B', '4A'],
+    '5A': ['4A', '6A', '5B'], '5B': ['4B', '6B', '5A'],
+    '6A': ['5A', '7A', '6B'], '6B': ['5B', '7B', '6A'],
+    '7A': ['6A', '8A', '7B'], '7B': ['6B', '8B', '7A'],
+    '8A': ['7A', '9A', '8B'], '8B': ['7B', '9B', '8A'],
+    '9A': ['8A', '10A', '9B'], '9B': ['8B', '10B', '9A'],
+    '10A': ['9A', '11A', '10B'], '10B': ['9B', '11B', '10A'],
+    '11A': ['10A', '12A', '11B'], '11B': ['10B', '12B', '11A'],
+    '12A': ['11A', '1A', '12B'], '12B': ['11B', '1B', '12A'],
+  };
+
+  const compatible = camelotWheel[track.final_key] || [];
+  const bpmTolerance = 5;
+
+  const suggestions = window.tracks
+    .filter(t => t.file_path !== track.file_path && !window.setlist.find(st => st.file_path === t.file_path))
+    .map(t => {
+      let score = 0;
+
+      // Key compatibility (100 points max)
+      if (compatible.includes(t.final_key)) {
+        score += 100;
+      } else if (t.final_key === track.final_key) {
+        score += 80;
+      } else {
+        score += 20;
+      }
+
+      // BPM proximity (100 points max, decreasing with distance)
+      const bpmDiff = Math.abs((t.final_bpm || 0) - (track.final_bpm || 0));
+      if (bpmDiff <= bpmTolerance) {
+        score += 100;
+      } else if (bpmDiff <= 20) {
+        score += 50;
+      } else {
+        score += 0;
+      }
+
+      // Genre match (50 points)
+      if (t.final_genre === track.final_genre) {
+        score += 50;
+      }
+
+      return { track: t, score: score / 2.5 }; // Normalize to 0-100
+    })
+    .sort((a, b) => b.score - a.score);
+
+  return suggestions;
+}
+
+// Text search with debounce
+function initSearchFeature() {
+  const searchInput = document.getElementById('search-tracks');
+  const searchClearBtn = document.getElementById('search-clear');
+
+  if (!searchInput) return;
+
+  searchInput.addEventListener('input', (e) => {
+    clearTimeout(searchDebounceTimer);
+    const query = e.target.value.toLowerCase();
+
+    searchDebounceTimer = setTimeout(() => {
+      window.tracks = window.tracks.map(t => ({
+        ...t,
+        _searchMatch: !query ||
+          (t.display_title?.toLowerCase().includes(query)) ||
+          (t.display_artist?.toLowerCase().includes(query)) ||
+          (t.album?.toLowerCase().includes(query))
+      }));
+      renderTracks();
+    }, 300);
+
+    // Show/hide clear button
+    if (searchClearBtn) {
+      searchClearBtn.style.display = query ? 'block' : 'none';
+    }
+  });
+
+  if (searchClearBtn) {
+    searchClearBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      window.tracks = window.tracks.map(t => ({ ...t, _searchMatch: true }));
+      renderTracks();
+      if (searchClearBtn) searchClearBtn.style.display = 'none';
+    });
+  }
+}
+
+// Bulk select with floating action bar
+function initBulkSelectFeature() {
+  const selectAllCheckbox = document.getElementById('select-all-checkbox');
+  const trackTableBody = document.getElementById('track-table-body');
+
+  if (!selectAllCheckbox || !trackTableBody) return;
+
+  selectAllCheckbox.addEventListener('change', (e) => {
+    const checkboxes = trackTableBody.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+      cb.checked = e.target.checked;
+      if (e.target.checked) {
+        window.selectedTracks.add(cb.dataset.filePath);
+      } else {
+        window.selectedTracks.delete(cb.dataset.filePath);
+      }
+    });
+    updateBulkActionsBar();
+  });
+
+  trackTableBody.addEventListener('change', (e) => {
+    if (e.target.type === 'checkbox') {
+      if (e.target.checked) {
+        window.selectedTracks.add(e.target.dataset.filePath);
+      } else {
+        window.selectedTracks.delete(e.target.dataset.filePath);
+      }
+      updateBulkActionsBar();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'bulk-edit-btn') {
+      showBulkEditModal();
+    }
+    if (e.target.id === 'bulk-add-setlist-btn') {
+      window.selectedTracks.forEach(filePath => {
+        addTrackToSetlist(filePath);
+      });
+      window.selectedTracks.clear();
+      updateBulkActionsBar();
+    }
+  });
+}
+
+function updateBulkActionsBar() {
+  const bar = document.getElementById('bulk-actions-bar');
+  if (!bar) return;
+
+  if (window.selectedTracks.size > 0) {
+    bar.style.display = 'flex';
+    bar.innerHTML = `
+      <span class="bulk-actions-count">${window.selectedTracks.size} selected</span>
+      <button class="btn btn-primary btn-small" id="bulk-edit-btn">Edit</button>
+      <button class="btn btn-secondary btn-small" id="bulk-add-setlist-btn">Add to Setlist</button>
+    `;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function showBulkEditModal() {
+  const modal = document.getElementById('bulk-edit-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+// Apple Music sync button
+function initAppleMusicSync() {
+  const syncBtn = document.getElementById('apple-music-sync-btn');
+  if (!syncBtn) return;
+
+  syncBtn.addEventListener('click', async () => {
+    showSpinner('Syncing with Apple Music...');
+    try {
+      const result = await apiFetch('/api/sync/apple-music', {
+        method: 'POST',
+        body: JSON.stringify({
+          track_ids: Array.from(window.selectedTracks.length > 0 ? window.selectedTracks : window.tracks.map(t => t.file_path))
+        })
+      });
+      showToast(result.message || 'Apple Music sync completed', 'success');
+    } catch (error) {
+      showToast('Apple Music sync failed', 'error');
+    } finally {
+      hideSpinner();
+    }
+  });
+}
+
+// Enhanced Settings tab with AI model selection
+function updateSettingsSaveHandler() {
+  const saveBtn = document.getElementById('settings-save-btn');
+  if (!saveBtn) return;
+
+  saveBtn.removeEventListener('click', saveSettings);
+  saveBtn.addEventListener('click', saveSettingsRound2);
+}
+
+async function saveSettingsRound2() {
+  try {
+    const aiModel = document.getElementById('settings-ai-model')?.value || 'claude';
+    const anthropicKey = document.getElementById('settings-anthropic-key')?.value.trim() || '';
+    const ollamaModel = document.getElementById('settings-ollama-model')?.value.trim() || '';
+    const batchSize = parseInt(document.getElementById('settings-batch-size')?.value) || 5;
+    const autoApproveThreshold = parseInt(document.getElementById('settings-auto-approve-threshold')?.value) || 80;
+    const geminiKey = document.getElementById('settings-gemini-key')?.value.trim() || '';
+    const spotifyId = document.getElementById('settings-spotify-id')?.value.trim() || '';
+    const spotifySecret = document.getElementById('settings-spotify-secret')?.value.trim() || '';
+
+    const payload = {
+      ai_model: aiModel,
+      batch_size: batchSize,
+      auto_approve_threshold: autoApproveThreshold,
+    };
+
+    if (anthropicKey) payload.anthropic_api_key = anthropicKey;
+    if (ollamaModel) payload.ollama_model = ollamaModel;
+    if (geminiKey) payload.gemini_api_key = geminiKey;
+    if (spotifyId) payload.spotify_client_id = spotifyId;
+    if (spotifySecret) payload.spotify_client_secret = spotifySecret;
+
+    if (Object.keys(payload).length === 0) {
+      showToast('No settings to save', 'info');
+      return;
+    }
+
+    showSpinner('Saving settings...');
+    const result = await apiFetch('/api/settings', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    if (result.saved) {
+      showToast('Settings saved successfully', 'success');
+      // Clear sensitive inputs
+      document.getElementById('settings-anthropic-key').value = '';
+      document.getElementById('settings-gemini-key').value = '';
+      document.getElementById('settings-spotify-id').value = '';
+      document.getElementById('settings-spotify-secret').value = '';
+      await loadSettings();
+    }
+  } catch (error) {
+    // Error already shown in apiFetch
+  } finally {
+    hideSpinner();
+  }
+}
+
+// Export functionality (CSV, JSON, Rekordbox)
+function initExportFeature() {
+  const exportBtn = document.getElementById('export-menu-item');
+  if (!exportBtn) return;
+
+  exportBtn.addEventListener('click', () => {
+    const modal = document.getElementById('export-format-modal');
+    if (modal) modal.style.display = 'flex';
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'export-csv-btn') {
+      exportTracks('csv');
+    }
+    if (e.target.id === 'export-json-btn') {
+      exportTracks('json');
+    }
+    if (e.target.id === 'export-rekordbox-btn') {
+      exportTracks('rekordbox');
+    }
+  });
+}
+
+function exportTracks(format) {
+  const tracks = window.selectedTracks.size > 0
+    ? Array.from(window.selectedTracks).map(fp => window.tracks.find(t => t.file_path === fp))
+    : window.tracks;
+
+  let data, filename, mime;
+
+  if (format === 'csv') {
+    const headers = ['Title', 'Artist', 'Genre', 'Sub-Genre', 'BPM', 'Key', 'Year', 'File Path'];
+    const rows = tracks.map(t => [
+      t.display_title || '',
+      t.display_artist || '',
+      t.final_genre || '',
+      t.final_subgenre || '',
+      t.final_bpm || '',
+      t.final_key || '',
+      t.final_year || '',
+      t.file_path || '',
+    ]);
+    data = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    filename = 'idlm-export.csv';
+    mime = 'text/csv';
+  } else if (format === 'json') {
+    data = JSON.stringify(tracks.map(t => ({
+      title: t.display_title,
+      artist: t.display_artist,
+      genre: t.final_genre,
+      subGenre: t.final_subgenre,
+      bpm: t.final_bpm,
+      key: t.final_key,
+      year: t.final_year,
+      filePath: t.file_path,
+    })), null, 2);
+    filename = 'idlm-export.json';
+    mime = 'application/json';
+  } else if (format === 'rekordbox') {
+    // Rekordbox XML format
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<DJ_PLAYLISTS Version="1.0.0">
+  <PLAYLIST Name="IDLM Export" Type="1">
+    <PLAYLIST_TRACKS>
+      ${tracks.map((t, idx) => `
+      <TRACK TrackID="${idx + 1}">
+        <NAME>${escapeHtml(t.display_title || '')}</NAME>
+        <ARTIST>${escapeHtml(t.display_artist || '')}</ARTIST>
+        <ALBUM>${escapeHtml(t.album || '')}</ALBUM>
+        <YEAR>${t.final_year || ''}</YEAR>
+        <BPM>${t.final_bpm || ''}</BPM>
+        <GENRE>${escapeHtml(t.final_genre || '')}</GENRE>
+        <COMMENTS>${escapeHtml(t.final_subgenre || '')}</COMMENTS>
+      </TRACK>
+      `).join('')}
+    </PLAYLIST_TRACKS>
+  </PLAYLIST>
+</DJ_PLAYLISTS>`;
+    data = xml;
+    filename = 'idlm-export.xml';
+    mime = 'application/xml';
+  }
+
+  const blob = new Blob([data], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  showToast(`Exported ${tracks.length} tracks as ${format.toUpperCase()}`, 'success');
+}
+
+// ============================================================================
+// Bulk Edit Handler
+// ============================================================================
+
+async function handleBulkEdit() {
+  const genreInput = document.getElementById('bulk-edit-genre')?.value.trim();
+  const subgenreInput = document.getElementById('bulk-edit-subgenre')?.value.trim();
+  const bpmInput = document.getElementById('bulk-edit-bpm')?.value.trim();
+  const yearInput = document.getElementById('bulk-edit-year')?.value.trim();
+
+  if (!genreInput && !subgenreInput && !bpmInput && !yearInput) {
+    showToast('Please enter at least one field to update', 'info');
+    return;
+  }
+
+  const payload = {
+    file_paths: Array.from(window.selectedTracks),
+  };
+
+  if (genreInput) payload.genre = genreInput;
+  if (subgenreInput) payload.subgenre = subgenreInput;
+  if (bpmInput) payload.bpm = parseInt(bpmInput);
+  if (yearInput) payload.year = parseInt(yearInput);
+
+  showSpinner('Updating tracks...');
+  try {
+    const result = await apiFetch('/api/review/bulk-edit', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    if (result.updated) {
+      showToast(`Updated ${result.updated} tracks`, 'success');
+      window.selectedTracks.clear();
+      updateBulkActionsBar();
+      document.getElementById('bulk-edit-modal').style.display = 'none';
+      // Reload tracks to reflect changes
+      apiFetch('/api/tracks').then(data => {
+        window.tracks = data.tracks || [];
+        renderTracks();
+      });
+    }
+  } catch (error) {
+    showToast('Bulk edit failed', 'error');
+  } finally {
+    hideSpinner();
+  }
+}
+
+// ============================================================================
 // Initialization
 // ============================================================================
 
@@ -2028,6 +2695,42 @@ document.addEventListener('DOMContentLoaded', () => {
   initPlaylistBuilder();
   initKeyboardShortcuts();
   initColumnToggle();
+
+  // Initialize Round 2 features
+  initSearchFeature();
+  initBulkSelectFeature();
+  initSetlistTab();
+  initAppleMusicSync();
+  initExportFeature();
+  updateSettingsSaveHandler();
+
+  // Setup track detail panel close button
+  const trackDetailClose = document.getElementById('track-detail-close');
+  if (trackDetailClose) {
+    trackDetailClose.addEventListener('click', closeTrackDetail);
+  }
+
+  // Setup bulk edit modal handlers
+  const bulkEditForm = document.getElementById('bulk-edit-form');
+  if (bulkEditForm) {
+    bulkEditForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await handleBulkEdit();
+    });
+  }
+
+  // Close modals when clicking overlay
+  document.getElementById('track-detail-overlay')?.addEventListener('click', closeTrackDetail);
+  document.getElementById('export-format-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'export-format-modal') {
+      e.target.style.display = 'none';
+    }
+  });
+  document.getElementById('bulk-edit-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'bulk-edit-modal') {
+      e.target.style.display = 'none';
+    }
+  });
 });
 
 // ============================================================================
