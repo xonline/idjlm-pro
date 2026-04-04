@@ -44,6 +44,13 @@ jobs:
             --collect-all librosa \
             --collect-all mutagen \
             --collect-all flask \
+            --exclude-module "matplotlib" \
+            --exclude-module "IPython" \
+            --exclude-module "jupyter" \
+            --exclude-module "notebook" \
+            --exclude-module "tkinter" \
+            --exclude-module "test" \
+            --exclude-module "unittest" \
             run_app.py
 
       - name: Package as DMG
@@ -96,6 +103,12 @@ jobs:
             --collect-all librosa `
             --collect-all mutagen `
             --collect-all flask `
+            --exclude-module "matplotlib" `
+            --exclude-module "IPython" `
+            --exclude-module "jupyter" `
+            --exclude-module "notebook" `
+            --exclude-module "test" `
+            --exclude-module "unittest" `
             run_app.py
 
       - name: Zip Windows build

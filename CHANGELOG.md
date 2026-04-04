@@ -4,6 +4,15 @@ All notable changes to IDLM Pro are documented here.
 
 ---
 
+## [2.3.1] — 2026-04-05
+
+### Launch UX
+- **Splash screen on startup** — animated loading screen appears immediately when the app launches; no more blank bounce in the Dock for 5+ minutes on first run
+- **Smart Flask wait** — app polls for Flask readiness instead of a fixed sleep; swaps splash → main UI the moment the server is up
+- **Reduced bundle size** — excludes matplotlib, IPython, jupyter, notebook, test/unittest from PyInstaller build; cuts cold-start Gatekeeper scan time on macOS
+
+---
+
 ## [2.3.0] — 2026-04-05
 
 ### Organise Tab
