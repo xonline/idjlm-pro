@@ -140,6 +140,218 @@ function stopStatsPolling() {
 }
 
 // ============================================================================
+// Library Toolbar & Session Management
+// ============================================================================
+
+function initLibraryToolbar() {
+  const folderDisplay  = document.getElementById('folder-display');
+  const folderInput    = document.getElementById('folder-input');
+  const btnChange      = document.getElementById('btn-change-folder');
+  const btnImport      = document.getElementById('btn-import');
+  const btnAnalyze     = document.getElementById('btn-analyze');
+  const btnClassify    = document.getElementById('btn-classify');
+  const btnWriteTags   = document.getElementById('btn-write-tags');
+  const btnBulkApprove = document.getElementById('btn-bulk-approve-toolbar');
+  const btnGetStarted  = document.getElementById('btn-get-started');
+
+  function showFolderInput() {
+    if (folderInput)  folderInput.style.display  = 'inline-block';
+    if (btnImport)    btnImport.style.display    = 'inline-block';
+    if (folderInput)  folderInput.focus();
+  }
+
+  if (btnGetStarted) btnGetStarted.addEventListener('click', showFolderInput);
+  if (btnChange)     btnChange.addEventListener('click', showFolderInput);
+
+  if (folderInput) {
+    folderInput.addEventListener('keydown', e => { if (e.key === 'Enter') doImport(); });
+  }
+  if (btnImport) btnImport.addEventListener('click', doImport);
+
+  async function doImport() {
+    const folder = folderInput ? folderInput.value.trim() : '';
+    if (!folder) return;
+    if (folderInput)  folderInput.style.display  = 'none';
+    if (btnImport)    btnImport.style.display    = 'none';
+    if (folderDisplay) folderDisplay.textContent = folder;
+    showSpinner();
+    try {
+      const result = await apiFetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder_path: folder })
+      });
+      if (result && result.tracks) {
+        window.tracks = result.tracks;
+        renderTracks();
+        updateStats();
+        showToast((result.count || result.tracks.length) + ' tracks imported — click Analyze All to extract BPM & key', 'success');
+        apiFetch('/api/session/save', { method: 'POST' }).catch(() => {});
+      }
+    } catch (e) {
+      showToast('Import failed: ' + e.message, 'error');
+    } finally {
+      hideSpinner();
+    }
+  }
+
+  if (btnAnalyze) {
+    btnAnalyze.addEventListener('click', async () => {
+      btnAnalyze.disabled = true;
+      showProgressInStatsBar('Analyzing audio...');
+      try {
+        const result = await apiFetch('/api/analyze', { method: 'POST' });
+        if (result) {
+          window.tracks = result.tracks || window.tracks;
+          renderTracks();
+          updateStats();
+          showToast('Analysis complete', 'success');
+        }
+      } catch (e) {
+        showToast('Analysis failed: ' + e.message, 'error');
+        btnAnalyze.disabled = false;
+      } finally {
+        hideProgressInStatsBar();
+      }
+    });
+  }
+
+  if (btnClassify) {
+    btnClassify.addEventListener('click', async () => {
+      btnClassify.disabled = true;
+      showProgressInStatsBar('Classifying genres...');
+      try {
+        const result = await apiFetch('/api/classify', { method: 'POST' });
+        if (result) {
+          window.tracks = result.tracks || window.tracks;
+          renderTracks();
+          updateStats();
+          showToast('Classification complete', 'success');
+        }
+      } catch (e) {
+        showToast('Classification failed: ' + e.message, 'error');
+        btnClassify.disabled = false;
+      } finally {
+        hideProgressInStatsBar();
+      }
+    });
+  }
+
+  if (btnBulkApprove) {
+    btnBulkApprove.addEventListener('click', async () => {
+      const thresholdEl = document.getElementById('toolbar-threshold');
+      const threshold = parseInt(thresholdEl ? thresholdEl.textContent : '80');
+      try {
+        const result = await apiFetch('/api/review/bulk-approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ threshold })
+        });
+        if (result) {
+          window.tracks = result.tracks || window.tracks;
+          renderTracks();
+          updateStats();
+          showToast((result.approved_count ?? 0) + ' tracks approved', 'success');
+        }
+      } catch (e) {
+        showToast('Bulk approve failed: ' + e.message, 'error');
+      }
+    });
+  }
+
+  if (btnWriteTags) {
+    btnWriteTags.addEventListener('click', async () => {
+      btnWriteTags.disabled = true;
+      showProgressInStatsBar('Writing tags...');
+      try {
+        const result = await apiFetch('/api/review/write', { method: 'POST' });
+        if (result) {
+          window.tracks = result.tracks || window.tracks;
+          renderTracks();
+          updateStats();
+          showToast('Tags written successfully', 'success');
+        }
+      } catch (e) {
+        showToast('Write failed: ' + e.message, 'error');
+        btnWriteTags.disabled = false;
+      } finally {
+        hideProgressInStatsBar();
+      }
+    });
+  }
+}
+
+function updateToolbarButtonStates(stats) {
+  const s = stats || {};
+  const total      = s.total      ?? (window.tracks ? window.tracks.length : 0);
+  const analyzed   = s.analyzed   ?? (window.tracks ? window.tracks.filter(t => t.final_bpm).length : 0);
+  const classified = s.classified ?? (window.tracks ? window.tracks.filter(t => t.final_genre && t.final_genre !== 'Unknown').length : 0);
+  const approved   = s.approved   ?? (window.tracks ? window.tracks.filter(t => t.review_status === 'approved').length : 0);
+
+  const btnAnalyze     = document.getElementById('btn-analyze');
+  const btnClassify    = document.getElementById('btn-classify');
+  const btnBulkApprove = document.getElementById('btn-bulk-approve-toolbar');
+  const btnWriteTags   = document.getElementById('btn-write-tags');
+
+  if (btnAnalyze)     btnAnalyze.disabled     = total      === 0;
+  if (btnClassify)    btnClassify.disabled     = analyzed   === 0;
+  if (btnBulkApprove) btnBulkApprove.disabled  = classified === 0;
+  if (btnWriteTags)   btnWriteTags.disabled     = approved   === 0;
+}
+
+function showProgressInStatsBar(text) {
+  const sep  = document.getElementById('stat-progress-sep');
+  const wrap = document.getElementById('stat-progress-wrap');
+  const txt  = document.getElementById('stat-progress-text');
+  if (sep)  sep.style.display  = 'inline';
+  if (wrap) wrap.style.display = 'flex';
+  if (txt)  txt.textContent    = text;
+}
+
+function hideProgressInStatsBar() {
+  const sep  = document.getElementById('stat-progress-sep');
+  const wrap = document.getElementById('stat-progress-wrap');
+  if (sep)  sep.style.display  = 'none';
+  if (wrap) wrap.style.display = 'none';
+}
+
+function checkResumeSession() {
+  apiFetch('/api/session/exists').then(data => {
+    if (!data || !data.exists) return;
+    const banner = document.getElementById('resume-banner');
+    const info   = document.getElementById('resume-info');
+    if (banner && info) {
+      info.textContent = 'Session: ' + (data.track_count || 0) + ' tracks from ' + (data.folder_path || 'previous session');
+      banner.style.display = 'flex';
+    }
+    const btnResume  = document.getElementById('btn-resume-session');
+    const btnDismiss = document.getElementById('btn-dismiss-session');
+    if (btnResume) {
+      btnResume.addEventListener('click', async () => {
+        showSpinner('Loading session...');
+        try {
+          const result = await apiFetch('/api/session/load', { method: 'POST' });
+          if (result) {
+            window.tracks = result.tracks || [];
+            renderTracks();
+            updateStats();
+            if (banner) banner.style.display = 'none';
+            showToast('Session resumed', 'success');
+          }
+        } catch (e) {
+          showToast('Failed to resume session: ' + e.message, 'error');
+        } finally {
+          hideSpinner();
+        }
+      });
+    }
+    if (btnDismiss) {
+      btnDismiss.addEventListener('click', () => { if (banner) banner.style.display = 'none'; });
+    }
+  }).catch(() => {});
+}
+
+// ============================================================================
 // Stats Tab
 // ============================================================================
 
@@ -409,350 +621,8 @@ function renderSubgenreList() {
 // Import Tab
 // ============================================================================
 
-function initImportTab() {
-  const btnChooseFolder = document.getElementById('btn-choose-folder');
-  const btnImport = document.getElementById('btn-import');
-  const btnAnalyze = document.getElementById('btn-analyze');
-  const btnClassify = document.getElementById('btn-classify');
-  const btnReviewTab = document.getElementById('btn-review-tab');
-  const folderInput = document.getElementById('folder-input');
-  const chosenDisplay = document.getElementById('chosen-folder-display');
-  const chosenPath = document.getElementById('chosen-folder-path');
-
-  btnChooseFolder.addEventListener('click', async () => {
-    btnChooseFolder.disabled = true;
-    btnChooseFolder.textContent = 'Opening…';
-    try {
-      const result = await apiFetch('/api/pick-folder');
-      if (result.cancelled || !result.path) return;
-      folderInput.value = result.path;
-      chosenPath.textContent = result.path;
-      chosenDisplay.style.display = 'flex';
-      // Auto-trigger import
-      btnImport.click();
-    } catch (e) {
-      // error already shown
-    } finally {
-      btnChooseFolder.disabled = false;
-      btnChooseFolder.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Choose Music Folder';
-    }
-  });
-  const btnSaveSession = document.getElementById('btn-save-session');
-  const btnToggleWatch = document.getElementById('btn-toggle-watch');
-  const btnResumeSession = document.getElementById('btn-resume-session');
-  const btnDismissSession = document.getElementById('btn-dismiss-session');
-
-  // Check for previous session on load
-  checkPreviousSession();
-
-  // Save session button
-  btnSaveSession.addEventListener('click', async () => {
-    if (!window.tracks.length) {
-      showToast('No tracks to save', 'error');
-      return;
-    }
-    showSpinner('Saving session...');
-    try {
-      const result = await apiFetch('/api/session/save', {
-        method: 'POST',
-        body: JSON.stringify({ folder_path: folderInput.value.trim() }),
-      });
-      showToast(`Session saved: ${result.track_count} tracks`, 'success');
-    } catch (error) {
-      // Error already shown
-    } finally {
-      hideSpinner();
-    }
-  });
-
-  // Resume session button
-  btnResumeSession.addEventListener('click', async () => {
-    showSpinner('Loading session...');
-    try {
-      const result = await apiFetch('/api/session/load', {
-        method: 'POST',
-      });
-      window.tracks = result.tracks || [];
-      renderTracks();
-      renderReview();
-      updateStats();
-      showToast(`Loaded ${result.count} tracks`, 'success');
-      document.getElementById('resume-session-banner').style.display = 'none';
-      btnAnalyze.disabled = false;
-    } catch (error) {
-      // Error already shown
-    } finally {
-      hideSpinner();
-    }
-  });
-
-  // Dismiss session button
-  btnDismissSession.addEventListener('click', () => {
-    document.getElementById('resume-session-banner').style.display = 'none';
-  });
-
-  // Toggle folder watcher
-  btnToggleWatch.addEventListener('click', async () => {
-    const isCurrentlyWatching = btnToggleWatch.dataset.watching === 'true';
-
-    if (isCurrentlyWatching) {
-      // Stop watching
-      try {
-        await apiFetch('/api/watch/stop', { method: 'POST' });
-        isWatching = false;
-        btnToggleWatch.dataset.watching = 'false';
-        btnToggleWatch.textContent = '👁️ Watch Folder (Off)';
-        document.getElementById('watch-status').textContent = '';
-        if (watchPollInterval) {
-          clearInterval(watchPollInterval);
-          watchPollInterval = null;
-        }
-        showToast('Folder watcher stopped', 'info');
-      } catch (error) {
-        // Error already shown
-      }
-    } else {
-      // Start watching
-      const folderPath = folderInput.value.trim();
-      if (!folderPath) {
-        showToast('Please enter a folder path', 'error');
-        return;
-      }
-
-      try {
-        await apiFetch('/api/watch/start', {
-          method: 'POST',
-          body: JSON.stringify({ folder_path: folderPath }),
-        });
-        isWatching = true;
-        btnToggleWatch.dataset.watching = 'true';
-        btnToggleWatch.textContent = '👁️ Watch Folder (On)';
-        document.getElementById('watch-status').textContent = `Watching: ${folderPath}`;
-        showToast('Folder watcher started', 'success');
-
-        // Start polling
-        if (!watchPollInterval) {
-          watchPollInterval = setInterval(pollFolderWatch, 5000);
-        }
-      } catch (error) {
-        // Error already shown
-      }
-    }
-  });
-
-  btnImport.addEventListener('click', async () => {
-    const folderPath = folderInput.value.trim();
-    if (!folderPath) {
-      showToast('No folder selected', 'error');
-      return;
-    }
-
-    showSpinner('Importing tracks...');
-    try {
-      const result = await apiFetch('/api/import', {
-        method: 'POST',
-        body: JSON.stringify({ folder_path: folderPath }),
-      });
-
-      window.tracks = result.tracks || [];
-      showToast(`Imported ${result.count} tracks — click Analyze All to extract BPM & key`, 'success');
-      btnAnalyze.disabled = false;
-      startStatsPolling();
-      renderTracks();
-      // Auto-save session so a refresh doesn't lose the import
-      apiFetch('/api/session/save', { method: 'POST' }).catch(() => {});
-      // Switch to Library tab so user can see what was imported
-      switchTab('library');
-    } catch (error) {
-      // Error already shown in apiFetch
-    } finally {
-      hideSpinner();
-    }
-  });
-
-  btnAnalyze.addEventListener('click', async () => {
-    if (!window.tracks.length) {
-      showToast('No tracks to analyze', 'error');
-      return;
-    }
-
-    const trackPaths = window.tracks.map(t => t.file_path);
-    showSpinner('Analyzing audio...');
-    try {
-      const result = await apiFetch('/api/analyze', {
-        method: 'POST',
-        body: JSON.stringify({ track_paths: trackPaths }),
-      });
-
-      // Update tracks with analysis results
-      result.analyzed.forEach(analyzed => {
-        const track = window.tracks.find(t => t.file_path === analyzed.file_path);
-        if (track) {
-          Object.assign(track, analyzed);
-        }
-      });
-
-      showToast(`Analyzed ${result.analyzed.length} tracks`, 'success');
-      btnClassify.disabled = false;
-      renderTracks();
-      updateStats();
-    } catch (error) {
-      // Error already shown
-    } finally {
-      hideSpinner();
-    }
-  });
-
-  btnClassify.addEventListener('click', async () => {
-    if (!window.tracks.length) {
-      showToast('No tracks to classify', 'error');
-      return;
-    }
-
-    const trackPaths = window.tracks.map(t => t.file_path);
-    showSpinner('Classifying genres...');
-    try {
-      const result = await apiFetch('/api/classify', {
-        method: 'POST',
-        body: JSON.stringify({ track_paths: trackPaths }),
-      });
-
-      // Update tracks with classification results
-      result.classified.forEach(classified => {
-        const track = window.tracks.find(t => t.file_path === classified.file_path);
-        if (track) {
-          Object.assign(track, classified);
-        }
-      });
-
-      showToast(`Classified ${result.classified.length} tracks`, 'success');
-      btnReviewTab.disabled = false;
-      renderTracks();
-      renderReview();
-      updateStats();
-    } catch (error) {
-      // Error already shown
-    } finally {
-      hideSpinner();
-    }
-  });
-
-  btnReviewTab.addEventListener('click', () => {
-    switchTab('library');
-  });
-
-  // Latin Analysis button
-  const btnAnalyzeLatin = document.getElementById('btn-analyze-latin');
-  const btnValidateTags = document.getElementById('btn-validate-tags');
-
-  btnAnalyzeLatin.addEventListener('click', async () => {
-    if (!window.tracks.length) {
-      showToast('No tracks to analyze', 'error');
-      return;
-    }
-
-    showProgressBar(0, window.tracks.length);
-    try {
-      const result = await apiFetch('/api/analyze/latin', {
-        method: 'POST',
-        body: JSON.stringify({ all: true }),
-      });
-
-      // Use SSE progress pattern to stream updates
-      connectToProgress(result.op_id, result.total, (progress) => {
-        updateProgressBar(progress);
-      }, async () => {
-        // When complete, fetch final results
-        const finalResult = await apiFetch(`/api/analyze/latin/${result.op_id}`);
-
-        // Update tracks with analysis results
-        if (finalResult.analyzed && Array.isArray(finalResult.analyzed)) {
-          finalResult.analyzed.forEach(analyzed => {
-            const track = window.tracks.find(t => t.file_path === analyzed.file_path);
-            if (track) {
-              track.clave_pattern = analyzed.clave_pattern;
-              track.clave_confidence = analyzed.clave_confidence;
-              track.suggested_cues = analyzed.suggested_cues || [];
-              track.latin_analysis_done = true;
-            }
-          });
-        }
-
-        hideProgressBar();
-        showToast('Latin analysis complete', 'success');
-        renderTracks();
-        renderReview();
-      });
-    } catch (error) {
-      hideProgressBar();
-      // Error already shown in apiFetch
-    }
-  });
-
-  // Tag Validator button
-  btnValidateTags.addEventListener('click', async () => {
-    if (!window.tracks.length) {
-      showToast('No tracks to validate', 'error');
-      return;
-    }
-
-    showSpinner('Validating tags...');
-    try {
-      const result = await apiFetch('/api/validate/tags', {
-        method: 'GET',
-      });
-
-      // Render validation results
-      const resultsContainer = document.getElementById('validator-results');
-      resultsContainer.innerHTML = '';
-
-      if (result.issues && result.issues.length > 0) {
-        result.issues.forEach(issue => {
-          const trackEl = document.createElement('div');
-          trackEl.className = 'validator-track-item';
-
-          const titleEl = document.createElement('div');
-          titleEl.className = 'track-title-artist';
-          titleEl.innerHTML = `<strong>${escapeHtml(issue.track_title || 'Unknown')}</strong><br><small>${escapeHtml(issue.track_artist || 'Unknown')}</small>`;
-          trackEl.appendChild(titleEl);
-
-          const issuesEl = document.createElement('div');
-          issuesEl.className = 'validator-issues';
-
-          if (issue.missing_tags && issue.missing_tags.length > 0) {
-            issue.missing_tags.forEach(tag => {
-              const chip = document.createElement('span');
-              chip.className = 'validator-issue-chip';
-              chip.textContent = `Missing: ${tag}`;
-              issuesEl.appendChild(chip);
-            });
-          }
-
-          if (issue.invalid_tags && issue.invalid_tags.length > 0) {
-            issue.invalid_tags.forEach(tag => {
-              const chip = document.createElement('span');
-              chip.className = 'validator-issue-chip';
-              chip.textContent = `Invalid: ${tag}`;
-              issuesEl.appendChild(chip);
-            });
-          }
-
-          trackEl.appendChild(issuesEl);
-          resultsContainer.appendChild(trackEl);
-        });
-
-        showToast(`Found ${result.issues.length} track(s) with tag issues`, 'warning');
-      } else {
-        resultsContainer.innerHTML = '<p style="color: #22c55e;">All tracks have valid tags ✓</p>';
-        showToast('All tracks validated successfully', 'success');
-      }
-    } catch (error) {
-      // Error already shown
-    } finally {
-      hideSpinner();
-    }
-  });
-}
+// initImportTab — replaced by initLibraryToolbar() in v2.4.0
+function initImportTab() {}
 
 // Session & Watcher Helpers
 async function checkPreviousSession() {
