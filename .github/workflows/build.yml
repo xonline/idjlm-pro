@@ -3,7 +3,6 @@ name: Build & Release
 on:
   push:
     branches: [main]
-    tags: ['v*']
   workflow_dispatch:
 
 jobs:
@@ -13,24 +12,38 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+
       - name: Read version
         run: echo "APP_VERSION=$(cat VERSION)" >> $GITHUB_ENV
-      - name: Create release with notes
+
+      - name: Delete existing release and tag if present
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v${{ env.APP_VERSION }}"
+          # Try to delete existing release (ignore errors if it doesn't exist)
+          RELEASE_ID=$(curl -s -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG" \
+            | python3 -c "import sys,json; r=json.load(sys.stdin); print(r.get('id',''))" 2>/dev/null || true)
+          if [ -n "$RELEASE_ID" ]; then
+            curl -s -X DELETE -H "Authorization: token $GH_TOKEN" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID" || true
+          fi
+          # Delete the tag too
+          curl -s -X DELETE -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$TAG" || true
+
+      - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', env.APP_VERSION) }}
-          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', env.APP_VERSION) }}
-          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          tag_name: v${{ env.APP_VERSION }}
+          name: XDJ Library Manager v${{ env.APP_VERSION }}
+          prerelease: false
+          make_latest: true
           body: |
-            ## XDJ Library Manager
+            ## XDJ Library Manager v${{ env.APP_VERSION }}
 
-            Automatically classify your DJ music library by genre and sub-genre using AI — in bulk.
-            Built for DJs with large Latin dance collections.
-
-            ---
-
-            **Version:** v${{ env.APP_VERSION }} · Build: ${{ github.sha }}
-            **Released:** ${{ github.event.head_commit.timestamp }}
+            Bulk genre & sub-genre tagging for Latin dance MP3s — powered by Gemini AI.
 
             ---
 
@@ -38,52 +51,42 @@ jobs:
 
             | Platform | Download |
             |----------|----------|
-            | 🍎 Mac | [XDJ-Library-Manager-mac.zip](https://github.com/xonline/dj-library-manager/releases/download/${{ format('v{0}', env.APP_VERSION) }}/XDJ-Library-Manager-mac.zip) |
-            | 🪟 Windows | [XDJ-Library-Manager-windows.zip](https://github.com/xonline/dj-library-manager/releases/download/${{ format('v{0}', env.APP_VERSION) }}/XDJ-Library-Manager-windows.zip) |
+            | 🍎 Mac | [XDJ-Library-Manager-mac.zip](https://github.com/${{ github.repository }}/releases/download/v${{ env.APP_VERSION }}/XDJ-Library-Manager-mac.zip) |
+            | 🪟 Windows | [XDJ-Library-Manager-windows.zip](https://github.com/${{ github.repository }}/releases/download/v${{ env.APP_VERSION }}/XDJ-Library-Manager-windows.zip) |
 
-            **Mac:** Unzip → run `install-mac.command` once → double-click `XDJ Library Manager.app`
-            **Windows:** Unzip and double-click `XDJ Library Manager.exe`
+            **Mac:** Unzip → double-click `XDJ Library Manager.app`
+            > First launch: System Settings → Privacy & Security → Open Anyway
 
-            No Python. No Terminal. No installation needed.
+            **Windows:** Unzip → double-click `XDJ Library Manager.exe`
+
+            No Python. No Terminal. No installation.
 
             ---
 
             ## First-time setup
 
-            You need a free Gemini API key to use AI classification.
-            1. Go to https://aistudio.google.com/ and sign in with Google
-            2. Click Get API key and Create API key
-            3. Open the app, go to the Settings tab, paste your key and Save
+            1. Go to [aistudio.google.com](https://aistudio.google.com/) — sign in with Google
+            2. Click **Get API key → Create API key**
+            3. Open the app → **Settings** tab → paste key → **Save**
 
             ---
 
-            ## What's included
+            ## What's in this build
 
-            - Import: scan any folder of MP3s including subfolders, reads all existing tags
-            - Analyse: detects BPM, musical key in Camelot notation, energy level 1-10
-            - AI Classification: Gemini suggests genre and sub-genre with confidence score
-            - Review queue: approve, skip, or manually edit each track's proposed tags
-            - Bulk approve: accept everything above a confidence threshold in one click
-            - Write tags: saves approved changes to MP3 ID3 tags (genre, comment, BPM, key)
-            - Spotify enrichment: optionally pulls year and popularity (needs Spotify API keys)
-            - Folder watcher: auto-imports new MP3s dropped into a watched folder
-            - Session save/load: resume where you left off
-            - Taxonomy editor: add or remove genres and sub-genres on the fly
+            - AI genre + sub-genre classification (Gemini 2.5 Flash default)
+            - Gemini model selector with auto-rotation on rate limits
+            - BPM, Camelot key, energy analysis
+            - Real-time progress bar with ETA
+            - Keyboard shortcuts in review (A/S/E/←/→)
+            - Confidence colour coding + bulk approve threshold
+            - Audio preview player
+            - Tag backup before every write
+            - Auto-save every 30 tracks
+            - Session save/load, CSV export, folder watcher
+            - Taxonomy editor, Spotify enrichment (optional)
+            - Version badge in app header
 
-            Genres included: Salsa (7 sub-genres), Bachata (4), Kizomba (5), Cha Cha, Merengue, Reggaeton, Zouk
-
-            ---
-
-            ## Changelog
-
-            ### v1.0.0 - Initial release
-            - First public release
-            - Mac and Windows standalone app, no installation needed
-            - AI genre and sub-genre classification via Gemini 1.5 Flash
-            - BPM, Camelot key, energy analysis via librosa
-            - Review queue with bulk approve
-            - ID3 tag writer
-            - Folder watcher, session save/load, taxonomy editor
+            **Build:** ${{ github.sha }} · ${{ github.event.head_commit.timestamp }}
 
   build-mac:
     needs: create-release
@@ -96,6 +99,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - name: Read version
+        run: echo "APP_VERSION=$(cat VERSION)" >> $GITHUB_ENV
 
       - name: Install dependencies
         run: |
@@ -112,6 +118,7 @@ jobs:
             --noconfirm \
             --windowed \
             --name "XDJ Library Manager" \
+            --icon "app/static/icon.png" \
             --add-data "templates:templates" \
             --add-data "app/static:app/static" \
             --add-data "taxonomy.json:." \
@@ -126,46 +133,19 @@ jobs:
             --collect-all flask \
             run_app.py
 
-      - name: Remove quarantine attributes
-        run: xattr -cr "dist/XDJ Library Manager.app"
-
-      - name: Create install helper
+      - name: Ad-hoc sign the app
         run: |
-          cat > "install-mac.command" << 'EOF'
-          #!/bin/bash
-          APP="XDJ Library Manager.app"
-          SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-          
-          if [ ! -d "$SCRIPT_DIR/$APP" ]; then
-              echo "Error: $APP not found next to this script."
-              echo "Make sure both files are in the same folder."
-              read -p "Press Enter to close..."
-              exit 1
-          fi
-          
-          echo "Setting up XDJ Library Manager..."
-          xattr -cr "$SCRIPT_DIR/$APP"
-          chmod +x "$SCRIPT_DIR/$APP/Contents/MacOS/"*
-          
-          echo ""
-          echo "Done! You can now double-click XDJ Library Manager.app to open it."
-          echo "You can delete this install script after."
-          echo ""
-          read -p "Press Enter to close..."
-          EOF
-          chmod +x "install-mac.command"
+          xattr -cr "dist/XDJ Library Manager.app"
+          codesign --force --deep --sign - "dist/XDJ Library Manager.app"
 
-      - name: Zip .app + installer
+      - name: Zip .app
         run: |
-          mkdir -p release-mac
-          cp -r "dist/XDJ Library Manager.app" release-mac/
-          cp install-mac.command release-mac/
-          cd release-mac && zip -r "../XDJ-Library-Manager-mac.zip" .
+          cd dist && zip -r "../XDJ-Library-Manager-mac.zip" "XDJ Library Manager.app"
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', env.APP_VERSION) }}
+          tag_name: v${{ env.APP_VERSION }}
           files: XDJ-Library-Manager-mac.zip
 
   build-windows:
@@ -180,6 +160,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Read version
+        run: echo "APP_VERSION=$(Get-Content VERSION)" >> $env:GITHUB_ENV
+
       - name: Install dependencies
         run: |
           pip install --upgrade pip
@@ -189,12 +172,13 @@ jobs:
       - name: Create .env
         run: copy config.example.env .env
 
-      - name: Build .exe folder
+      - name: Build .exe
         run: |
           pyinstaller `
             --noconfirm `
             --windowed `
             --name "XDJ Library Manager" `
+            --icon "app/static/icon.png" `
             --add-data "templates;templates" `
             --add-data "app/static;app/static" `
             --add-data "taxonomy.json;." `
@@ -216,5 +200,5 @@ jobs:
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', env.APP_VERSION) }}
+          tag_name: v${{ env.APP_VERSION }}
           files: XDJ-Library-Manager-windows.zip
