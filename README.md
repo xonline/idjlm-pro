@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0.0-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.8.0-blue" alt="Version" />
   <img src="https://img.shields.io/badge/platform-Mac%20%7C%20Windows-lightgrey" alt="Platform" />
   <img src="https://img.shields.io/badge/AI-Gemini%202.5%20Flash-orange" alt="AI" />
   <img src="https://img.shields.io/badge/music-Latin%20Dance-red" alt="Genre" />
@@ -27,10 +27,10 @@ Built for DJs with large Latin dance collections (Salsa, Bachata, Kizomba, and m
 | 🪟 **Windows** | `XDJ-Library-Manager-windows.zip` |
 
 **Mac:** Unzip → double-click `XDJ Library Manager.app`
-**Windows:** Unzip → double-click `XDJ Library Manager.exe`
-
-> **Mac (first launch):** macOS may block the app. Go to **System Settings → Privacy & Security → Open Anyway**.
+> **First launch:** macOS may block the app. Go to **System Settings → Privacy & Security → Open Anyway**.
 > Or in Terminal: `xattr -cr "/path/to/XDJ Library Manager.app"`
+
+**Windows:** Unzip → double-click `XDJ Library Manager.exe`
 
 No Python. No Terminal. No installation.
 
@@ -90,6 +90,7 @@ Original tags are backed up first to `~/.xdj_library_manager/backups/`.
 | **Taxonomy editor** | Add/remove genres and sub-genres — changes apply immediately |
 | **Spotify enrichment** | Optional — pulls year and popularity to fill gaps |
 | **Version badge** | App shows current version in the UI header |
+| **App icon** | Vinyl record with neon glow (AI generated) |
 
 ---
 
@@ -111,29 +112,70 @@ Customise via the **Taxonomy** tab — changes apply immediately to the next cla
 
 ## Changelog
 
+### v1.8.0 — 2026-04-04
+- **New:** App icon — vinyl record with neon cyan/purple glow (generated with Imagen 4.0)
+- **New:** Version badge visible in the app header (always know which build you're on)
+- **Fix:** Releases page — removed orphaned `latest` and `v` releases, single clean release going forward
+- **Fix:** Workflow now deletes + recreates the release tag on each push (no more duplicates)
+- **Fix:** Mac instructions updated — System Settings → Privacy & Security → Open Anyway (Tahoe 26.4 compatible)
+- **Fix:** Removed `install-mac.command` helper (was itself blocked by Gatekeeper)
+
+### v1.7.0 — 2026-04-04
+- **New:** Standalone Mac `.app` and Windows `.exe` via GitHub Actions — no Python, no install
+- **New:** GitHub Releases page with download links
+- **New:** Ad-hoc code signing for macOS (`codesign --force --deep --sign -`) to reduce Gatekeeper friction
+- **New:** Release notes published immediately; Mac + Windows builds upload in parallel
+
+### v1.6.0 — 2026-04-04
+- **New:** CSV export — full library with all metadata
+- **New:** M3U playlist export
+- **New:** Session save/load — resume exactly where you left off
+- **New:** Confidence threshold setting — re-classify only low-confidence tracks
+
+### v1.5.0 — 2026-04-04
+- **New:** Tag backup — original ID3 tags saved to `~/.xdj_library_manager/backups/` before every write
+- **New:** Auto-save every 30 tracks during analysis and classification
+- **New:** Persistent settings across sessions (`~/.xdj_library_manager/settings.json`)
+
+### v1.4.0 — 2026-04-04
+- **New:** Audio preview player — sticky mini player at the bottom of the review queue
+- **New:** ▶ button per track to play directly from the review list
+
+### v1.3.0 — 2026-04-04
+- **New:** Keyboard shortcuts in review — A (approve), S (skip), E (edit), ← → (navigate)
+- **New:** Sort + filter toolbar — sort by title, artist, BPM, confidence, genre, status
+- **New:** Stats bar — track count, genre breakdown, average confidence (updates live)
+- **New:** Confidence colour coding — 🟢 ≥85% · 🟡 60–84% · 🔴 <60%
+- **New:** Side-by-side tag comparison in review (current → proposed)
+- **New:** Dynamic page title shows progress ("XDJ — Analysing 45/234...")
+- **New:** Empty state onboarding shown when no tracks loaded
+
+### v1.2.0 — 2026-04-04
+- **New:** Real-time SSE progress streaming during analysis and classification
+- **New:** ETA display — "Processing X / Y · 2.3 tracks/sec · ETA: 2m 30s"
+- **New:** Cancel button to stop processing mid-run
+- **New:** Progress bar with sticky positioning
+
+### v1.1.0 — 2026-04-04
+- **New:** Gemini model selector in Settings — choose 2.5 Pro, 2.5 Flash, 2.5 Flash Lite, 2.0 Flash
+- **New:** Auto model rotation on rate limits (429 errors) — falls back to next model automatically
+- **Fix:** Removed "Claude AI" branding from About section
+- **Fix:** Corrected Gemini model IDs to stable names (removed deprecated preview suffixes)
+
+### v1.0.1 — 2026-04-04
+- **Fix:** Critical — only 1 track appeared when importing large folders
+  Root cause: `innerHTML +=` in a loop caused O(n²) DOM re-parsing; browser timed out after the first row.
+  Fix: replaced with `DocumentFragment` — all rows built in memory, single DOM insert.
+
 ### v1.0.0 — 2026-04-04
-- **New:** Mac + Windows standalone app — no Python, no installation
-- **New:** AI genre + sub-genre classification via Gemini 2.5 Flash
-- **New:** Gemini model selector — 2.5 Pro / 2.5 Flash / 2.5 Flash Lite / 2.0 Flash
-- **New:** Auto model rotation on rate limits / quota errors
-- **New:** BPM, Camelot key, energy analysis via librosa
-- **New:** Real-time SSE progress bar with ETA and cancel button
-- **New:** Keyboard shortcuts in review (A/S/E/←/→)
-- **New:** Sort + filter toolbar (by title, artist, BPM, confidence, genre, status)
-- **New:** Stats bar — track count, genre breakdown, average confidence
-- **New:** Confidence colour coding (green / orange / red)
-- **New:** Audio preview player — inline playback in review queue
-- **New:** Tag backup before every write (`~/.xdj_library_manager/backups/`)
-- **New:** Auto-save every 30 tracks during processing
-- **New:** Session save/load — resume where you left off
-- **New:** CSV export of full library
-- **New:** Folder watcher — auto-import new files
-- **New:** Taxonomy editor — add/remove genres live
-- **New:** Confidence threshold — bulk approve above your score
-- **New:** Spotify enrichment (optional — year, popularity)
-- **New:** Version badge in app header
-- **New:** App icon (vinyl record with neon glow)
-- **Fix:** Import bug — only 1 track appeared from hundreds (DOM rendering bug)
+- Initial release
+- Import MP3 folders (recursive), reads all existing ID3 tags
+- Audio analysis: BPM, Camelot key, energy level via librosa
+- AI classification: genre + sub-genre + confidence via Gemini
+- Review queue with per-track approve/skip/edit
+- Bulk approve above confidence threshold
+- ID3 tag writer (TCON, COMM, TBPM, TKEY, TDRC)
+- Folder watcher, taxonomy editor, Spotify enrichment
 
 ---
 
