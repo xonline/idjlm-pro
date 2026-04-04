@@ -71,6 +71,17 @@ class Track:
     suggested_cues: Optional[list] = None    # [{label, position_sec, type}]
     latin_analysis_done: bool = False
 
+    # Vocal / Instrumental detection
+    vocal_flag: Optional[str] = None          # "vocal", "instrumental", "mostly_instrumental"
+    vocal_confidence: Optional[int] = None    # 0-100
+
+    # Tempo category (per dance style)
+    tempo_category: Optional[str] = None      # "slow", "medium", "fast"
+
+    # Key accuracy
+    key_mismatch: Optional[bool] = None       # True if analyzed_key differs significantly from final_key
+    key_mismatch_detail: Optional[str] = None # e.g. "Stored: 8A, Detected: 7B"
+
     def to_dict(self) -> dict:
         return asdict(self)
 

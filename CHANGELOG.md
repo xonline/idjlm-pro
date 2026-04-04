@@ -4,6 +4,34 @@ All notable changes to IDLM Pro are documented here.
 
 ---
 
+## [2.3.0] — 2026-04-05
+
+### Organise Tab
+- **Library Health Dashboard** — live stats: total, analyzed, classified, approved, tags written, duplicates; coverage bars for BPM/Key/Energy/Artwork; genre breakdown
+- **Filename → Tag Parser** — scans tracks named "Artist - Title.mp3" with missing tags, previews parsed values vs existing tags, apply individually or all at once
+- **Folder Auto-Organiser** — move approved tracks into `Genre/Sub-Genre/` (or `Genre/` or `Genre/Sub-Genre/Year/`) folder structure; dry-run preview before committing moves
+- **Key Accuracy Validator** — compares stored Camelot keys against librosa-detected keys; flags mismatches of ≥2 Camelot steps; one-click fix individual or all
+
+### Set Planner Tab
+- **Energy Arc Set Planner** — auto-builds a DJ set shaped to Warm-Up, Peak Hour, Cool-Down, or Full Night arc; configurable duration, genre filter, BPM range
+- **Arc visualiser** — canvas preview of the selected energy curve
+- **Export as M3U** — download the generated set directly as an M3U playlist
+
+### Audio Intelligence (computed during Analysis)
+- **Vocal / Instrumental detector** — classifies each track as "vocal", "instrumental", or "mostly_instrumental" using harmonic separation + spectral flatness + MFCC variance; confidence 0–100
+- **Tempo category** — genre-aware slow/medium/fast label (Bachata, Kizomba, Salsa, etc. each have calibrated BPM thresholds)
+
+### Track Table
+- Added Clave column (was in JS but missing from HTML header — fixed)
+- Added Vocal column (badge: blue=Vocal, green=Instr., orange=Mostly Instr.)
+- Added Tempo column (badge: red=Fast, orange=Medium, blue=Slow)
+
+### Automation
+- GitHub Actions workflow — auto-builds macOS DMG + Windows ZIP and creates GitHub release on every `v*.*.*` tag push
+- `CHANGELOG.md` extracted from README into its own file; release notes populated automatically per version
+
+---
+
 ## [2.2.0] — 2026-04-04
 
 ### Latin DJ Features (djay Pro add-on)

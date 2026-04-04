@@ -89,6 +89,51 @@ def _normalize_energy(rms: np.ndarray, sr: int, hop_length: int) -> int:
     return energy_score
 
 
+def detect_vocal_flag(y: np.ndarray, sr: int) -> tuple:
+    """
+    Detect whether track contains vocals, instrumentals, or mostly instrumentals.
+    Returns: (vocal_flag: str, confidence: int)
+    vocal_flag one of: "vocal", "instrumental", "mostly_instrumental"
+    confidence: 0-100
+    """
+    # 1. Harmonic/percussive separation
+    y_harmonic, y_percussive = librosa.effects.hpss(y)
+    harmonic_rms = float(np.sqrt(np.mean(y_harmonic**2)))
+    percussive_rms = float(np.sqrt(np.mean(y_percussive**2)))
+    harmonic_ratio = harmonic_rms / (harmonic_rms + percussive_rms + 1e-6)
+
+    # 2. Spectral flatness (higher = more noise-like / less tonal)
+    flatness = float(np.mean(librosa.feature.spectral_flatness(y=y)))
+
+    # 3. MFCC variance (vocals produce high variance in MFCCs 1-5)
+    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+    mfcc_var = float(np.mean(np.var(mfcc[1:6], axis=1)))
+
+    # 4. Zero crossing rate (vocals have moderate ZCR)
+    zcr = float(np.mean(librosa.feature.zero_crossing_rate(y)))
+
+    # Scoring heuristic:
+    # Vocals tend to: high harmonic ratio, low-moderate flatness, high mfcc_var
+    vocal_score = 0
+    if harmonic_ratio > 0.55:
+        vocal_score += 35
+    if flatness < 0.015:
+        vocal_score += 25
+    if mfcc_var > 300:
+        vocal_score += 25
+    elif mfcc_var > 150:
+        vocal_score += 10
+    if 0.05 < zcr < 0.15:
+        vocal_score += 15
+
+    if vocal_score >= 70:
+        return "vocal", min(100, vocal_score)
+    elif vocal_score >= 45:
+        return "mostly_instrumental", min(100, 100 - vocal_score + 30)
+    else:
+        return "instrumental", min(100, 100 - vocal_score)
+
+
 def analyze_track(track: Track) -> Track:
     """
     Analyze audio features: BPM, key (Camelot), energy (1-10).
@@ -117,6 +162,30 @@ def analyze_track(track: Track) -> Track:
             track.analyzed_bpm = track.analyzed_bpm * 2
             track.bpm_corrected = True
 
+        # Tempo category based on genre + BPM
+        bpm = track.analyzed_bpm
+        genre = (track.proposed_genre or track.existing_genre or "").lower()
+
+        if bpm:
+            # Genre-aware BPM ranges for Latin dance styles
+            if "bachata" in genre:
+                if bpm < 110: tempo_cat = "slow"
+                elif bpm < 128: tempo_cat = "medium"
+                else: tempo_cat = "fast"
+            elif "kizomba" in genre or "zouk" in genre:
+                if bpm < 80: tempo_cat = "slow"
+                elif bpm < 100: tempo_cat = "medium"
+                else: tempo_cat = "fast"
+            elif "reggaeton" in genre:
+                if bpm < 90: tempo_cat = "slow"
+                elif bpm < 105: tempo_cat = "medium"
+                else: tempo_cat = "fast"
+            else:  # Salsa, Merengue, Cha Cha, default
+                if bpm < 90: tempo_cat = "slow"
+                elif bpm < 115: tempo_cat = "medium"
+                else: tempo_cat = "fast"
+            track.tempo_category = tempo_cat
+
         # Key detection via chroma features
         chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
         track.analyzed_key = _detect_key_from_chroma(chroma)
@@ -125,6 +194,11 @@ def analyze_track(track: Track) -> Track:
         S = librosa.feature.melspectrogram(y=y, sr=sr)
         rms = librosa.feature.rms(S=S)
         track.analyzed_energy = _normalize_energy(rms, sr, hop_length=512)
+
+        # Vocal detection
+        vocal_flag, vocal_confidence = detect_vocal_flag(y, sr)
+        track.vocal_flag = vocal_flag
+        track.vocal_confidence = vocal_confidence
 
         # Waveform thumbnail: 60 amplitude points across full track
         num_points = 60

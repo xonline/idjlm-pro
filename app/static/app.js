@@ -116,6 +116,15 @@ function switchTab(tabName) {
   if (btn) {
     btn.classList.add('active');
   }
+
+  // Tab-specific initialization
+  if (tabName === 'organise') {
+    loadLibraryHealth();
+  }
+  if (tabName === 'setplan') {
+    loadSetplanArcs();
+    populateSetplanGenres();
+  }
 }
 
 // ============================================================================
@@ -951,7 +960,7 @@ function renderTracks() {
     const row = document.createElement('tr');
     row.className = 'empty-state';
     const cell = document.createElement('td');
-    cell.colSpan = '13';
+    cell.colSpan = '15';
     cell.textContent = 'No tracks match filters';
     row.appendChild(cell);
     tbody.appendChild(row);
@@ -1040,6 +1049,35 @@ function renderTracks() {
       tdClave.style.color = 'var(--text-muted)';
     }
     row.appendChild(tdClave);
+
+    // Vocal
+    const tdVocal = document.createElement('td');
+    if (track.vocal_flag) {
+      const vClass = track.vocal_flag === 'vocal' ? 'vocal-badge-vocal'
+                   : track.vocal_flag === 'instrumental' ? 'vocal-badge-instrumental'
+                   : 'vocal-badge-mostly';
+      const vLabel = track.vocal_flag === 'vocal' ? 'Vocal'
+                   : track.vocal_flag === 'instrumental' ? 'Instr.'
+                   : 'Mostly Instr.';
+      tdVocal.innerHTML = `<span class="vocal-badge ${vClass}">${vLabel}</span>`;
+    } else {
+      tdVocal.textContent = '—';
+      tdVocal.style.color = 'var(--text-muted)';
+    }
+    row.appendChild(tdVocal);
+
+    // Tempo category
+    const tdTempo = document.createElement('td');
+    if (track.tempo_category) {
+      const tClass = track.tempo_category === 'fast' ? 'tempo-fast'
+                   : track.tempo_category === 'slow' ? 'tempo-slow'
+                   : 'tempo-medium';
+      tdTempo.innerHTML = `<span class="tempo-badge ${tClass}">${track.tempo_category}</span>`;
+    } else {
+      tdTempo.textContent = '—';
+      tdTempo.style.color = 'var(--text-muted)';
+    }
+    row.appendChild(tdTempo);
 
     // Year
     const tdYear = document.createElement('td');
@@ -2661,6 +2699,158 @@ function findHarmonicCompatible(track) {
   return suggestions;
 }
 
+// ============================================================================
+// Feature 10: Set Planner Tab
+// ============================================================================
+
+let setplanArcs = [];
+let currentSetplanArc = 'warmup';
+let generatedSetTracks = [];
+
+async function loadSetplanArcs() {
+  try {
+    const res = await apiFetch('/api/setplan/arcs');
+    setplanArcs = res;
+    const sel = document.getElementById('arc-selector');
+    if (!sel) return;
+    sel.innerHTML = setplanArcs.map(a =>
+      `<button class="arc-btn${a.id === 'warmup' ? ' active' : ''}" data-arc="${a.id}" title="${a.description}">${a.name}</button>`
+    ).join('');
+    sel.querySelectorAll('.arc-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        sel.querySelectorAll('.arc-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSetplanArc = btn.dataset.arc;
+        drawArcPreview();
+      });
+    });
+    drawArcPreview();
+  } catch(e) { console.error('Failed to load arcs', e); }
+}
+
+function drawArcPreview() {
+  const arc = setplanArcs.find(a => a.id === currentSetplanArc);
+  if (!arc) return;
+  const canvas = document.getElementById('arc-canvas');
+  if (!canvas) return;
+  canvas.width = canvas.offsetWidth || 600;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const curve = arc.energy_curve;
+  const pts = curve.map((v, i) => ({
+    x: (i / (curve.length - 1)) * (w - 20) + 10,
+    y: h - 6 - ((v - 1) / 9) * (h - 12)
+  }));
+  // Fill
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, h);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, h);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(0,210,190,0.15)';
+  ctx.fill();
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.strokeStyle = 'var(--accent, #00d2be)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  document.getElementById('setplan-arc-preview').style.display = 'block';
+}
+
+async function generateSet() {
+  const btn = document.getElementById('btn-generate-set');
+  btn.disabled = true; btn.textContent = 'Generating...';
+  try {
+    const body = {
+      arc: currentSetplanArc,
+      duration_minutes: parseInt(document.getElementById('setplan-duration').value) || 60,
+    };
+    const genre = document.getElementById('setplan-genre').value;
+    if (genre) body.genre = genre;
+    const bpmMin = document.getElementById('setplan-bpm-min').value;
+    const bpmMax = document.getElementById('setplan-bpm-max').value;
+    if (bpmMin || bpmMax) body.bpm_range = [parseInt(bpmMin)||0, parseInt(bpmMax)||999];
+
+    const res = await apiFetch('/api/setplan/generate', {
+      method: 'POST',
+      body: JSON.stringify(body)
+    });
+    const d = res;
+    if (d.error) { alert(d.error); return; }
+    generatedSetTracks = d.tracks;
+    renderSetplanResults(d);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Generate Set';
+  }
+}
+
+function renderSetplanResults(d) {
+  const el = document.getElementById('setplan-results');
+  if (!d.tracks?.length) {
+    el.innerHTML = '<p style="color:var(--text-muted)">No tracks found matching your filters. Try removing the genre or BPM constraints.</p>';
+    return;
+  }
+  const s = d.stats;
+  let html = `<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;font-size:0.85rem;color:var(--text-muted);">
+    <span>${d.tracks.length} tracks</span>
+    <span>~${s.estimated_duration_minutes} min</span>
+    <span>BPM ${s.bpm_range?.[0]}–${s.bpm_range?.[1]}</span>
+    <span>Energy ${s.energy_range?.[0]}–${s.energy_range?.[1]}</span>
+  </div>`;
+  html += `<table class="data-table" style="font-size:0.82rem;">
+    <thead><tr><th>#</th><th>Title</th><th>Artist</th><th>Genre</th><th>BPM</th><th>Key</th><th>Energy</th><th>Tempo</th></tr></thead>
+    <tbody>`;
+  d.tracks.forEach((t, i) => {
+    const energyColor = t.energy >= 8 ? 'var(--danger)' : t.energy >= 6 ? '#f0a500' : 'var(--accent)';
+    html += `<tr>
+      <td style="color:var(--text-muted)">${i+1}</td>
+      <td>${t.title || '—'}</td>
+      <td>${t.artist || '—'}</td>
+      <td>${t.genre || '—'}</td>
+      <td>${t.bpm || '—'}</td>
+      <td><span class="badge">${t.key || '—'}</span></td>
+      <td><span style="color:${energyColor};font-weight:600">${t.energy || '—'}</span></td>
+      <td>${t.tempo_category ? `<span class="tempo-badge tempo-${t.tempo_category}">${t.tempo_category}</span>` : '—'}</td>
+    </tr>`;
+  });
+  html += `</tbody></table>
+    <div style="margin-top:0.75rem;display:flex;gap:0.5rem;">
+      <button class="btn btn-primary" id="btn-export-setplan-m3u">Export as M3U</button>
+    </div>`;
+  el.innerHTML = html;
+  document.getElementById('btn-export-setplan-m3u')?.addEventListener('click', exportSetplanM3U);
+}
+
+async function exportSetplanM3U() {
+  const res = await apiFetch('/api/setplan/export-m3u', {
+    method: 'POST',
+    body: JSON.stringify({tracks: generatedSetTracks, filename: `set-${currentSetplanArc}.m3u`})
+  });
+  if (!res.ok) { alert('Export failed'); return; }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `set-${currentSetplanArc}.m3u`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function populateSetplanGenres() {
+  const sel = document.getElementById('setplan-genre');
+  if (!sel || !window.tracks) return;
+  const genres = [...new Set(window.tracks.map(t => t.final_genre).filter(Boolean))].sort();
+  const existing = [...sel.options].map(o => o.value);
+  genres.forEach(g => {
+    if (!existing.includes(g)) {
+      const opt = document.createElement('option');
+      opt.value = g; opt.textContent = g;
+      sel.appendChild(opt);
+    }
+  });
+}
+
 // Text search with debounce
 function initSearchFeature() {
   const searchInput = document.getElementById('search-tracks');
@@ -3048,6 +3238,16 @@ document.addEventListener('DOMContentLoaded', () => {
   initAppleMusicSync();
   initExportFeature();
   updateSettingsSaveHandler();
+
+  // Wire organise tab button listeners
+  document.getElementById('btn-refresh-health')?.addEventListener('click', loadLibraryHealth);
+  document.getElementById('btn-parse-filenames')?.addEventListener('click', parseFilenames);
+  document.getElementById('btn-organise-preview')?.addEventListener('click', previewOrganise);
+  document.getElementById('btn-organise-run')?.addEventListener('click', runOrganise);
+  document.getElementById('btn-validate-keys')?.addEventListener('click', validateKeys);
+
+  // Wire set planner button listeners
+  document.getElementById('btn-generate-set')?.addEventListener('click', generateSet);
 
   // Setup track detail panel close button
   const trackDetailClose = document.getElementById('track-detail-close');
@@ -3531,6 +3731,209 @@ async function removeDuplicate(filePath) {
   } finally {
     hideSpinner();
   }
+}
+
+// ============================================================================
+// Feature 9: Organise Tab
+// ============================================================================
+
+async function loadLibraryHealth() {
+  try {
+    const res = await apiFetch('/api/library/health');
+    document.getElementById('health-total').textContent = res.total;
+    document.getElementById('health-analyzed').textContent = res.analyzed;
+    document.getElementById('health-classified').textContent = res.classified;
+    document.getElementById('health-approved').textContent = res.approved;
+    document.getElementById('health-written').textContent = res.tags_written;
+    document.getElementById('health-duplicates').textContent = res.duplicates;
+
+    // Coverage bars
+    const covEl = document.getElementById('health-coverage');
+    const fields = [
+      ['BPM', res.coverage.bpm],
+      ['Key', res.coverage.key],
+      ['Energy', res.coverage.energy],
+      ['Artwork', res.coverage.artwork],
+    ];
+    covEl.innerHTML = fields.map(([label, val]) => {
+      const pct = Math.round((val || 0) * 100);
+      const color = pct >= 80 ? 'var(--accent)' : pct >= 50 ? '#f0a500' : 'var(--danger)';
+      return `<div style="margin-bottom:0.5rem;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+          <span style="font-size:0.8rem;color:var(--text-muted)">${label}</span>
+          <span style="font-size:0.8rem;color:var(--text-muted)">${pct}%</span>
+        </div>
+        <div style="height:6px;background:var(--border);border-radius:3px;">
+          <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width 0.3s;"></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Genre breakdown
+    const genreEl = document.getElementById('health-by-genre');
+    if (res.by_genre && Object.keys(res.by_genre).length) {
+      const sorted = Object.entries(res.by_genre).sort((a,b) => b[1]-a[1]);
+      genreEl.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem;">By Genre</div>`
+        + sorted.map(([g, n]) => `<span class="badge" style="margin:2px;">${g} <strong>${n}</strong></span>`).join('');
+    }
+  } catch(e) {
+    console.error('Health load failed', e);
+  }
+}
+
+async function parseFilenames() {
+  const btn = document.getElementById('btn-parse-filenames');
+  btn.disabled = true; btn.textContent = 'Scanning...';
+  try {
+    const res = await apiFetch('/api/organise/parse-filenames', {
+      method: 'POST',
+      body: JSON.stringify({all: true})
+    });
+    const data = res;
+    const el = document.getElementById('filename-parse-results');
+    if (!data.length) {
+      el.innerHTML = '<p style="color:var(--text-muted)">No parseable filenames found (all tracks already have tags, or filenames don\'t match "Artist - Title" pattern).</p>';
+      return;
+    }
+    const conflicting = data.filter(t => t.has_conflict);
+    const noTag = data.filter(t => !t.has_conflict);
+    let html = `<p style="margin-bottom:0.5rem;">${data.length} tracks with parseable filenames (${conflicting.length} conflicts, ${noTag.length} no existing tags).</p>`;
+    html += `<table class="data-table" style="font-size:0.8rem;">
+      <thead><tr><th>File</th><th>Parsed Artist</th><th>Parsed Title</th><th>Current Artist</th><th>Current Title</th><th></th></tr></thead>
+      <tbody>`;
+    data.forEach(t => {
+      const rowStyle = t.has_conflict ? 'background:rgba(240,80,80,0.05);' : '';
+      html += `<tr style="${rowStyle}">
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.filename}">${t.filename}</td>
+        <td>${t.parsed_artist || '—'}</td>
+        <td>${t.parsed_title || '—'}</td>
+        <td>${t.current_artist || '—'}</td>
+        <td>${t.current_title || '—'}</td>
+        <td><button class="btn btn-sm btn-primary" onclick="applyFilenameTag('${encodeURIComponent(t.file_path)}','${encodeURIComponent(t.parsed_artist||'')}','${encodeURIComponent(t.parsed_title||'')}', this)">Apply</button></td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+    html += `<div style="margin-top:0.75rem;"><button class="btn btn-primary" onclick="applyAllFilenameTags(${JSON.stringify(data)})">Apply All</button></div>`;
+    el.innerHTML = html;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Scan All Tracks';
+  }
+}
+
+async function applyFilenameTag(encodedPath, encodedArtist, encodedTitle, btn) {
+  btn.disabled = true;
+  const path = decodeURIComponent(encodedPath);
+  const artist = decodeURIComponent(encodedArtist);
+  const title = decodeURIComponent(encodedTitle);
+  await apiFetch('/api/organise/apply-filename-tags', {
+    method: 'POST',
+    body: JSON.stringify({updates: [{file_path: path, artist, title}]})
+  });
+  btn.textContent = '✓'; btn.style.background = 'var(--accent)';
+}
+
+async function applyAllFilenameTags(tracks) {
+  const updates = tracks.filter(t => t.parsed_artist || t.parsed_title).map(t => ({
+    file_path: t.file_path, artist: t.parsed_artist || t.current_artist, title: t.parsed_title || t.current_title
+  }));
+  const res = await apiFetch('/api/organise/apply-filename-tags', {
+    method: 'POST',
+    body: JSON.stringify({updates})
+  });
+  const d = res;
+  alert(`Applied tags to ${d.updated} tracks. They are now set to "pending" for review.`);
+}
+
+async function previewOrganise() {
+  const dest = document.getElementById('organise-dest').value.trim();
+  if (!dest) { alert('Enter a destination folder first.'); return; }
+  const pattern = document.getElementById('organise-pattern').value;
+  const res = await apiFetch('/api/organise/folders', {
+    method: 'POST',
+    body: JSON.stringify({destination: dest, pattern, dry_run: true})
+  });
+  const d = res;
+  const el = document.getElementById('organise-preview-results');
+  if (d.error) { el.innerHTML = `<p style="color:var(--danger)">${d.error}</p>`; return; }
+  const moves = d.moves || [];
+  if (!moves.length) { el.innerHTML = '<p style="color:var(--text-muted)">No approved tracks to move.</p>'; return; }
+  const overwrite = moves.filter(m => m.would_overwrite).length;
+  el.innerHTML = `<p style="margin-bottom:0.5rem;">${moves.length} files to move${overwrite ? ` (${overwrite} would overwrite)` : ''}.</p>
+    <div style="max-height:200px;overflow-y:auto;font-size:0.75rem;background:var(--bg-secondary);padding:0.75rem;border-radius:6px;">
+      ${moves.slice(0, 50).map(m => `<div>${m.from.split('/').pop()} → <strong>${m.to.split('/').slice(-3).join('/')}</strong>${m.would_overwrite ? ' ⚠️' : ''}</div>`).join('')}
+      ${moves.length > 50 ? `<div style="color:var(--text-muted)">... and ${moves.length - 50} more</div>` : ''}
+    </div>`;
+  document.getElementById('btn-organise-run').disabled = false;
+  document.getElementById('btn-organise-run')._previewData = {dest, pattern};
+}
+
+async function runOrganise() {
+  if (!confirm(`This will physically move files. Continue?`)) return;
+  const {dest, pattern} = document.getElementById('btn-organise-run')._previewData;
+  const btn = document.getElementById('btn-organise-run');
+  btn.disabled = true; btn.textContent = 'Moving...';
+  const res = await apiFetch('/api/organise/folders', {
+    method: 'POST',
+    body: JSON.stringify({destination: dest, pattern, dry_run: false})
+  });
+  const d = res;
+  if (d.error) { alert(d.error); }
+  else { alert(`Moved ${d.moved} files successfully${d.errors?.length ? ` (${d.errors.length} errors)` : ''}.`); }
+  btn.textContent = 'Move Files';
+}
+
+async function validateKeys() {
+  const btn = document.getElementById('btn-validate-keys');
+  btn.disabled = true; btn.textContent = 'Checking...';
+  try {
+    const res = await apiFetch('/api/validate/keys');
+    const d = res;
+    const el = document.getElementById('key-validation-results');
+    if (d.error) { el.innerHTML = `<p style="color:var(--danger)">${d.error}</p>`; return; }
+    if (!d.mismatches?.length) {
+      el.innerHTML = `<p style="color:var(--accent)">✓ All ${d.total_checked} keys match (within 1 Camelot step). No corrections needed.</p>`;
+      return;
+    }
+    let html = `<p style="margin-bottom:0.5rem;">${d.mismatch_count} mismatches out of ${d.total_checked} tracks checked.</p>
+      <table class="data-table" style="font-size:0.8rem;">
+        <thead><tr><th>Title</th><th>Artist</th><th>Stored Key</th><th>Detected Key</th><th>Distance</th><th></th></tr></thead>
+        <tbody>`;
+    d.mismatches.forEach(m => {
+      html += `<tr>
+        <td>${m.title || '—'}</td><td>${m.artist || '—'}</td>
+        <td><span class="badge">${m.stored_key}</span></td>
+        <td><span class="badge" style="background:var(--accent);">${m.analyzed_key}</span></td>
+        <td>${m.distance}</td>
+        <td><button class="btn btn-sm btn-primary" onclick="fixKey('${encodeURIComponent(m.file_path)}', this)">Use Detected</button></td>
+      </tr>`;
+    });
+    html += `</tbody></table>
+      <div style="margin-top:0.75rem;">
+        <button class="btn btn-primary" onclick="fixAllKeys(${JSON.stringify(d.mismatches.map(m=>m.file_path))})">Fix All (${d.mismatch_count})</button>
+      </div>`;
+    el.innerHTML = html;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Check Keys';
+  }
+}
+
+async function fixKey(encodedPath, btn) {
+  btn.disabled = true;
+  await apiFetch('/api/validate/keys/fix', {
+    method: 'POST',
+    body: JSON.stringify({paths: [decodeURIComponent(encodedPath)], use_analyzed: true})
+  });
+  btn.textContent = '✓'; btn.style.background = 'var(--accent)';
+}
+
+async function fixAllKeys(paths) {
+  const res = await apiFetch('/api/validate/keys/fix', {
+    method: 'POST',
+    body: JSON.stringify({paths, use_analyzed: true})
+  });
+  const d = res;
+  alert(`Fixed ${d.fixed} key mismatches.`);
+  validateKeys();
 }
 
 // ============================================================================
