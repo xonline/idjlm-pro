@@ -11,6 +11,10 @@ All notable changes to IDLM Pro are documented here.
 - **Smart Flask wait** — app polls for Flask readiness instead of a fixed sleep; swaps splash → main UI the moment the server is up
 - **Reduced bundle size** — excludes matplotlib, IPython, jupyter, notebook, test/unittest from PyInstaller build; cuts cold-start Gatekeeper scan time on macOS
 
+### App Icon
+- **Custom vinyl record icon** — dark rounded-square background, purple→teal gradient label, subtle groove rings, three-dot AI motif; generated from `assets/make_icon.py`
+- macOS `.icns` and Windows `.ico` both auto-generated during CI build via `assets/make_icon.py` (Pillow); `iconutil` used on macOS runner for full multi-resolution `.icns`
+
 ---
 
 ## [2.3.0] — 2026-04-05

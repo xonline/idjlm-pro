@@ -26,10 +26,16 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
 
+      - name: Generate app icon
+        run: |
+          pip install Pillow
+          python3 assets/make_icon.py
+
       - name: Build .app
         run: |
           cp config.example.env .env
           pyinstaller \
+            --icon "assets/icon.icns" \
             --noconfirm \
             --windowed \
             --name "IDLM Pro" \
@@ -86,11 +92,17 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
 
+      - name: Generate app icon
+        run: |
+          pip install Pillow
+          python3 assets/make_icon.py
+
       - name: Build EXE
         run: |
           copy config.example.env .env
           pyinstaller `
             --noconfirm `
+            --icon "assets\icon.ico" `
             --name "IDLM Pro" `
             --add-data "templates;templates" `
             --add-data "app/static;app/static" `
