@@ -78,13 +78,18 @@ def import_tracks():
 @bp.route("/analyze", methods=["POST"])
 def analyze_tracks():
     """
-    Analyze tracks for BPM, key, energy.
+    Analyze tracks for BPM, key, energy (async).
     POST /api/analyze
     body: { "track_paths": ["/path1", "/path2"] }  # or empty list = all tracks
+    Returns: { "op_id": "...", "total": N }  (202 Accepted)
+    Stream progress via EventSource('/api/progress/<op_id>')
     """
     try:
+        import uuid
+        import threading
+        import queue as _queue
         from app.services.analyzer import analyze_track
-        from app import get_track_store
+        from app import get_track_store, get_progress_queues
 
         data = request.get_json() or {}
         track_paths = data.get("track_paths", [])
@@ -94,31 +99,38 @@ def analyze_tracks():
         if not track_paths:
             track_paths = list(track_store.keys())
 
-        analyzed = 0
-        errors = []
+        op_id = str(uuid.uuid4())[:8]
+        q = _queue.Queue()
+        get_progress_queues()[op_id] = q
 
-        for file_path in track_paths:
-            if file_path not in track_store:
-                errors.append({
-                    "path": file_path,
-                    "error": "Track not found in store"
-                })
-                continue
+        def run():
+            total = len(track_paths)
+            analyzed = 0
+            errors = []
+            for i, file_path in enumerate(track_paths):
+                if file_path not in track_store:
+                    continue
+                try:
+                    track = track_store[file_path]
+                    analyze_track(track)
+                    analyzed += 1
+                    q.put({
+                        'current': i + 1,
+                        'total': total,
+                        'track': track.display_title,
+                        'analyzed': analyzed
+                    })
+                except Exception as e:
+                    errors.append({'path': file_path, 'error': str(e)})
+                    q.put({
+                        'current': i + 1,
+                        'total': total,
+                        'error': str(e)
+                    })
+            q.put({'done': True, 'analyzed': analyzed, 'errors': errors})
 
-            try:
-                track = track_store[file_path]
-                analyze_track(track)
-                analyzed += 1
-            except Exception as e:
-                errors.append({
-                    "path": file_path,
-                    "error": str(e)
-                })
-
-        return jsonify({
-            "analyzed": analyzed,
-            "errors": errors
-        }), 200
+        threading.Thread(target=run, daemon=True).start()
+        return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -127,14 +139,19 @@ def analyze_tracks():
 @bp.route("/classify", methods=["POST"])
 def classify_tracks():
     """
-    Classify tracks by genre and enrich metadata.
+    Classify tracks by genre and enrich metadata (async).
     POST /api/classify
     body: { "track_paths": ["/path1", "/path2"] }  # or empty = all analyzed tracks
+    Returns: { "op_id": "...", "total": N }  (202 Accepted)
+    Stream progress via EventSource('/api/progress/<op_id>')
     """
     try:
+        import uuid
+        import threading
+        import queue as _queue
         from app.services.classifier import classify_tracks as classify_service
         from app.services.enricher import enrich_tracks as enrich_service
-        from app import get_track_store, get_taxonomy
+        from app import get_track_store, get_taxonomy, get_progress_queues
 
         data = request.get_json() or {}
         track_paths = data.get("track_paths", [])
@@ -146,34 +163,41 @@ def classify_tracks():
                 fp for fp, t in track_store.items() if t.analysis_done
             ]
 
-        classified = 0
-        errors = []
+        op_id = str(uuid.uuid4())[:8]
+        q = _queue.Queue()
+        get_progress_queues()[op_id] = q
 
-        for file_path in track_paths:
-            if file_path not in track_store:
-                errors.append({
-                    "path": file_path,
-                    "error": "Track not found in store"
-                })
-                continue
+        def run():
+            total = len(track_paths)
+            classified = 0
+            errors = []
+            for i, file_path in enumerate(track_paths):
+                if file_path not in track_store:
+                    continue
+                try:
+                    track = track_store[file_path]
+                    # Classify
+                    classify_service([track], get_taxonomy())
+                    # Enrich
+                    enrich_service([track])
+                    classified += 1
+                    q.put({
+                        'current': i + 1,
+                        'total': total,
+                        'track': track.display_title,
+                        'classified': classified
+                    })
+                except Exception as e:
+                    errors.append({'path': file_path, 'error': str(e)})
+                    q.put({
+                        'current': i + 1,
+                        'total': total,
+                        'error': str(e)
+                    })
+            q.put({'done': True, 'classified': classified, 'errors': errors})
 
-            try:
-                track = track_store[file_path]
-                # Classify
-                classify_service([track], get_taxonomy())
-                # Enrich
-                enrich_service([track])
-                classified += 1
-            except Exception as e:
-                errors.append({
-                    "path": file_path,
-                    "error": str(e)
-                })
-
-        return jsonify({
-            "classified": classified,
-            "errors": errors
-        }), 200
+        threading.Thread(target=run, daemon=True).start()
+        return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

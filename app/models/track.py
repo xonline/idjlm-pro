@@ -58,6 +58,12 @@ class Track:
     is_duplicate: bool = False
     duplicate_of: Optional[str] = None       # file_path of the original track
 
+    # Setlist
+    setlist_position: Optional[int] = None
+
+    # Approval learning
+    approval_logged: bool = False
+
     def to_dict(self) -> dict:
         return asdict(self)
 

@@ -1,5 +1,6 @@
 import os
 import json
+import queue as _queue
 from flask import Flask, render_template
 from flask_cors import CORS
 
@@ -8,6 +9,8 @@ from flask_cors import CORS
 _track_store: dict = {}
 # Taxonomy loaded from taxonomy.json (mutable at runtime)
 _taxonomy: dict = {}
+# Progress queues: { op_id: queue.Queue }
+_progress_queues: dict = {}
 
 
 def get_track_store() -> dict:
@@ -16,6 +19,10 @@ def get_track_store() -> dict:
 
 def get_taxonomy() -> dict:
     return _taxonomy
+
+
+def get_progress_queues() -> dict:
+    return _progress_queues
 
 
 def create_app() -> Flask:
@@ -38,6 +45,8 @@ def create_app() -> Flask:
     from app.routes.watch_routes import bp as watch_bp
     from app.routes.export_routes import bp as export_bp
     from app.routes.duplicate_routes import bp as duplicate_bp
+    from app.routes.progress_routes import bp as progress_bp
+    from app.routes.setlist_routes import bp as setlist_bp
 
     app.register_blueprint(import_bp)
     app.register_blueprint(track_bp)
@@ -49,6 +58,8 @@ def create_app() -> Flask:
     app.register_blueprint(watch_bp)
     app.register_blueprint(export_bp)
     app.register_blueprint(duplicate_bp)
+    app.register_blueprint(progress_bp)
+    app.register_blueprint(setlist_bp)
 
     @app.route("/")
     def index():
