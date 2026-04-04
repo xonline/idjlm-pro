@@ -1669,3 +1669,295 @@ body.light .taxonomy-subgenres {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================================
+   Audio Player Bottom Bar
+   ============================================================================ */
+
+.audio-player-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--bg-panel); border-top: 1px solid var(--border);
+  padding: 10px 20px; display: flex; align-items: center; gap: 12px;
+  z-index: 1000; height: 70px;
+}
+
+.audio-player-bar.hidden { display: none; }
+
+.audio-btn {
+  background: none; border: none; color: var(--accent);
+  font-size: 18px; cursor: pointer; padding: 8px;
+  transition: opacity 0.2s ease;
+}
+
+.audio-btn:hover {
+  opacity: 0.8;
+}
+
+.audio-track-info {
+  display: flex; flex-direction: column; gap: 2px; flex: 0 0 auto;
+  min-width: 150px;
+}
+
+#audio-track-title {
+  font-size: 13px; font-weight: 600; color: var(--text-primary);
+}
+
+.audio-artist {
+  font-size: 11px; color: var(--text-secondary);
+}
+
+.audio-seek {
+  flex: 1; height: 4px; border-radius: 2px;
+  background: var(--bg-subtle); outline: none;
+  -webkit-appearance: none; appearance: none;
+  cursor: pointer;
+}
+
+.audio-seek::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent); cursor: pointer;
+}
+
+.audio-seek::-moz-range-thumb {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent); cursor: pointer; border: none;
+}
+
+.audio-time {
+  font-size: 11px; color: var(--text-secondary); min-width: 70px;
+  text-align: right;
+}
+
+/* ============================================================================
+   Confidence Badge
+   ============================================================================ */
+
+.confidence-badge {
+  padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;
+  display: inline-block;
+}
+
+.confidence-high { background: rgba(52,211,153,0.2); color: #34d399; }
+.confidence-mid  { background: rgba(251,191,36,0.2);  color: #fbbf24; }
+.confidence-low  { background: rgba(248,113,113,0.2); color: #f87171; }
+
+/* ============================================================================
+   Energy Bar Visualization
+   ============================================================================ */
+
+.energy-bar-wrap {
+  display: flex; align-items: center; gap: 6px;
+}
+
+.energy-bar {
+  height: 6px; border-radius: 3px; min-width: 40px;
+}
+
+/* ============================================================================
+   Genre Chip
+   ============================================================================ */
+
+.genre-chip {
+  padding: 2px 8px; border-radius: 10px; font-size: 11px;
+  font-weight: 500; white-space: nowrap; display: inline-block;
+  border: 1px solid;
+}
+
+/* ============================================================================
+   Status Dot
+   ============================================================================ */
+
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+  margin-right: 6px;
+}
+
+.status-pending    { background: #555; }
+.status-analyzed   { background: #3b82f6; }
+.status-classified { background: #8b5cf6; }
+.status-approved   { background: #34d399; }
+.status-error      { background: #f87171; }
+
+/* ============================================================================
+   Column Toggle Controls
+   ============================================================================ */
+
+.column-toggle-menu {
+  position: absolute; top: 100%; right: 0; margin-top: 4px;
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: var(--radius-md); min-width: 200px;
+  box-shadow: var(--shadow-md); z-index: 100;
+}
+
+.column-toggle-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+
+.column-toggle-item:last-child {
+  border-bottom: none;
+}
+
+.column-toggle-item:hover {
+  background: var(--bg-subtle);
+}
+
+.column-toggle-item input[type="checkbox"] {
+  cursor: pointer;
+}
+
+/* ============================================================================
+   Camelot Wheel
+   ============================================================================ */
+
+.wheel-container {
+  display: flex; justify-content: center; padding: 40px 20px;
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: var(--radius-md); margin-bottom: 24px;
+}
+
+.wheel-container svg {
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
+}
+
+.wheel-stats {
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 20px;
+}
+
+.wheel-stats-section {
+  margin-bottom: 16px;
+}
+
+.wheel-stats-section:last-child {
+  margin-bottom: 0;
+}
+
+.wheel-stats-section h3 {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  color: var(--text-secondary); margin-bottom: 8px;
+}
+
+.wheel-key-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; font-size: 12px; border-bottom: 1px solid var(--border);
+}
+
+.wheel-key-item:last-child {
+  border-bottom: none;
+}
+
+/* ============================================================================
+   Keyboard Shortcuts Hint
+   ============================================================================ */
+
+.keyboard-hints {
+  background: var(--bg-subtle); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 12px 16px;
+  margin-bottom: 16px; font-size: 11px; color: var(--text-secondary);
+}
+
+.keyboard-hints-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.keyboard-hint-item {
+  display: flex; gap: 6px; align-items: center;
+}
+
+.keyboard-hint-key {
+  background: var(--bg-deeper); border: 1px solid var(--border);
+  padding: 2px 6px; border-radius: 3px; font-family: monospace;
+  font-weight: 600;
+}
+
+/* ============================================================================
+   Duplicates UI
+   ============================================================================ */
+
+.duplicates-list {
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+.duplicate-pair {
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 20px;
+}
+
+.duplicate-pair h3 {
+  font-size: 13px; font-weight: 700; color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.duplicate-track {
+  background: var(--bg-subtle); padding: 12px;
+  border-radius: var(--radius-sm); margin-bottom: 12px;
+}
+
+.duplicate-track:last-child {
+  margin-bottom: 0;
+}
+
+.duplicate-track-info {
+  display: flex; justify-content: space-between;
+  align-items: center; margin-bottom: 8px;
+}
+
+.duplicate-track-title {
+  font-weight: 600; color: var(--text-primary);
+}
+
+.duplicate-track-meta {
+  font-size: 11px; color: var(--text-secondary);
+}
+
+.duplicate-remove-btn {
+  font-size: 12px; padding: 6px 10px;
+}
+
+/* ============================================================================
+   Smart Playlist Builder
+   ============================================================================ */
+
+.playlist-builder {
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 24px; margin: 24px 0;
+}
+
+.playlist-builder h3 {
+  font-size: 14px; font-weight: 700; margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.playlist-filters {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px; margin-bottom: 16px;
+}
+
+.playlist-filter-group {
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+.playlist-filter-group label {
+  font-size: 12px; font-weight: 600; color: var(--text-secondary);
+}
+
+.playlist-filter-group .input-text,
+.playlist-filter-group .input-select {
+  height: 36px; font-size: 13px;
+}
+
+.playlist-range-inputs {
+  display: flex; gap: 8px; align-items: center;
+}
+
+.playlist-range-inputs .input-text {
+  flex: 1; height: 36px;
+}
+
+.playlist-export-buttons {
+  display: flex; gap: 12px; flex-wrap: wrap;
+}

@@ -830,26 +830,19 @@ function renderTracks() {
     tdArtist.textContent = track.display_artist || '—';
     row.appendChild(tdArtist);
 
-    // Genre
+    // Genre (with color chip)
     const tdGenre = document.createElement('td');
-    tdGenre.textContent = track.final_genre || '—';
+    tdGenre.innerHTML = genreChip(track.final_genre);
     row.appendChild(tdGenre);
 
-    // Sub-genre
+    // Sub-genre (with color chip)
     const tdSubgenre = document.createElement('td');
-    tdSubgenre.textContent = track.final_subgenre || '—';
+    tdSubgenre.innerHTML = genreChip(track.final_subgenre);
     row.appendChild(tdSubgenre);
 
-    // Confidence
+    // Confidence (with colored badge)
     const tdConfidence = document.createElement('td');
-    if (track.confidence) {
-      const span = document.createElement('span');
-      span.className = `confidence-value ${confidenceClass}`;
-      span.textContent = `${Math.round(track.confidence)}%`;
-      tdConfidence.appendChild(span);
-    } else {
-      tdConfidence.textContent = '—';
-    }
+    tdConfidence.innerHTML = confidenceBadge(track.confidence);
     row.appendChild(tdConfidence);
 
     // BPM
@@ -878,10 +871,27 @@ function renderTracks() {
     // Action
     const tdAction = document.createElement('td');
     tdAction.style.textAlign = 'center';
+    tdAction.style.display = 'flex';
+    tdAction.style.gap = '4px';
+    tdAction.style.justifyContent = 'center';
+
+    const btnPlay = document.createElement('button');
+    btnPlay.className = 'btn btn-secondary';
+    btnPlay.style.padding = '4px 8px';
+    btnPlay.style.fontSize = '12px';
+    btnPlay.title = 'Play preview';
+    btnPlay.textContent = '▶';
+    btnPlay.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playTrack(track);
+    });
+    tdAction.appendChild(btnPlay);
+
     const btnEdit = document.createElement('button');
     btnEdit.className = 'btn btn-secondary';
     btnEdit.style.padding = '4px 8px';
     btnEdit.style.fontSize = '12px';
+    btnEdit.title = 'Edit track';
     btnEdit.textContent = '✎';
     btnEdit.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -2010,4 +2020,628 @@ document.addEventListener('DOMContentLoaded', () => {
   if (folderInput) {
     folderInput.focus();
   }
+
+  // Initialize new features
+  initAudioPlayer();
+  initWheelTab();
+  initDuplicatesTab();
+  initPlaylistBuilder();
+  initKeyboardShortcuts();
+  initColumnToggle();
 });
+
+// ============================================================================
+// Feature 1: Audio Player Bottom Bar
+// ============================================================================
+
+let currentPlayingTrack = null;
+let currentTrackIndex = -1;
+
+function initAudioPlayer() {
+  const bar = document.getElementById('audio-player-bar');
+  const audio = document.getElementById('audio-player');
+  const playPauseBtn = document.getElementById('audio-play-pause');
+  const prevBtn = document.getElementById('audio-prev');
+  const nextBtn = document.getElementById('audio-next');
+  const seekBar = document.getElementById('audio-seek');
+  const timeDisplay = document.getElementById('audio-time');
+
+  audio.addEventListener('timeupdate', () => {
+    const duration = audio.duration || 0;
+    const current = audio.currentTime || 0;
+    seekBar.value = duration > 0 ? (current / duration) * 100 : 0;
+    timeDisplay.textContent = formatTime(current) + ' / ' + formatTime(duration);
+  });
+
+  audio.addEventListener('ended', () => {
+    playPauseBtn.textContent = '▶';
+    nextBtn.click();
+  });
+
+  playPauseBtn.addEventListener('click', () => {
+    if (audio.paused) {
+      audio.play();
+      playPauseBtn.textContent = '⏸';
+    } else {
+      audio.pause();
+      playPauseBtn.textContent = '▶';
+    }
+  });
+
+  prevBtn.addEventListener('click', () => {
+    if (currentTrackIndex > 0) {
+      currentTrackIndex--;
+      playTrack(window.tracks[currentTrackIndex]);
+    }
+  });
+
+  nextBtn.addEventListener('click', () => {
+    if (currentTrackIndex < window.tracks.length - 1) {
+      currentTrackIndex++;
+      playTrack(window.tracks[currentTrackIndex]);
+    }
+  });
+
+  seekBar.addEventListener('change', () => {
+    const duration = audio.duration || 0;
+    audio.currentTime = (seekBar.value / 100) * duration;
+  });
+}
+
+function playTrack(track) {
+  if (!track) return;
+
+  const audio = document.getElementById('audio-player');
+  const bar = document.getElementById('audio-player-bar');
+  const playPauseBtn = document.getElementById('audio-play-pause');
+
+  currentPlayingTrack = track;
+  currentTrackIndex = window.tracks.indexOf(track);
+
+  audio.src = `/api/audio/${encodeURIComponent(track.file_path)}`;
+  document.getElementById('audio-track-title').textContent = track.display_title || 'Unknown';
+  document.getElementById('audio-track-artist').textContent = track.display_artist || 'Unknown';
+
+  bar.classList.remove('hidden');
+  audio.play().catch(err => {
+    showToast('Could not play audio', 'error');
+    console.error('Audio error:', err);
+  });
+  playPauseBtn.textContent = '⏸';
+}
+
+function formatTime(seconds) {
+  if (!seconds || isNaN(seconds)) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
+// ============================================================================
+// Feature 2: Confidence Badges & Energy Bars
+// ============================================================================
+
+function confidenceBadge(score) {
+  if (!score && score !== 0) return '—';
+  const cls = score >= 80 ? 'high' : score >= 50 ? 'mid' : 'low';
+  return `<span class="confidence-badge confidence-${cls}">${Math.round(score)}%</span>`;
+}
+
+function energyBar(energy) {
+  if (!energy && energy !== 0) return '—';
+  const pct = (energy / 10) * 100;
+  const color = energy >= 8 ? '#f87171' : energy >= 5 ? '#fbbf24' : '#34d399';
+  return `<div class="energy-bar-wrap"><div class="energy-bar" style="width:${pct}%;background:${color}"></div><span>${energy.toFixed(1)}</span></div>`;
+}
+
+// ============================================================================
+// Feature 3: Genre Color Chips
+// ============================================================================
+
+const GENRE_COLORS = ['#8b5cf6','#06b6d4','#f59e0b','#10b981','#ef4444','#ec4899','#6366f1','#14b8a6'];
+
+function genreChip(genre) {
+  if (!genre) return '—';
+  const hash = [...genre].reduce((a,c)=>a+c.charCodeAt(0),0);
+  const color = GENRE_COLORS[hash % GENRE_COLORS.length];
+  return `<span class="genre-chip" style="background:${color}22;color:${color};border:1px solid ${color}44">${escapeHtml(genre)}</span>`;
+}
+
+// ============================================================================
+// Feature 4: Column Toggle
+// ============================================================================
+
+function initColumnToggle() {
+  // Load saved column state from localStorage
+  const saved = localStorage.getItem('idlm-column-toggle');
+  window.columnVisibility = saved ? JSON.parse(saved) : {
+    bpm: true,
+    key: true,
+    energy: true,
+    genre: true,
+    subgenre: true,
+    confidence: true,
+    year: true
+  };
+}
+
+function getColumnToggleMenu() {
+  const menu = document.createElement('div');
+  menu.className = 'column-toggle-menu';
+
+  const columns = [
+    { key: 'genre', label: 'Genre' },
+    { key: 'subgenre', label: 'Sub-Genre' },
+    { key: 'bpm', label: 'BPM' },
+    { key: 'key', label: 'Key' },
+    { key: 'energy', label: 'Energy' },
+    { key: 'confidence', label: 'Confidence' },
+    { key: 'year', label: 'Year' }
+  ];
+
+  columns.forEach(col => {
+    const item = document.createElement('label');
+    item.className = 'column-toggle-item';
+    const checked = window.columnVisibility[col.key];
+    item.innerHTML = `<input type="checkbox" ${checked ? 'checked' : ''} data-column="${col.key}"> ${col.label}`;
+    item.querySelector('input').addEventListener('change', (e) => {
+      window.columnVisibility[col.key] = e.target.checked;
+      localStorage.setItem('idlm-column-toggle', JSON.stringify(window.columnVisibility));
+      renderTracks();
+    });
+    menu.appendChild(item);
+  });
+
+  return menu;
+}
+
+// ============================================================================
+// Feature 5: Status Indicators
+// ============================================================================
+
+function statusDot(status) {
+  const statusMap = {
+    'pending': 'pending',
+    'analyzed': 'analyzed',
+    'classified': 'classified',
+    'approved': 'approved',
+    'error': 'error'
+  };
+  const cls = statusMap[status] || 'pending';
+  return `<span class="status-dot status-${cls}" title="${status}"></span>`;
+}
+
+// ============================================================================
+// Feature 6: Camelot Wheel Tab
+// ============================================================================
+
+function initWheelTab() {
+  const wheelBtn = document.querySelector('[data-tab="wheel"]');
+  if (wheelBtn) {
+    wheelBtn.addEventListener('click', renderCamelotWheel);
+  }
+}
+
+function renderCamelotWheel() {
+  const svg = document.getElementById('camelot-wheel-svg');
+  const stats = document.getElementById('wheel-stats');
+
+  svg.innerHTML = '';
+
+  // Camelot wheel: 12 positions, 2 per position (A=minor, B=major)
+  const positions = [];
+  for (let i = 1; i <= 12; i++) {
+    positions.push({ num: i, key: `${i}A`, mode: 'minor' });
+    positions.push({ num: i, key: `${i}B`, mode: 'major' });
+  }
+
+  const centerX = 225, centerY = 225, outerR = 200, innerR = 140;
+  const segmentAngle = 360 / 24;
+
+  // Draw segments
+  positions.forEach((pos, idx) => {
+    const startAngle = idx * segmentAngle - 90;
+    const endAngle = (idx + 1) * segmentAngle - 90;
+
+    const isMinor = pos.mode === 'minor';
+    const startRad = (startAngle * Math.PI) / 180;
+    const endRad = (endAngle * Math.PI) / 180;
+
+    const r1 = isMinor ? innerR : innerR + (outerR - innerR) / 2;
+    const r2 = isMinor ? innerR + (outerR - innerR) / 2 : outerR;
+
+    const x1 = centerX + r1 * Math.cos(startRad);
+    const y1 = centerY + r1 * Math.sin(startRad);
+    const x2 = centerX + r2 * Math.cos(startRad);
+    const y2 = centerY + r2 * Math.sin(startRad);
+    const x3 = centerX + r2 * Math.cos(endRad);
+    const y3 = centerY + r2 * Math.sin(endRad);
+    const x4 = centerX + r1 * Math.cos(endRad);
+    const y4 = centerY + r1 * Math.sin(endRad);
+
+    const color = isMinor ? 'rgba(96,165,250,0.3)' : 'rgba(139,92,246,0.3)';
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.style.cursor = 'pointer';
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const d = `M ${x1} ${y1} L ${x2} ${y2} A ${r2} ${r2} 0 0 1 ${x3} ${y3} L ${x4} ${y4} A ${r1} ${r1} 0 0 0 ${x1} ${y1} Z`;
+    path.setAttribute('d', d);
+    path.setAttribute('fill', color);
+    path.setAttribute('stroke', isMinor ? '#60a5fa' : '#8b5cf6');
+    path.setAttribute('stroke-width', '0.5');
+
+    g.appendChild(path);
+
+    // Label
+    const midAngle = ((startAngle + endAngle) / 2 * Math.PI) / 180;
+    const labelR = (r1 + r2) / 2;
+    const lx = centerX + labelR * Math.cos(midAngle);
+    const ly = centerY + labelR * Math.sin(midAngle);
+
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', lx);
+    text.setAttribute('y', ly);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'middle');
+    text.setAttribute('font-size', '10');
+    text.setAttribute('font-weight', '600');
+    text.setAttribute('fill', isMinor ? '#60a5fa' : '#8b5cf6');
+    text.textContent = pos.key;
+
+    g.appendChild(text);
+
+    // Click to filter
+    g.addEventListener('click', () => {
+      const filtered = window.tracks.filter(t => t.final_key === pos.key);
+      showToast(`Found ${filtered.length} tracks in key ${pos.key}`, 'info');
+    });
+
+    svg.appendChild(g);
+  });
+
+  // Center circle
+  const center = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  center.setAttribute('cx', centerX);
+  center.setAttribute('cy', centerY);
+  center.setAttribute('r', 30);
+  center.setAttribute('fill', 'var(--bg-panel)');
+  center.setAttribute('stroke', 'var(--border)');
+  svg.appendChild(center);
+
+  // Render stats
+  const keyCounts = {};
+  window.tracks.forEach(t => {
+    if (t.final_key) {
+      keyCounts[t.final_key] = (keyCounts[t.final_key] || 0) + 1;
+    }
+  });
+
+  const sorted = Object.entries(keyCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 12);
+
+  stats.innerHTML = '<div class="wheel-stats-section"><h3>Top Keys</h3>' +
+    '<div>' + sorted.map(([key, count]) =>
+      `<div class="wheel-key-item"><span>${key}</span><span>${count}</span></div>`
+    ).join('') + '</div></div>';
+}
+
+// ============================================================================
+// Feature 7: Keyboard Shortcuts (Review Tab)
+// ============================================================================
+
+function initKeyboardShortcuts() {
+  // Show hints in review tab
+  const reviewTab = document.getElementById('tab-review');
+  let hintsAdded = false;
+
+  const reviewBtn = document.querySelector('[data-tab="review"]');
+  if (reviewBtn) {
+    reviewBtn.addEventListener('click', () => {
+      if (!hintsAdded) {
+        const header = reviewTab.querySelector('.tab-header');
+        const hints = document.createElement('div');
+        hints.className = 'keyboard-hints';
+        hints.innerHTML = `
+          <div class="keyboard-hints-grid">
+            <div class="keyboard-hint-item"><span class="keyboard-hint-key">↓/j</span> <span>Next</span></div>
+            <div class="keyboard-hint-item"><span class="keyboard-hint-key">↑/k</span> <span>Prev</span></div>
+            <div class="keyboard-hint-item"><span class="keyboard-hint-key">a</span> <span>Approve</span></div>
+            <div class="keyboard-hint-item"><span class="keyboard-hint-key">s</span> <span>Skip</span></div>
+            <div class="keyboard-hint-item"><span class="keyboard-hint-key">Space</span> <span>Play/Pause</span></div>
+          </div>
+        `;
+        header.parentNode.insertBefore(hints, header.nextSibling);
+        hintsAdded = true;
+      }
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    const reviewTab = document.getElementById('tab-review');
+    if (!reviewTab.classList.contains('active')) return;
+
+    const items = document.querySelectorAll('.review-item');
+    const currentBtn = document.querySelector('.review-item:first-child [data-approve-btn]');
+
+    if (e.code === 'ArrowDown' || e.key === 'j') {
+      e.preventDefault();
+      // Next track
+    } else if (e.code === 'ArrowUp' || e.key === 'k') {
+      e.preventDefault();
+      // Previous track
+    } else if (e.key === 'a') {
+      e.preventDefault();
+      const btn = document.querySelector('.review-item:first-child [data-approve-btn]');
+      if (btn) btn.click();
+    } else if (e.key === 's') {
+      e.preventDefault();
+      const btn = document.querySelector('.review-item:first-child [data-skip-btn]');
+      if (btn) btn.click();
+    } else if (e.code === 'Space') {
+      e.preventDefault();
+      document.getElementById('audio-play-pause').click();
+    }
+  });
+}
+
+// ============================================================================
+// Feature 8: Duplicates Tab
+// ============================================================================
+
+function initDuplicatesTab() {
+  const scanBtn = document.getElementById('btn-scan-duplicates');
+  if (scanBtn) {
+    scanBtn.addEventListener('click', scanForDuplicates);
+  }
+}
+
+async function scanForDuplicates() {
+  showSpinner('Scanning for duplicates...');
+  try {
+    const result = await apiFetch('/api/duplicates/scan', { method: 'POST' });
+    renderDuplicates(result.duplicates || []);
+
+    // Update badge
+    const duplicatesBtn = document.querySelector('[data-tab="duplicates"]');
+    if (result.duplicates && result.duplicates.length > 0) {
+      let badge = duplicatesBtn.querySelector('.nav-badge');
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'nav-badge';
+        duplicatesBtn.appendChild(badge);
+      }
+      badge.textContent = result.duplicates.length;
+    }
+
+    showToast(`Found ${result.duplicates ? result.duplicates.length : 0} duplicate pairs`, 'info');
+  } catch (error) {
+    showToast('Error scanning for duplicates', 'error');
+  } finally {
+    hideSpinner();
+  }
+}
+
+function renderDuplicates(duplicates) {
+  const container = document.getElementById('duplicates-results');
+  container.innerHTML = '';
+
+  if (!duplicates || duplicates.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'No duplicates found. Click "Scan for Duplicates" to begin.';
+    container.appendChild(empty);
+    return;
+  }
+
+  duplicates.forEach((pair, idx) => {
+    const div = document.createElement('div');
+    div.className = 'duplicate-pair';
+    div.innerHTML = `<h3>Duplicate Pair ${idx + 1}</h3>`;
+
+    [pair.track1, pair.track2].forEach(track => {
+      const trackDiv = document.createElement('div');
+      trackDiv.className = 'duplicate-track';
+      trackDiv.innerHTML = `
+        <div class="duplicate-track-info">
+          <div>
+            <div class="duplicate-track-title">${escapeHtml(track.display_title || 'Unknown')}</div>
+            <div class="duplicate-track-meta">${escapeHtml(track.display_artist || 'Unknown')} — ${escapeHtml(track.file_path)}</div>
+          </div>
+          <button class="btn btn-secondary duplicate-remove-btn" data-path="${encodeURIComponent(track.file_path)}">Remove</button>
+        </div>
+      `;
+
+      trackDiv.querySelector('.duplicate-remove-btn').addEventListener('click', async (e) => {
+        const path = decodeURIComponent(e.target.dataset.path);
+        await removeDuplicate(path);
+      });
+
+      div.appendChild(trackDiv);
+    });
+
+    container.appendChild(div);
+  });
+}
+
+async function removeDuplicate(filePath) {
+  showSpinner('Removing duplicate...');
+  try {
+    await apiFetch('/api/duplicates/remove', {
+      method: 'POST',
+      body: JSON.stringify({ file_path: filePath })
+    });
+
+    window.tracks = window.tracks.filter(t => t.file_path !== filePath);
+    renderTracks();
+    showToast('Track removed from library', 'success');
+
+    // Rescan to refresh UI
+    await scanForDuplicates();
+  } catch (error) {
+    showToast('Error removing duplicate', 'error');
+  } finally {
+    hideSpinner();
+  }
+}
+
+// ============================================================================
+// Feature 9: Smart Playlist Builder
+// ============================================================================
+
+function initPlaylistBuilder() {
+  // Add playlist builder to export section (review-footer area)
+  const reviewFooter = document.querySelector('.review-footer');
+  if (reviewFooter) {
+    const builder = document.createElement('div');
+    builder.className = 'playlist-builder';
+    builder.innerHTML = `
+      <h3>Build Custom Playlist</h3>
+      <div class="playlist-filters">
+        <div class="playlist-filter-group">
+          <label>Min BPM</label>
+          <input type="number" class="input-text" id="pb-bpm-min" min="40" max="200" placeholder="Min">
+        </div>
+        <div class="playlist-filter-group">
+          <label>Max BPM</label>
+          <input type="number" class="input-text" id="pb-bpm-max" min="40" max="200" placeholder="Max">
+        </div>
+        <div class="playlist-filter-group">
+          <label>Min Energy</label>
+          <input type="range" class="slider" id="pb-energy-min" min="1" max="10" value="1">
+          <span id="pb-energy-min-val">1</span>
+        </div>
+        <div class="playlist-filter-group">
+          <label>Max Energy</label>
+          <input type="range" class="slider" id="pb-energy-max" min="1" max="10" value="10">
+          <span id="pb-energy-max-val">10</span>
+        </div>
+        <div class="playlist-filter-group">
+          <label>Key</label>
+          <select class="input-select" id="pb-key">
+            <option value="">Any Key</option>
+          </select>
+        </div>
+        <div class="playlist-filter-group">
+          <label>Genre</label>
+          <select class="input-select" id="pb-genre">
+            <option value="">Any Genre</option>
+          </select>
+        </div>
+        <div class="playlist-filter-group">
+          <label>Sub-Genre</label>
+          <select class="input-select" id="pb-subgenre">
+            <option value="">Any Sub-Genre</option>
+          </select>
+        </div>
+        <div class="playlist-filter-group">
+          <label>Status</label>
+          <select class="input-select" id="pb-status">
+            <option value="">All</option>
+            <option value="approved">Approved Only</option>
+          </select>
+        </div>
+      </div>
+      <div class="playlist-filter-group">
+        <label>Playlist Filename</label>
+        <input type="text" class="input-text" id="pb-filename" placeholder="idlm-playlist">
+      </div>
+      <div class="playlist-export-buttons">
+        <button class="btn btn-primary" id="btn-export-m3u">📥 Export M3U</button>
+      </div>
+    `;
+    reviewFooter.parentNode.insertBefore(builder, reviewFooter);
+
+    // Populate genre/key selects
+    populatePlaylistFilters();
+
+    // Event listeners
+    document.getElementById('pb-energy-min').addEventListener('input', (e) => {
+      document.getElementById('pb-energy-min-val').textContent = e.target.value;
+    });
+    document.getElementById('pb-energy-max').addEventListener('input', (e) => {
+      document.getElementById('pb-energy-max-val').textContent = e.target.value;
+    });
+
+    document.getElementById('pb-genre').addEventListener('change', () => {
+      populatePlaylistSubgenres();
+    });
+
+    document.getElementById('btn-export-m3u').addEventListener('click', exportCustomPlaylist);
+  }
+}
+
+function populatePlaylistFilters() {
+  const genreSelect = document.getElementById('pb-genre');
+  const keySelect = document.getElementById('pb-key');
+
+  // Populate genres
+  Object.keys(window.taxonomy).forEach(genre => {
+    const opt = document.createElement('option');
+    opt.value = genre;
+    opt.textContent = genre;
+    genreSelect.appendChild(opt);
+  });
+
+  // Populate keys (unique from tracks)
+  const keys = new Set();
+  window.tracks.forEach(t => {
+    if (t.final_key) keys.add(t.final_key);
+  });
+
+  [...keys].sort().forEach(key => {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = key;
+    keySelect.appendChild(opt);
+  });
+}
+
+function populatePlaylistSubgenres() {
+  const genre = document.getElementById('pb-genre').value;
+  const select = document.getElementById('pb-subgenre');
+
+  select.innerHTML = '<option value="">Any Sub-Genre</option>';
+
+  if (!genre) return;
+
+  const subgenres = new Set();
+  window.tracks
+    .filter(t => t.final_genre === genre)
+    .forEach(t => {
+      if (t.final_subgenre) subgenres.add(t.final_subgenre);
+    });
+
+  [...subgenres].sort().forEach(sub => {
+    const opt = document.createElement('option');
+    opt.value = sub;
+    opt.textContent = sub;
+    select.appendChild(opt);
+  });
+}
+
+function exportCustomPlaylist() {
+  const bpmMin = document.getElementById('pb-bpm-min').value || '';
+  const bpmMax = document.getElementById('pb-bpm-max').value || '';
+  const energyMin = document.getElementById('pb-energy-min').value || '';
+  const energyMax = document.getElementById('pb-energy-max').value || '';
+  const key = document.getElementById('pb-key').value || '';
+  const genre = document.getElementById('pb-genre').value || '';
+  const subgenre = document.getElementById('pb-subgenre').value || '';
+  const status = document.getElementById('pb-status').value || '';
+  const filename = document.getElementById('pb-filename').value || 'idlm-playlist';
+
+  const params = new URLSearchParams();
+  if (bpmMin) params.append('bpm_min', bpmMin);
+  if (bpmMax) params.append('bpm_max', bpmMax);
+  if (energyMin) params.append('energy_min', energyMin);
+  if (energyMax) params.append('energy_max', energyMax);
+  if (key) params.append('key', key);
+  if (genre) params.append('genre', genre);
+  if (subgenre) params.append('subgenre', subgenre);
+  if (status) params.append('status', status);
+  params.append('filename', filename);
+
+  window.location = `/api/export/m3u?${params.toString()}`;
+  showToast('Downloading playlist...', 'info');
+}
