@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/icon_256.png" width="96" alt="IDJLM Pro logo" />
+</p>
+
 # IDJLM Pro
 
 **Intelligent DJ Library Manager** — AI-powered genre + sub-genre classification for Latin dance music libraries.
