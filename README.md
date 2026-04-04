@@ -15,7 +15,7 @@ No Python or terminal required — just open and run.
 ## What it does
 
 1. Point it at a folder of MP3s
-2. AI (Claude) classifies each track → genre + sub-genre + confidence
+2. AI classifies each track → genre + sub-genre + confidence
 3. Waveform, BPM, key (Camelot), energy analyzed automatically
 4. Review proposed tags, bulk-approve or edit individually
 5. Tags written to ID3: `GENRE`, `COMMENT` (sub-genre), `BPM`, `KEY`, `YEAR`
@@ -39,7 +39,10 @@ No Python or terminal required — just open and run.
 ## Requirements
 
 - macOS (Apple Silicon M3 supported) or Windows
-- [Anthropic API key](https://console.anthropic.com/) (required — for AI classification)
+- One of:
+  - [Anthropic API key](https://console.anthropic.com/) (optional — for AI classification)
+  - [Google Gemini API key](https://aistudio.google.com/) (optional — for AI classification)
+  - Local [Ollama](https://ollama.com) (optional — for free local AI classification)
 - Spotify API credentials (optional — for year/metadata enrichment)
 
 ## Setup (run from source)
@@ -49,9 +52,9 @@ No Python or terminal required — just open and run.
 git clone https://github.com/xonline/IDLM-Pro.git
 cd IDLM-Pro
 
-# 2. Copy the config template and add your API key
+# 2. Copy the config template and add your API key(s)
 cp config.example.env .env
-# Edit .env and set ANTHROPIC_API_KEY=your_key_here
+# Edit .env — set at least one AI key (see AI Model Options below)
 
 # 3. Launch
 ./start.sh
@@ -67,7 +70,7 @@ cp config.example.env .env
 2. Enter your MP3 folder path (e.g. `/Users/yourname/Music/Downloads`) — works with external drives
 3. Click **Import** → tracks appear with existing tags
 4. Click **Analyze All** → BPM, key (Camelot), energy, waveform, vocal/instrumental flag, tempo category
-5. Click **Classify All** → Claude AI returns genre + sub-genre + confidence
+5. Click **Classify All** → AI returns genre + sub-genre + confidence
 
 ### Review + Write
 6. **Review** tab → current vs proposed tags side by side
@@ -109,6 +112,18 @@ SPOTIFY_CLIENT_SECRET=your_client_secret
 ```
 
 Get credentials at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) (free).
+
+## AI Model Options
+
+Choose your preferred AI in the **Settings** tab. The app tries your chosen model first, then falls back to the others automatically if one isn't configured.
+
+| AI | Provider | API Key env var | Notes |
+|----|----------|-----------------|-------|
+| **Claude** | Anthropic | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/) |
+| **Gemini** | Google | `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com/) — free tier available |
+| **Ollama** | Local (free) | — | No key needed. [ollama.com](https://ollama.com) — set `OLLAMA_MODEL` in `.env` |
+
+You only need one. Set `AI_MODEL=claude`, `AI_MODEL=gemini`, or `AI_MODEL=ollama` in `.env` to set your preference.
 
 ## Changelog
 
