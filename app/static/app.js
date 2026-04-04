@@ -9,6 +9,7 @@ let taxonomy = {};
 let stats = {};
 let activeStream = null; // Track active SSE connection
 let currentAudioTrack = null; // Track currently playing in mini player
+let appVersion = "unknown"; // Version from API
 
 // === MINI PLAYER SETUP ===
 function initMiniPlayer() {
@@ -62,6 +63,7 @@ document.querySelectorAll(".nav-btn").forEach((btn) => {
     document.getElementById(`tab-${currentTab}`).style.display = "block";
     if (currentTab === "stats") loadStats();
     if (currentTab === "review") loadReview();
+    if (currentTab === "settings") loadConfidenceThreshold();
     updatePageTitle();
   });
 });
@@ -95,10 +97,19 @@ function showProgress(label) {
   document.getElementById("progress-details").innerText = "";
 }
 
-function updateProgress(done, total, track, status, details) {
+function updateProgress(done, total, track, status, details, eta, rate) {
   const percent = Math.round((done / total) * 100);
   document.getElementById("progress-bar").style.width = percent + "%";
-  document.getElementById("progress-text").innerText = `${done} / ${total} - ${track}`;
+  
+  // Build progress text with ETA and rate
+  let progressText = `Processing ${done} / ${total}`;
+  if (rate) {
+    progressText += ` · ${rate.toFixed(1)} tracks/sec`;
+  }
+  if (eta) {
+    progressText += ` · ETA: ${eta}`;
+  }
+  document.getElementById("progress-text").innerText = progressText;
   updatePageTitleDuringProgress(done, total);
   
   const detailsEl = document.getElementById("progress-details");
@@ -199,7 +210,7 @@ document.getElementById("analyze-btn")?.addEventListener("click", async () => {
         renderImportTracks();
         alert("Analysis complete!");
       } else {
-        updateProgress(data.done, data.total, data.track, data.status, data.error ? `Error: ${data.error}` : "");
+        updateProgress(data.done, data.total, data.track, data.status, data.error ? `Error: ${data.error}` : "", data.eta, data.rate);
         // Update row in table
         updateTrackRow(data.track, { bpm: data.bpm });
       }
@@ -248,7 +259,7 @@ document.getElementById("classify-btn")?.addEventListener("click", async () => {
         alert("Classification complete!");
       } else {
         const details = data.genre ? `Genre: ${data.genre} (${data.confidence * 100}%)` : "";
-        updateProgress(data.done, data.total, data.track, data.status, details);
+        updateProgress(data.done, data.total, data.track, data.status, details, data.eta, data.rate);
         // Update row in table
         updateTrackRow(data.track, { 
           classified_genre: data.genre,
@@ -383,7 +394,7 @@ async function loadReview() {
     const row = `<tr data-review-id="${t.id}">
       <td>${t.existing_title || "—"}</td>
       <td>
-        <button class="btn-play-small" onclick="playTrack('${t.id}', '${(t.existing_title || "Track").replace(/'/g, "\\'")}'', '${(t.existing_artist || "Unknown").replace(/'/g, "\\'")}'')" title="Play preview">▶</button>
+        <button class="btn-play-small" onclick="playTrack('${t.id}', '${(t.existing_title || "Track").replace(/'/g, "\\'")}', '${(t.existing_artist || "Unknown").replace(/'/g, "\\'")}')" title="Play preview">▶</button>
       </td>
       <td style="${currentStyle}">${currentGenre}</td>
       <td style="${arrowStyle}" title="${hasChange ? 'Change detected' : 'No change'}">${hasChange ? '→' : '—'}</td>
@@ -500,6 +511,17 @@ async function loadModelSettings() {
   document.getElementById("model-status").innerText = data.current || data.default;
 }
 
+async function loadConfidenceThreshold() {
+  try {
+    const res = await fetch(`${API_BASE}/settings`);
+    const data = await res.json();
+    const threshold = data.confidence_threshold || 70;
+    document.getElementById("confidence-threshold-input").value = threshold;
+  } catch (err) {
+    console.error("Failed to load confidence threshold:", err);
+  }
+}
+
 document.getElementById("save-settings-btn")?.addEventListener("click", async () => {
   const res = await fetch(`${API_BASE}/settings/`, {
     method: "POST",
@@ -530,6 +552,30 @@ document.getElementById("save-model-btn")?.addEventListener("click", async () =>
   }
 });
 
+document.getElementById("save-confidence-btn")?.addEventListener("click", async () => {
+  const threshold = parseInt(document.getElementById("confidence-threshold-input").value);
+  if (isNaN(threshold) || threshold < 0 || threshold > 100) {
+    alert("Please enter a valid number between 0 and 100");
+    return;
+  }
+  
+  try {
+    const res = await fetch(`${API_BASE}/settings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confidence_threshold: threshold }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert("Confidence threshold saved");
+    } else {
+      alert("Failed to save threshold");
+    }
+  } catch (err) {
+    alert("Error saving confidence threshold: " + err.message);
+  }
+});
+
 // === EXPORT CSV ===
 document.getElementById("export-csv-btn")?.addEventListener("click", async () => {
   window.location = `${API_BASE}/export/csv`;
@@ -538,17 +584,27 @@ document.getElementById("export-csv-btn")?.addEventListener("click", async () =>
 // === RE-CLASSIFY LOW CONFIDENCE ===
 document.getElementById("reclassify-low-confidence-btn")?.addEventListener("click", async () => {
   try {
-    // Get tracks with confidence < 70%
+    // Get the current confidence threshold (or default to 70%)
+    let threshold = 0.7;
+    try {
+      const settingsRes = await fetch(`${API_BASE}/settings`);
+      const settingsData = await settingsRes.json();
+      threshold = (settingsData.confidence_threshold || 70) / 100;
+    } catch (err) {
+      console.log("Using default threshold of 70%");
+    }
+    
+    // Get tracks with confidence below threshold
     const lowConfidenceTracks = allTracks.filter(
-      (t) => (t.classification_confidence || 0) < 0.7 && t.classified_genre
+      (t) => (t.classification_confidence || 0) < threshold && t.classified_genre
     );
     
     if (lowConfidenceTracks.length === 0) {
-      alert("No tracks found with confidence below 70%");
+      alert(`No tracks found with confidence below ${(threshold * 100).toFixed(0)}%`);
       return;
     }
     
-    if (!confirm(`Found ${lowConfidenceTracks.length} tracks below 70% confidence. Re-classify them?`)) {
+    if (!confirm(`Found ${lowConfidenceTracks.length} tracks below ${(threshold * 100).toFixed(0)}% confidence. Re-classify them?`)) {
       return;
     }
     
@@ -568,7 +624,7 @@ document.getElementById("reclassify-low-confidence-btn")?.addEventListener("clic
         alert("Re-classification complete!");
       } else {
         const details = data.genre ? `Genre: ${data.genre} (${(data.confidence * 100).toFixed(0)}%)` : "";
-        updateProgress(data.done, data.total, data.track, data.status, details);
+        updateProgress(data.done, data.total, data.track, data.status, details, data.eta, data.rate);
       }
     });
     
@@ -644,6 +700,18 @@ document.getElementById("export-m3u-btn")?.addEventListener("click", async () =>
   window.location.href = url;
 });
 
+// === VERSION ===
+async function loadVersion() {
+  try {
+    const res = await fetch(`${API_BASE}/version`);
+    const data = await res.json();
+    appVersion = data.version || "unknown";
+    document.getElementById("app-version-badge").innerText = `v${appVersion}`;
+  } catch (err) {
+    console.error("Failed to load version:", err);
+  }
+}
+
 // === MODAL CLOSE ===
 document.querySelectorAll(".modal .close").forEach((btn) => {
   btn.addEventListener("click", (e) => {
@@ -662,4 +730,5 @@ loadTracks();
 loadSettings();
 loadModelSettings();
 loadTaxonomy();
+loadVersion();
 updatePageTitle();
