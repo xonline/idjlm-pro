@@ -28,10 +28,10 @@ jobs:
 
             ## Download
 
-            | Platform | File |
-            |----------|------|
-            | Mac | `XDJ-Library-Manager-mac.zip` |
-            | Windows | `XDJ-Library-Manager-windows.zip` |
+            | Platform | Download |
+            |----------|----------|
+            | 🍎 Mac | [XDJ-Library-Manager-mac.zip](https://github.com/xonline/dj-library-manager/releases/download/latest/XDJ-Library-Manager-mac.zip) |
+            | 🪟 Windows | [XDJ-Library-Manager-windows.zip](https://github.com/xonline/dj-library-manager/releases/download/latest/XDJ-Library-Manager-windows.zip) |
 
             **Mac:** Unzip → run `install-mac.command` once → double-click `XDJ Library Manager.app`
             **Windows:** Unzip and double-click `XDJ Library Manager.exe`
