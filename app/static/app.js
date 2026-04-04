@@ -95,53 +95,35 @@ function showToast(message, type = 'info') {
 }
 
 function switchTab(tabName) {
-  // Hide all tabs
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.classList.remove('active');
-  });
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
 
-  // Deactivate all nav buttons
-  document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.classList.remove('active');
-  });
+  const tab = document.getElementById('tab-' + tabName);
+  if (tab) tab.classList.add('active');
 
-  // Show selected tab
-  const tab = document.getElementById(`tab-${tabName}`);
-  if (tab) {
-    tab.classList.add('active');
-  }
+  const btn = document.querySelector('.nav-btn[data-tab="' + tabName + '"]');
+  if (btn) btn.classList.add('active');
 
-  // Activate nav button
-  const btn = document.querySelector(`[data-tab="${tabName}"]`);
-  if (btn) {
-    btn.classList.add('active');
-  }
-
-  // Tab-specific initialization
-  if (tabName === 'organise') {
-    loadLibraryHealth();
-  }
-  if (tabName === 'setplan') {
-    loadSetplanArcs();
-    populateSetplanGenres();
-  }
+  if (tabName === 'organise') initOrganiseTab();
+  if (tabName === 'setplan') initSetPlanTab();
+  if (tabName === 'settings') initTaxonomyTab();
+  if (tabName === 'library') renderTracks();
 }
 
 // ============================================================================
 // Stats Panel
 // ============================================================================
 
-async function updateStats() {
-  try {
-    const stats = await apiFetch('/api/stats');
-    document.getElementById('stat-total').textContent = stats.total || 0;
-    document.getElementById('stat-analyzed').textContent = stats.analyzed || 0;
-    document.getElementById('stat-classified').textContent = stats.classified || 0;
-    document.getElementById('stat-approved').textContent = stats.approved || 0;
-    document.getElementById('stat-written').textContent = stats.written || 0;
-  } catch (error) {
-    // Silently fail on stats update
-  }
+function updateStats() {
+  apiFetch('/api/stats').then(data => {
+    if (!data) return;
+    const el = id => document.getElementById(id);
+    if (el('stat-total'))       el('stat-total').textContent      = data.total      ?? 0;
+    if (el('stat-analyzed'))    el('stat-analyzed').textContent   = data.analyzed   ?? 0;
+    if (el('stat-classified'))  el('stat-classified').textContent = data.classified ?? 0;
+    if (el('stat-approved'))    el('stat-approved').textContent   = data.approved   ?? 0;
+    updateToolbarButtonStates(data);
+  }).catch(() => {});
 }
 
 function startStatsPolling() {
@@ -573,10 +555,14 @@ function initImportTab() {
       });
 
       window.tracks = result.tracks || [];
-      showToast(`Imported ${result.count} tracks`, 'success');
+      showToast(`Imported ${result.count} tracks — click Analyze All to extract BPM & key`, 'success');
       btnAnalyze.disabled = false;
       startStatsPolling();
       renderTracks();
+      // Auto-save session so a refresh doesn't lose the import
+      apiFetch('/api/session/save', { method: 'POST' }).catch(() => {});
+      // Switch to Library tab so user can see what was imported
+      switchTab('library');
     } catch (error) {
       // Error already shown in apiFetch
     } finally {
@@ -652,7 +638,7 @@ function initImportTab() {
   });
 
   btnReviewTab.addEventListener('click', () => {
-    switchTab('review');
+    switchTab('library');
   });
 
   // Latin Analysis button
@@ -1159,7 +1145,8 @@ function toggleAudioPlay(btn, filePath) {
   const audio = document.getElementById('audio-player');
 
   // If different file, stop current and play new
-  if (currentAudioPlayer !== audio || audio.src !== `/api/audio/${encodeURIComponent(filePath)}`) {
+  const audioUrl = `/api/audio?path=${encodeURIComponent(filePath)}`;
+  if (currentAudioPlayer !== audio || audio.src !== audioUrl) {
     // Stop any playing audio
     audio.pause();
 
@@ -1170,7 +1157,7 @@ function toggleAudioPlay(btn, filePath) {
     });
 
     // Set new source and play
-    audio.src = `/api/audio/${encodeURIComponent(filePath)}`;
+    audio.src = audioUrl;
     currentAudioPlayer = audio;
 
     audio.play().catch(err => {
@@ -2018,6 +2005,14 @@ function initEditModal() {
   addGenreModal.addEventListener('click', (e) => {
     if (e.target === addGenreModal) {
       addGenreModal.style.display = 'none';
+    }
+  });
+
+  // Close modals with Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (modal.style.display !== 'none') modal.style.display = 'none';
+      if (addGenreModal.style.display !== 'none') addGenreModal.style.display = 'none';
     }
   });
 }
@@ -3187,95 +3182,13 @@ async function handleBulkEdit() {
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Theme
-  initTheme();
-  document.getElementById('btn-theme-toggle').addEventListener('click', toggleTheme);
-
-  // Nav tab switching
-  document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      switchTab(btn.dataset.tab);
-    });
-  });
-
-  // Initialize tabs
-  initImportTab();
-  initTracksTab();
-  initReviewTab();
-  initTaxonomyTab();
-  initStatsTab();
-  initSettingsTab();
-  initEditModal();
-
-  // Load initial data
-  apiFetch('/api/taxonomy')
-    .then(data => {
-      window.taxonomy = data.genres || {};
-      populateGenreFilters();
-      renderTaxonomy();
-    });
-
-  updateStats();
-
-  // Focus on first input
-  const folderInput = document.getElementById('folder-input');
-  if (folderInput) {
-    folderInput.focus();
-  }
-
-  // Initialize new features
-  initAudioPlayer();
-  initWheelTab();
-  initDuplicatesTab();
-  initPlaylistBuilder();
-  initKeyboardShortcuts();
-  initColumnToggle();
-
-  // Initialize Round 2 features
-  initSearchFeature();
-  initBulkSelectFeature();
-  initSetlistTab();
-  initAppleMusicSync();
-  initExportFeature();
-  updateSettingsSaveHandler();
-
-  // Wire organise tab button listeners
-  document.getElementById('btn-refresh-health')?.addEventListener('click', loadLibraryHealth);
-  document.getElementById('btn-parse-filenames')?.addEventListener('click', parseFilenames);
-  document.getElementById('btn-organise-preview')?.addEventListener('click', previewOrganise);
-  document.getElementById('btn-organise-run')?.addEventListener('click', runOrganise);
-  document.getElementById('btn-validate-keys')?.addEventListener('click', validateKeys);
-
-  // Wire set planner button listeners
-  document.getElementById('btn-generate-set')?.addEventListener('click', generateSet);
-
-  // Setup track detail panel close button
-  const trackDetailClose = document.getElementById('track-detail-close');
-  if (trackDetailClose) {
-    trackDetailClose.addEventListener('click', closeTrackDetail);
-  }
-
-  // Setup bulk edit modal handlers
-  const bulkEditForm = document.getElementById('bulk-edit-form');
-  if (bulkEditForm) {
-    bulkEditForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      await handleBulkEdit();
-    });
-  }
-
-  // Close modals when clicking overlay
-  document.getElementById('track-detail-overlay')?.addEventListener('click', closeTrackDetail);
-  document.getElementById('export-format-modal')?.addEventListener('click', (e) => {
-    if (e.target.id === 'export-format-modal') {
-      e.target.style.display = 'none';
-    }
-  });
-  document.getElementById('bulk-edit-modal')?.addEventListener('click', (e) => {
-    if (e.target.id === 'bulk-edit-modal') {
-      e.target.style.display = 'none';
-    }
-  });
+  initLibraryToolbar();
+  initThemeToggle();
+  initNavigation();
+  startStatsPolling();
+  loadTaxonomy();
+  renderTracks();
+  checkResumeSession();
 });
 
 // ============================================================================
@@ -3346,7 +3259,7 @@ function playTrack(track) {
   currentPlayingTrack = track;
   currentTrackIndex = window.tracks.indexOf(track);
 
-  audio.src = `/api/audio/${encodeURIComponent(track.file_path)}`;
+  audio.src = `/api/audio?path=${encodeURIComponent(track.file_path)}`;
   document.getElementById('audio-track-title').textContent = track.display_title || 'Unknown';
   document.getElementById('audio-track-artist').textContent = track.display_artist || 'Unknown';
 
