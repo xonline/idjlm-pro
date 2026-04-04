@@ -645,6 +645,118 @@ function initImportTab() {
   btnReviewTab.addEventListener('click', () => {
     switchTab('review');
   });
+
+  // Latin Analysis button
+  const btnAnalyzeLatin = document.getElementById('btn-analyze-latin');
+  const btnValidateTags = document.getElementById('btn-validate-tags');
+
+  btnAnalyzeLatin.addEventListener('click', async () => {
+    if (!window.tracks.length) {
+      showToast('No tracks to analyze', 'error');
+      return;
+    }
+
+    showProgressBar(0, window.tracks.length);
+    try {
+      const result = await apiFetch('/api/analyze/latin', {
+        method: 'POST',
+        body: JSON.stringify({ all: true }),
+      });
+
+      // Use SSE progress pattern to stream updates
+      connectToProgress(result.op_id, result.total, (progress) => {
+        updateProgressBar(progress);
+      }, async () => {
+        // When complete, fetch final results
+        const finalResult = await apiFetch(`/api/analyze/latin/${result.op_id}`);
+
+        // Update tracks with analysis results
+        if (finalResult.analyzed && Array.isArray(finalResult.analyzed)) {
+          finalResult.analyzed.forEach(analyzed => {
+            const track = window.tracks.find(t => t.file_path === analyzed.file_path);
+            if (track) {
+              track.clave_pattern = analyzed.clave_pattern;
+              track.clave_confidence = analyzed.clave_confidence;
+              track.suggested_cues = analyzed.suggested_cues || [];
+              track.latin_analysis_done = true;
+            }
+          });
+        }
+
+        hideProgressBar();
+        showToast('Latin analysis complete', 'success');
+        renderTracks();
+        renderReview();
+      });
+    } catch (error) {
+      hideProgressBar();
+      // Error already shown in apiFetch
+    }
+  });
+
+  // Tag Validator button
+  btnValidateTags.addEventListener('click', async () => {
+    if (!window.tracks.length) {
+      showToast('No tracks to validate', 'error');
+      return;
+    }
+
+    showSpinner('Validating tags...');
+    try {
+      const result = await apiFetch('/api/validate/tags', {
+        method: 'GET',
+      });
+
+      // Render validation results
+      const resultsContainer = document.getElementById('validator-results');
+      resultsContainer.innerHTML = '';
+
+      if (result.issues && result.issues.length > 0) {
+        result.issues.forEach(issue => {
+          const trackEl = document.createElement('div');
+          trackEl.className = 'validator-track-item';
+
+          const titleEl = document.createElement('div');
+          titleEl.className = 'track-title-artist';
+          titleEl.innerHTML = `<strong>${escapeHtml(issue.track_title || 'Unknown')}</strong><br><small>${escapeHtml(issue.track_artist || 'Unknown')}</small>`;
+          trackEl.appendChild(titleEl);
+
+          const issuesEl = document.createElement('div');
+          issuesEl.className = 'validator-issues';
+
+          if (issue.missing_tags && issue.missing_tags.length > 0) {
+            issue.missing_tags.forEach(tag => {
+              const chip = document.createElement('span');
+              chip.className = 'validator-issue-chip';
+              chip.textContent = `Missing: ${tag}`;
+              issuesEl.appendChild(chip);
+            });
+          }
+
+          if (issue.invalid_tags && issue.invalid_tags.length > 0) {
+            issue.invalid_tags.forEach(tag => {
+              const chip = document.createElement('span');
+              chip.className = 'validator-issue-chip';
+              chip.textContent = `Invalid: ${tag}`;
+              issuesEl.appendChild(chip);
+            });
+          }
+
+          trackEl.appendChild(issuesEl);
+          resultsContainer.appendChild(trackEl);
+        });
+
+        showToast(`Found ${result.issues.length} track(s) with tag issues`, 'warning');
+      } else {
+        resultsContainer.innerHTML = '<p style="color: #22c55e;">All tracks have valid tags ✓</p>';
+        showToast('All tracks validated successfully', 'success');
+      }
+    } catch (error) {
+      // Error already shown
+    } finally {
+      hideSpinner();
+    }
+  });
 }
 
 // Session & Watcher Helpers
@@ -839,7 +951,7 @@ function renderTracks() {
     const row = document.createElement('tr');
     row.className = 'empty-state';
     const cell = document.createElement('td');
-    cell.colSpan = '12';
+    cell.colSpan = '13';
     cell.textContent = 'No tracks match filters';
     row.appendChild(cell);
     tbody.appendChild(row);
@@ -915,6 +1027,19 @@ function renderTracks() {
     const tdKey = document.createElement('td');
     tdKey.textContent = track.final_key || '—';
     row.appendChild(tdKey);
+
+    // Clave
+    const tdClave = document.createElement('td');
+    if (track.latin_analysis_done && track.clave_pattern) {
+      const claveBadge = document.createElement('span');
+      claveBadge.className = `clave-badge ${track.clave_pattern === '2-3' ? 'clave-badge-2-3' : 'clave-badge-3-2'}`;
+      claveBadge.textContent = track.clave_pattern;
+      tdClave.appendChild(claveBadge);
+    } else {
+      tdClave.textContent = '—';
+      tdClave.style.color = 'var(--text-muted)';
+    }
+    row.appendChild(tdClave);
 
     // Year
     const tdYear = document.createElement('td');
@@ -1081,7 +1206,12 @@ function initReviewTab() {
 
   // Export all approved
   btnExportAll.addEventListener('click', () => {
-    window.location = '/api/export/m3u?status=approved';
+    const split = document.getElementById('checkbox-split-m3u').checked;
+    let url = '/api/export/m3u?status=approved';
+    if (split) {
+      url += '&split=true';
+    }
+    window.location = url;
     exportMenu.style.display = 'none';
     showToast('Downloading playlist...', 'info');
   });
@@ -1091,6 +1221,45 @@ function initReviewTab() {
     showGenreSelector();
     exportMenu.style.display = 'none';
   });
+
+  // Split M3U checkbox
+  const checkboxSplitM3u = document.getElementById('checkbox-split-m3u');
+  if (checkboxSplitM3u) {
+    checkboxSplitM3u.addEventListener('change', () => {
+      // Store checkbox state in session storage
+      sessionStorage.setItem('splitM3u', checkboxSplitM3u.checked);
+    });
+  }
+
+  // Export cue sheet
+  const btnExportCueSheet = document.getElementById('btn-export-cue-sheet');
+  if (btnExportCueSheet) {
+    btnExportCueSheet.addEventListener('click', async () => {
+      try {
+        // Fetch cue sheet data
+        const result = await apiFetch('/api/export/cue-sheet', {
+          method: 'GET',
+        });
+
+        // Convert to JSON and trigger download
+        const dataStr = JSON.stringify(result, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `cue-sheet-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        exportMenu.style.display = 'none';
+        showToast('Cue sheet exported', 'success');
+      } catch (error) {
+        // Error already shown in apiFetch
+      }
+    });
+  }
 
   slider.addEventListener('input', () => {
     const value = slider.value;
@@ -2195,6 +2364,46 @@ function openTrackDetail(track) {
 
     ${aiSection}
 
+    ${track.clave_pattern ? `
+      <div class="track-detail-section">
+        <h4>Clave Analysis</h4>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <span class="clave-badge ${track.clave_pattern === '2-3' ? 'clave-badge-2-3' : 'clave-badge-3-2'}">
+            ${track.clave_pattern}
+          </span>
+          <span style="font-size: 12px; color: #999;">
+            Confidence: ${track.clave_confidence ? Math.round(track.clave_confidence * 100) : '0'}%
+          </span>
+        </div>
+      </div>
+    ` : ''}
+
+    <div class="track-detail-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h4>Cue Points</h4>
+        <button class="btn btn-small" data-action="analyze-cue-points" data-file-path="${track.file_path}">Run Cue Analysis</button>
+      </div>
+      <div id="cue-points-list" style="display: flex; flex-direction: column; gap: 8px;">
+        ${track.suggested_cues && track.suggested_cues.length > 0 ? track.suggested_cues.map(cue => `
+          <div class="cue-point-item">
+            <span class="cue-point-dot ${cue.hot_cue ? 'cue-point-dot-hot' : cue.loop ? 'cue-point-dot-loop' : ''}"></span>
+            <span class="cue-time">${formatTime(cue.time)}</span>
+            <span class="cue-label">${escapeHtml(cue.label || 'Cue Point')}</span>
+          </div>
+        `).join('') : '<p style="color: #999; font-size: 12px;">No cue points analyzed yet</p>'}
+      </div>
+    </div>
+
+    <div class="track-detail-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h4>Mix Suggestions</h4>
+        <button class="btn btn-small" data-action="find-mix-matches" data-file-path="${track.file_path}">Find Compatible Tracks</button>
+      </div>
+      <div id="mix-suggestions-list" style="display: flex; flex-direction: column; gap: 8px;">
+        <p style="color: #999; font-size: 12px;">Click "Find Compatible Tracks" to discover mixes</p>
+      </div>
+    </div>
+
     <div class="track-detail-actions">
       <button class="btn btn-primary" onclick="addTrackToSetlist('${track.file_path.replace(/'/g, "\\'")}')">Add to Setlist</button>
     </div>
@@ -2202,6 +2411,92 @@ function openTrackDetail(track) {
 
   overlay.classList.add('open');
   panel.classList.add('open');
+
+  // Attach event listeners for track detail buttons
+  const cueAnalysisBtn = panel.querySelector('[data-action="analyze-cue-points"]');
+  const mixMatchesBtn = panel.querySelector('[data-action="find-mix-matches"]');
+
+  if (cueAnalysisBtn) {
+    cueAnalysisBtn.addEventListener('click', async () => {
+      const filePath = cueAnalysisBtn.dataset.filePath;
+      const currentTrack = window.tracks.find(t => t.file_path === filePath);
+      if (!currentTrack) return;
+
+      showSpinner('Analyzing cue points...');
+      try {
+        const result = await apiFetch('/api/analyze/latin', {
+          method: 'POST',
+          body: JSON.stringify({ paths: [filePath] }),
+        });
+
+        // Update track with cue analysis results
+        if (result.analyzed && result.analyzed.length > 0) {
+          const analyzed = result.analyzed[0];
+          currentTrack.clave_pattern = analyzed.clave_pattern;
+          currentTrack.clave_confidence = analyzed.clave_confidence;
+          currentTrack.suggested_cues = analyzed.suggested_cues || [];
+          currentTrack.latin_analysis_done = true;
+
+          // Update the cue points list in the panel
+          const cueList = panel.querySelector('#cue-points-list');
+          if (cueList && currentTrack.suggested_cues.length > 0) {
+            cueList.innerHTML = currentTrack.suggested_cues.map(cue => `
+              <div class="cue-point-item">
+                <span class="cue-point-dot ${cue.hot_cue ? 'cue-point-dot-hot' : cue.loop ? 'cue-point-dot-loop' : ''}"></span>
+                <span class="cue-time">${formatTime(cue.time)}</span>
+                <span class="cue-label">${escapeHtml(cue.label || 'Cue Point')}</span>
+              </div>
+            `).join('');
+          }
+        }
+
+        showToast('Cue points analyzed', 'success');
+      } catch (error) {
+        // Error already shown
+      } finally {
+        hideSpinner();
+      }
+    });
+  }
+
+  if (mixMatchesBtn) {
+    mixMatchesBtn.addEventListener('click', async () => {
+      const filePath = mixMatchesBtn.dataset.filePath;
+      const currentTrack = window.tracks.find(t => t.file_path === filePath);
+      if (!currentTrack) return;
+
+      showSpinner('Finding compatible tracks...');
+      try {
+        const result = await apiFetch(`/api/mixes/compatible/${encodeURIComponent(filePath)}`, {
+          method: 'GET',
+        });
+
+        // Render mix suggestions
+        const mixList = panel.querySelector('#mix-suggestions-list');
+        if (mixList && result.compatible_tracks && result.compatible_tracks.length > 0) {
+          mixList.innerHTML = result.compatible_tracks.map(match => `
+            <div class="mix-suggestion-item">
+              <div class="mix-suggestion-content">
+                <div class="mix-suggestion-title">${escapeHtml(match.track.display_title || 'Unknown')}</div>
+                <div class="mix-suggestion-artist">${escapeHtml(match.track.display_artist || 'Unknown')}</div>
+              </div>
+              <span class="mix-score-badge ${match.score >= 80 ? 'mix-score-high' : match.score >= 60 ? 'mix-score-medium' : 'mix-score-low'}">
+                ${Math.round(match.score)}%
+              </span>
+            </div>
+          `).join('');
+        } else {
+          mixList.innerHTML = '<p style="color: #999; font-size: 12px;">No compatible tracks found</p>';
+        }
+
+        showToast('Found compatible tracks', 'success');
+      } catch (error) {
+        // Error already shown
+      } finally {
+        hideSpinner();
+      }
+    });
+  }
 }
 
 function closeTrackDetail() {
