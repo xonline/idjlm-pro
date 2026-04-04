@@ -1,0 +1,88 @@
+from dataclasses import dataclass, field, asdict
+from typing import Optional
+
+
+@dataclass
+class Track:
+    # Identity
+    file_path: str
+    filename: str
+
+    # Existing ID3 tags (read from file)
+    existing_title: Optional[str] = None
+    existing_artist: Optional[str] = None
+    existing_album: Optional[str] = None
+    existing_year: Optional[str] = None
+    existing_genre: Optional[str] = None
+    existing_comment: Optional[str] = None
+    existing_bpm: Optional[str] = None
+    existing_key: Optional[str] = None
+
+    # Audio analysis (librosa)
+    analyzed_bpm: Optional[float] = None
+    analyzed_key: Optional[str] = None       # Camelot notation e.g. "8B"
+    analyzed_energy: Optional[int] = None    # 1-10
+    analysis_done: bool = False
+
+    # AI classification
+    proposed_genre: Optional[str] = None
+    proposed_subgenre: Optional[str] = None
+    confidence: Optional[int] = None          # 0-100
+    reasoning: Optional[str] = None
+    classification_done: bool = False
+
+    # Spotify enrichment
+    spotify_title: Optional[str] = None
+    spotify_artist: Optional[str] = None
+    spotify_year: Optional[str] = None
+    spotify_genres: list = field(default_factory=list)
+    enrichment_done: bool = False
+
+    # Review state: "pending" | "approved" | "skipped" | "edited"
+    review_status: str = "pending"
+
+    # User overrides (set during review)
+    override_genre: Optional[str] = None
+    override_subgenre: Optional[str] = None
+    override_bpm: Optional[str] = None
+    override_key: Optional[str] = None
+    override_year: Optional[str] = None
+
+    # Write state
+    tags_written: bool = False
+    error: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @property
+    def display_title(self) -> str:
+        return self.existing_title or self.spotify_title or self.filename
+
+    @property
+    def display_artist(self) -> str:
+        return self.existing_artist or self.spotify_artist or "Unknown"
+
+    @property
+    def final_genre(self) -> Optional[str]:
+        return self.override_genre or self.proposed_genre
+
+    @property
+    def final_subgenre(self) -> Optional[str]:
+        return self.override_subgenre or self.proposed_subgenre
+
+    @property
+    def final_bpm(self) -> Optional[str]:
+        if self.override_bpm:
+            return self.override_bpm
+        if self.analyzed_bpm:
+            return str(round(self.analyzed_bpm))
+        return self.existing_bpm
+
+    @property
+    def final_key(self) -> Optional[str]:
+        return self.override_key or self.analyzed_key or self.existing_key
+
+    @property
+    def final_year(self) -> Optional[str]:
+        return self.override_year or self.existing_year or self.spotify_year

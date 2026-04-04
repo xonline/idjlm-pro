@@ -1,0 +1,179 @@
+import os
+import subprocess
+import sys
+from flask import Blueprint, request, jsonify
+
+bp = Blueprint("import", __name__, url_prefix="/api")
+
+
+@bp.route("/pick-folder", methods=["GET"])
+def pick_folder():
+    """Open a native folder picker dialog and return the chosen path."""
+    try:
+        if sys.platform == "darwin":
+            result = subprocess.run(
+                ["osascript", "-e",
+                 'POSIX path of (choose folder with prompt "Select your music folder:")'],
+                capture_output=True, text=True, timeout=60
+            )
+            if result.returncode != 0:
+                # User cancelled
+                return jsonify({"cancelled": True}), 200
+            path = result.stdout.strip()
+            return jsonify({"path": path}), 200
+        else:
+            return jsonify({"error": "Folder picker only supported on macOS"}), 400
+    except subprocess.TimeoutExpired:
+        return jsonify({"cancelled": True}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/import", methods=["POST"])
+def import_tracks():
+    """
+    Import MP3 tracks from a folder.
+    POST /api/import
+    body: { "folder_path": "/path/to/folder" }
+    """
+    try:
+        data = request.get_json()
+        folder_path = data.get("folder_path", "").strip()
+
+        if not folder_path:
+            return jsonify({"error": "folder_path is required"}), 400
+
+        if not os.path.exists(folder_path):
+            return jsonify({"error": f"Folder does not exist: {folder_path}"}), 400
+
+        if not os.path.isdir(folder_path):
+            return jsonify({"error": f"Path is not a directory: {folder_path}"}), 400
+
+        # Verify folder is readable
+        if not os.access(folder_path, os.R_OK):
+            return jsonify({"error": f"Folder is not readable: {folder_path}"}), 400
+
+        # Import scanner service
+        from app.services.scanner import scan_folder
+        from app import get_track_store
+
+        # Clear previous session and scan
+        track_store = get_track_store()
+        track_store.clear()
+        tracks = scan_folder(folder_path)
+
+        # Store tracks in memory by file_path
+        for track in tracks:
+            track_store[track.file_path] = track
+
+        return jsonify({
+            "count": len(tracks),
+            "tracks": [t.to_dict() for t in tracks]
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/analyze", methods=["POST"])
+def analyze_tracks():
+    """
+    Analyze tracks for BPM, key, energy.
+    POST /api/analyze
+    body: { "track_paths": ["/path1", "/path2"] }  # or empty list = all tracks
+    """
+    try:
+        from app.services.analyzer import analyze_track
+        from app import get_track_store
+
+        data = request.get_json() or {}
+        track_paths = data.get("track_paths", [])
+        track_store = get_track_store()
+
+        # If empty, analyze all tracks
+        if not track_paths:
+            track_paths = list(track_store.keys())
+
+        analyzed = 0
+        errors = []
+
+        for file_path in track_paths:
+            if file_path not in track_store:
+                errors.append({
+                    "path": file_path,
+                    "error": "Track not found in store"
+                })
+                continue
+
+            try:
+                track = track_store[file_path]
+                analyze_track(track)
+                analyzed += 1
+            except Exception as e:
+                errors.append({
+                    "path": file_path,
+                    "error": str(e)
+                })
+
+        return jsonify({
+            "analyzed": analyzed,
+            "errors": errors
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/classify", methods=["POST"])
+def classify_tracks():
+    """
+    Classify tracks by genre and enrich metadata.
+    POST /api/classify
+    body: { "track_paths": ["/path1", "/path2"] }  # or empty = all analyzed tracks
+    """
+    try:
+        from app.services.classifier import classify_tracks as classify_service
+        from app.services.enricher import enrich_tracks as enrich_service
+        from app import get_track_store, get_taxonomy
+
+        data = request.get_json() or {}
+        track_paths = data.get("track_paths", [])
+        track_store = get_track_store()
+
+        # If empty, classify all analyzed tracks
+        if not track_paths:
+            track_paths = [
+                fp for fp, t in track_store.items() if t.analysis_done
+            ]
+
+        classified = 0
+        errors = []
+
+        for file_path in track_paths:
+            if file_path not in track_store:
+                errors.append({
+                    "path": file_path,
+                    "error": "Track not found in store"
+                })
+                continue
+
+            try:
+                track = track_store[file_path]
+                # Classify
+                classify_service([track], get_taxonomy())
+                # Enrich
+                enrich_service([track])
+                classified += 1
+            except Exception as e:
+                errors.append({
+                    "path": file_path,
+                    "error": str(e)
+                })
+
+        return jsonify({
+            "classified": classified,
+            "errors": errors
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

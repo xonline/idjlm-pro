@@ -1,0 +1,64 @@
+{
+  "genres": {
+    "Salsa": {
+      "description": "Cuban-origin dance music, 4/4 time, typically 160-220 BPM. Clave rhythm is foundational.",
+      "subgenres": {
+        "Romántica": "Slow, melodic, romantic lyrics. 160-180 BPM. Smooth arrangements, love songs. Artists: Marc Anthony, Jerry Rivera, La India.",
+        "Dura": "Hard, aggressive, percussive. 180-220 BPM. Heavy brass, complex rhythms. On2 style. Artists: El Gran Combo, Richie Ray.",
+        "Mambo": "Big band era style, jazz-influenced. 180-210 BPM. Heavy brass sections. Artists: Tito Puente, Tito Rodriguez.",
+        "Jazz/Instrumental": "Instrumental tracks, jazz fusion elements. Complex chord changes. Artists: Eddie Palmieri, Chucho Valdés.",
+        "Son Cubano": "Traditional Cuban roots. Slower, more relaxed feel. Guitar-driven, tres guitar. Artists: Buena Vista Social Club.",
+        "Timba": "Cuban salsa, aggressive, funky. Complex rhythms, conga-heavy, funk bass lines. Artists: Los Van Van, NG La Banda.",
+        "Salsa Choke": "Colombian urban variant. Slower BPM 90-120. Modern urban beats mixed with salsa elements."
+      }
+    },
+    "Bachata": {
+      "description": "Dominican music and dance. 4/4 time, typically 120-160 BPM. Guitar-driven with characteristic bass pattern.",
+      "subgenres": {
+        "Dominicana/Tradicional": "Traditional Dominican roots. Acoustic guitar, bongos. Raw, authentic sound. Artists: Luis Vargas, Antony Santos.",
+        "Moderna": "Modern polished production. Smooth vocals, cleaner sound. Mid-range BPM 130-150. Artists: Romeo Santos, Prince Royce.",
+        "Sensual": "Slow, sensual, dramatic. 120-135 BPM. Body wave movements. Deep bass, atmospheric. Artists: Bachata Heightz, Jorge Celedón.",
+        "Remix/Urbana": "Urban/reggaeton crossover. Electronic beats mixed with bachata guitar. 130-160 BPM. Artists: Ozuna, Bad Bunny remixes."
+      }
+    },
+    "Kizomba": {
+      "description": "Angolan music genre. Slow, sensual, 4/4 time. Typically 55-90 BPM. Strong bass, electronic production.",
+      "subgenres": {
+        "Kizomba Clássica": "Traditional kizomba. Slow, sensual, deep bass. 55-80 BPM. Zouk-influenced. Artists: Eduardo Paim, Anselmo Ralph.",
+        "Semba": "Older Angolan predecessor to kizomba. More upbeat, playful. 85-100 BPM. Traditional instrumentation.",
+        "Ghetto Zouk": "Cape Verdean variant (also called Cabo Love). Melodic, urban. 65-85 BPM. Smooth vocals.",
+        "Tarraxinha": "Ultra-slow, micro-movement style. 40-60 BPM. Minimal beat, heavy bass drops. Very sensual.",
+        "Urban Kiz": "Modern fusion, electronic/R&B influence. 70-90 BPM. Contemporary beats."
+      }
+    },
+    "Cha Cha": {
+      "description": "Cuban dance music, offshoot of mambo. 4/4 time, 110-130 BPM. Characteristic cha-cha-cha rhythm.",
+      "subgenres": {
+        "Clásico": "Traditional cha cha. Big band, classic arrangements. Artists: Orquesta Aragón.",
+        "Moderno": "Modern production, updated sound while keeping cha cha rhythm."
+      }
+    },
+    "Merengue": {
+      "description": "Dominican dance music. Very fast 2/4 time. 130-200 BPM. Accordion and tambora drum.",
+      "subgenres": {
+        "Clásico": "Traditional merengue. Accordion-led. Artists: Juan Luis Guerra.",
+        "Urbano": "Modern urban merengue with electronic influences."
+      }
+    },
+    "Reggaeton": {
+      "description": "Puerto Rican urban genre. Dembow rhythm pattern. 80-100 BPM.",
+      "subgenres": {
+        "Clásico": "Classic reggaeton sound. Artists: Daddy Yankee, Don Omar.",
+        "Moderno": "Modern trap-influenced reggaeton.",
+        "Latin Trap": "Trap beats with Spanish lyrics."
+      }
+    },
+    "Zouk": {
+      "description": "Caribbean music from Guadeloupe/Martinique. Slow, romantic. 70-90 BPM.",
+      "subgenres": {
+        "Brazilian Zouk": "Brazilian adaptation, very fluid and sensual dance style.",
+        "Lambazouk": "Fusion of lambada and zouk."
+      }
+    }
+  }
+}

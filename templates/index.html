@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IDLM Pro</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="logo">
+        <span class="logo-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="9"/></svg></span>
+        <span class="logo-text">DJ Library</span>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-btn active" data-tab="import">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+          <span>Import</span>
+        </button>
+        <button class="nav-btn" data-tab="tracks">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
+          <span>Tracks</span>
+        </button>
+        <button class="nav-btn" data-tab="review">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+          <span>Review</span>
+        </button>
+        <button class="nav-btn" data-tab="taxonomy">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
+          <span>Taxonomy</span>
+        </button>
+        <button class="nav-btn" data-tab="stats">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg></span>
+          <span>Stats</span>
+        </button>
+        <button class="nav-btn" data-tab="settings">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+          <span>Settings</span>
+        </button>
+      </nav>
+
+      <!-- Theme Toggle -->
+      <button class="theme-toggle" id="btn-theme-toggle">
+        <span id="theme-icon">☀️</span>
+        <span id="theme-label">Light Mode</span>
+      </button>
+
+      <!-- Stats Panel -->
+      <div class="stats-panel" id="stats">
+        <div class="stat-row">
+          <span class="stat-label">Total Tracks</span>
+          <span class="stat-value" id="stat-total">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Analyzed</span>
+          <span class="stat-value" id="stat-analyzed">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Classified</span>
+          <span class="stat-value" id="stat-classified">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Approved</span>
+          <span class="stat-value" id="stat-approved">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Written</span>
+          <span class="stat-value" id="stat-written">0</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="content">
+
+      <!-- Import Tab -->
+      <section id="tab-import" class="tab active">
+        <div class="tab-header">
+          <div class="tab-header-left">
+            <h1>Import Music Library</h1>
+            <p>Scan a folder of MP3s to begin tagging</p>
+          </div>
+        </div>
+
+        <!-- Resume Session Banner -->
+        <div id="resume-session-banner" class="resume-banner" style="display: none;">
+          <div class="resume-banner-content">
+            <span id="resume-banner-text"></span>
+            <div class="resume-banner-actions">
+              <button id="btn-resume-session" class="btn btn-primary" style="padding: 8px 14px; font-size: 13px;">Resume</button>
+              <button id="btn-dismiss-session" class="btn btn-secondary" style="padding: 8px 14px; font-size: 13px;">Dismiss</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="import-form">
+          <button id="btn-choose-folder" class="btn btn-choose-folder">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            Choose Music Folder
+          </button>
+          <div id="chosen-folder-display" class="chosen-folder" style="display:none;">
+            <span class="chosen-folder-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+            <span id="chosen-folder-path" class="chosen-folder-path"></span>
+            <button id="btn-import" class="btn btn-primary btn-import-go">Import</button>
+          </div>
+          <input type="hidden" id="folder-input">
+        </div>
+
+        <div class="pipeline-section">
+          <h2>Processing Pipeline</h2>
+          <div class="pipeline-steps">
+            <div class="step">
+              <button id="btn-analyze" class="btn btn-secondary" disabled>
+                <span class="step-number">1</span>
+                Analyze Audio
+              </button>
+              <div class="step-description">Extracts BPM, musical key, and energy from audio</div>
+            </div>
+
+            <div class="arrow">→</div>
+
+            <div class="step">
+              <button id="btn-classify" class="btn btn-secondary" disabled>
+                <span class="step-number">2</span>
+                Classify Genres
+              </button>
+              <div class="step-description">Uses Gemini AI to suggest genre and sub-genre</div>
+            </div>
+
+            <div class="arrow">→</div>
+
+            <div class="step">
+              <button id="btn-review-tab" class="btn btn-secondary" disabled>
+                <span class="step-number">3</span>
+                Review & Approve
+              </button>
+              <div class="step-description">Review suggestions before writing to files</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="import-status" class="status-area" style="display: none;">
+          <div class="status-message" id="status-message"></div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Session & Folder Watch Controls -->
+        <div class="import-controls-section">
+          <div class="controls-row">
+            <button id="btn-save-session" class="btn btn-secondary">💾 Save Session</button>
+            <button id="btn-toggle-watch" class="btn btn-secondary" data-watching="false">👁️ Watch Folder (Off)</button>
+            <span id="watch-status" class="watch-status-text"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tracks Tab -->
+      <section id="tab-tracks" class="tab">
+        <div class="tab-header">
+          <div class="tab-header-left">
+            <h1>Music Library</h1>
+            <p>All imported tracks with their current and suggested tags</p>
+          </div>
+          <div class="controls-row">
+            <div class="filter-controls">
+              <select id="filter-genre" class="input-select">
+                <option value="">All Genres</option>
+              </select>
+              <select id="filter-status" class="input-select">
+                <option value="">All Status</option>
+                <option value="pending">Pending Review</option>
+                <option value="approved">Approved</option>
+                <option value="skipped">Skipped</option>
+                <option value="written">Written</option>
+              </select>
+            </div>
+            <div class="search-controls">
+              <input
+                type="text"
+                id="search-tracks"
+                placeholder="Search title or artist…"
+                class="input-text"
+              >
+            </div>
+          </div>
+        </div>
+
+        <div class="tracks-container">
+          <table class="tracks-table">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="display_title">Title</th>
+                <th class="sortable" data-sort="display_artist">Artist</th>
+                <th class="sortable" data-sort="final_genre">Genre</th>
+                <th class="sortable" data-sort="final_subgenre">Sub-Genre</th>
+                <th class="sortable" data-sort="confidence">Confidence</th>
+                <th class="sortable" data-sort="final_bpm">BPM</th>
+                <th class="sortable" data-sort="final_key">Key</th>
+                <th class="sortable" data-sort="final_year">Year</th>
+                <th class="sortable" data-sort="review_status">Status</th>
+                <th style="text-align: center;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="tracks-tbody">
+              <tr class="empty-state">
+                <td colspan="10">No tracks imported yet</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination-info">
+          <span id="tracks-count">0 tracks</span>
+        </div>
+      </section>
+
+      <!-- Review Tab -->
+      <section id="tab-review" class="tab">
+        <div class="tab-header">
+          <div class="tab-header-left">
+            <h1>Review &amp; Approve</h1>
+            <p>Check AI-suggested tags before writing to files</p>
+          </div>
+          <div class="review-controls">
+            <div class="threshold-control">
+              <label for="confidence-slider">Min. Confidence</label>
+              <input
+                type="range"
+                id="confidence-slider"
+                min="50"
+                max="100"
+                value="80"
+                class="slider"
+              >
+              <span id="confidence-value">80%</span>
+              <button id="btn-bulk-approve" class="btn btn-primary">
+                Bulk Approve ≥ <span id="threshold-pct">80</span>%
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="review-list" id="review-list">
+          <div class="empty-state">No pending tracks to review</div>
+        </div>
+
+        <div class="review-footer">
+          <div class="approved-count">
+            <span id="approved-count">0</span> tracks approved
+          </div>
+          <div class="review-footer-buttons">
+            <div class="export-dropdown">
+              <button id="btn-export-playlist" class="btn btn-secondary dropdown-toggle">
+                📥 Export Playlist
+              </button>
+              <div id="export-menu" class="dropdown-menu" style="display: none;">
+                <button class="dropdown-item" id="btn-export-all-approved">Export All Approved</button>
+                <button class="dropdown-item" id="btn-export-by-genre">Export by Genre...</button>
+              </div>
+            </div>
+            <button id="btn-write-tags" class="btn btn-primary" disabled>
+              Write Approved Tags to Files
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Taxonomy Tab -->
+      <section id="tab-taxonomy" class="tab">
+        <div class="tab-header">
+          <div class="tab-header-left">
+            <h1>Genre Taxonomy</h1>
+            <p>Define genres and sub-genres used for AI classification</p>
+          </div>
+          <button id="btn-add-genre" class="btn btn-primary">+ Add Genre</button>
+        </div>
+
+        <div id="taxonomy-list" class="taxonomy-list">
+          <!-- Populated by JavaScript -->
+        </div>
+
+        <button id="btn-save-taxonomy" class="btn btn-primary" style="margin-top: 20px;">
+          Save Taxonomy
+        </button>
+      </section>
+
+      <!-- Stats Tab -->
+      <section id="tab-stats" class="tab">
+        <div class="tab-header">
+          <div class="tab-header-left">
+            <h1>Library Statistics</h1>
+            <p>Insights into your track collection</p>
+          </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-cards-grid">
+          <div class="stats-card">
+            <div class="stats-card-label">Total Tracks</div>
+            <div class="stats-card-value" id="stats-card-total">0</div>
+          </div>
+          <div class="stats-card">
+            <div class="stats-card-label">Classified</div>
+            <div class="stats-card-value" id="stats-card-classified">0</div>
+          </div>
+          <div class="stats-card">
+            <div class="stats-card-label">Approved</div>
+            <div class="stats-card-value" id="stats-card-approved">0</div>
+          </div>
+          <div class="stats-card">
+            <div class="stats-card-label">Written to Files</div>
+            <div class="stats-card-value" id="stats-card-written">0</div>
+          </div>
+        </div>
+
+        <!-- Genre Breakdown Chart -->
+        <div class="chart-section">
+          <h3>Genre Distribution</h3>
+          <div class="chart-container">
+            <canvas id="chart-genres" style="max-height: 300px;"></canvas>
+          </div>
+        </div>
+
+        <!-- BPM Distribution Chart -->
+        <div class="chart-section">
+          <h3>BPM Distribution</h3>
+          <div class="chart-container">
+            <canvas id="chart-bpm" style="max-height: 300px;"></canvas>
+          </div>
+        </div>
+
+        <!-- Year Breakdown Chart -->
+        <div class="chart-section">
+          <h3>Release Year Distribution</h3>
+          <div class="chart-container">
+            <canvas id="chart-years" style="max-height: 300px;"></canvas>
+          </div>
+        </div>
+
+        <!-- Sub-genre List -->
+        <div class="chart-section">
+          <h3>Top Sub-Genres</h3>
+          <div id="subgenre-list" class="subgenre-list"></div>
+        </div>
+      </section>
+
+      <!-- Settings Tab -->
+      <section id="tab-settings" class="tab">
+        <div class="tab-header">
+          <div class="tab-header-left">
+            <h1>Settings</h1>
+            <p>Configure API keys for AI classification</p>
+          </div>
+        </div>
+
+        <div class="settings-form">
+          <div class="settings-section-label">AI Classification</div>
+          <div class="form-group">
+            <label for="settings-gemini-key">Gemini API Key</label>
+            <input
+              type="password"
+              id="settings-gemini-key"
+              placeholder="Enter your Gemini API key"
+              class="input-text"
+            >
+            <div class="settings-hint">Get free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></div>
+          </div>
+
+          <div class="settings-section-label">Spotify Enrichment <span class="settings-section-optional">(optional)</span></div>
+
+          <div class="form-group">
+            <label for="settings-spotify-id">Spotify Client ID</label>
+            <input
+              type="text"
+              id="settings-spotify-id"
+              placeholder="Your Spotify client ID (optional)"
+              class="input-text"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="settings-spotify-secret">Spotify Client Secret</label>
+            <input
+              type="password"
+              id="settings-spotify-secret"
+              placeholder="Your Spotify client secret (optional)"
+              class="input-text"
+            >
+          </div>
+
+          <button id="btn-save-settings" class="btn btn-primary">Save Settings</button>
+
+          <div id="settings-status" class="status-area" style="display: none; margin-top: 20px;">
+            <div class="status-message" id="settings-message"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="edit-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit Track</h2>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-section">
+          <h3>Current Information</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">Title:</span>
+              <span class="info-value" id="modal-title"></span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Artist:</span>
+              <span class="info-value" id="modal-artist"></span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">File:</span>
+              <span class="info-value" id="modal-filename" style="font-size: 0.85em;"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <h3>Edit Tags</h3>
+          <div class="form-group">
+            <label for="modal-genre">Genre</label>
+            <select id="modal-genre" class="input-select"></select>
+          </div>
+
+          <div class="form-group">
+            <label for="modal-subgenre">Sub-Genre</label>
+            <select id="modal-subgenre" class="input-select"></select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="modal-bpm">BPM</label>
+              <input type="number" id="modal-bpm" class="input-text" min="40" max="200">
+            </div>
+
+            <div class="form-group">
+              <label for="modal-key">Key</label>
+              <input type="text" id="modal-key" class="input-text" placeholder="e.g., 8B">
+            </div>
+
+            <div class="form-group">
+              <label for="modal-year">Year</label>
+              <input type="number" id="modal-year" class="input-text" min="1900" max="2100">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="modal-comment">Comment</label>
+            <textarea id="modal-comment" class="input-text" rows="3"></textarea>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <h3>Analysis Results</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">Analyzed BPM:</span>
+              <span class="info-value" id="modal-analyzed-bpm"></span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Energy:</span>
+              <span class="info-value" id="modal-energy"></span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Confidence:</span>
+              <span class="info-value" id="modal-confidence"></span>
+            </div>
+          </div>
+          <div class="info-item" style="margin-top: 10px;">
+            <span class="info-label">Reasoning:</span>
+            <p class="info-value" id="modal-reasoning" style="font-size: 0.9em; margin-top: 5px;"></p>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <h3>Camelot Wheel</h3>
+          <div id="camelot-wheel-container" style="display: flex; justify-content: center; padding: 20px 0;">
+            <svg id="camelot-wheel" width="200" height="200" style="max-width: 100%;"></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="modal-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="modal-save" class="btn btn-primary">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Genre Modal -->
+  <div id="add-genre-modal" class="modal" style="display: none;">
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h2>Add Genre</h2>
+        <button class="modal-close" id="add-genre-close">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="new-genre-name">Genre Name</label>
+          <input type="text" id="new-genre-name" class="input-text" placeholder="e.g., Salsa">
+        </div>
+
+        <div class="form-group">
+          <label for="new-genre-description">Description</label>
+          <input type="text" id="new-genre-description" class="input-text" placeholder="Brief description">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="add-genre-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="add-genre-save" class="btn btn-primary">Add Genre</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Spinner Overlay -->
+  <div id="spinner-overlay" class="spinner-overlay" style="display: none;">
+    <div class="spinner">
+      <div class="spinner-ring"></div>
+      <p id="spinner-message">Processing...</p>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast" style="display: none;"></div>
+
+  <!-- Audio Player (hidden) -->
+  <audio id="audio-player" style="display: none;"></audio>
+
+  <!-- Chart.js Library -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

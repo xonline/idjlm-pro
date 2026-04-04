@@ -1,0 +1,48 @@
+#!/bin/bash
+# Self-locating launcher — works wherever idlm-pro/ is placed on your Mac.
+# The .app must stay inside the idlm-pro/ folder.
+
+# Navigate up: MacOS -> Contents -> .app -> idlm-pro/
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+cd "$PROJECT_DIR"
+
+# ── Pick the best available Python (3.12 > 3.11 > 3.10 > 3.9+) ──────────────
+PYTHON=""
+for candidate in python3.13 python3.12 python3.11 python3.10 python3.9 python3; do
+    if command -v "$candidate" &>/dev/null; then
+        PYTHON="$(command -v "$candidate")"
+        break
+    fi
+done
+# Also check Homebrew prefix (ARM Mac default)
+if [ -z "$PYTHON" ]; then
+    for candidate in /opt/homebrew/bin/python3.13 /opt/homebrew/bin/python3.12 /opt/homebrew/bin/python3.11 /opt/homebrew/bin/python3.10; do
+        if [ -x "$candidate" ]; then
+            PYTHON="$candidate"
+            break
+        fi
+    done
+fi
+PYTHON="${PYTHON:-python3}"
+
+# ── First-time setup: create venv + install deps in a visible Terminal ────────
+if [ ! -f ".venv/bin/python" ]; then
+    osascript << SETUP
+tell application "Terminal"
+    activate
+    set newWin to do script "cd '$PROJECT_DIR' && echo '⏳ First-time setup — installing dependencies...' && '$PYTHON' -m venv .venv && .venv/bin/pip install -q -r requirements.txt && echo '✅ Done! Launching IDLM Pro...' && .venv/bin/python run_app.py"
+    set custom title of front window to "IDLM Pro — Setup"
+end tell
+SETUP
+    exit 0
+fi
+
+# ── Normal launch: silent, no Terminal window ─────────────────────────────────
+# Create .env from example if missing
+if [ ! -f ".env" ]; then
+    cp config.example.env .env
+fi
+
+exec ".venv/bin/python" run_app.py
