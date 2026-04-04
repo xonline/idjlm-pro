@@ -265,6 +265,13 @@ async function loadSettings() {
   document.getElementById("spotify-status").innerText = data.spotify_id;
 }
 
+async function loadModelSettings() {
+  const res = await fetch(`${API_BASE}/settings/models`);
+  const data = await res.json();
+  document.getElementById("gemini-model-select").value = data.current || "auto";
+  document.getElementById("model-status").innerText = data.current || data.default;
+}
+
 document.getElementById("save-settings-btn")?.addEventListener("click", async () => {
   const res = await fetch(`${API_BASE}/settings/`, {
     method: "POST",
@@ -278,6 +285,20 @@ document.getElementById("save-settings-btn")?.addEventListener("click", async ()
   if ((await res.json()).success) {
     alert("Settings saved");
     loadSettings();
+  }
+});
+
+document.getElementById("save-model-btn")?.addEventListener("click", async () => {
+  const model = document.getElementById("gemini-model-select").value;
+  const modelToSend = model === "auto" ? "" : model;
+  const res = await fetch(`${API_BASE}/settings/model`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: modelToSend }),
+  });
+  if ((await res.json())) {
+    alert("Model updated");
+    loadModelSettings();
   }
 });
 
@@ -358,4 +379,5 @@ window.addEventListener("click", (e) => {
 // === INIT ===
 loadTracks();
 loadSettings();
+loadModelSettings();
 loadTaxonomy();

@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XDJ Library Manager</title>
+    <title>DJ Library Manager</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <header>
-        <h1>XDJ Library Manager</h1>
-        <p>Bulk genre & sub-genre tagging for Latin music: Salsa, Bachata, Kizomba, Cha Cha and more</p>
+        <h1>DJ Library Manager</h1>
+        <p>Organize, analyze, and enrich your music library with AI</p>
     </header>
 
     <div class="container">
@@ -176,6 +176,23 @@
                 </div>
 
                 <button class="btn" id="save-settings-btn">Save Settings</button>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">Gemini Model Selection</div>
+                <p class="text-muted" style="margin-bottom: 12px;">Choose a model or enable auto-rotation on rate limits.</p>
+                
+                <label>Preferred Model</label>
+                <select id="gemini-model-select" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--color-border); background: var(--color-surface); color: inherit;">
+                    <option value="auto">Auto (start with 2.5 Flash, fallback on rate limit)</option>
+                    <option value="gemini-2.5-pro-preview-05-06">Gemini 2.5 Pro (best quality, slower)</option>
+                    <option value="gemini-2.5-flash-preview-04-17">Gemini 2.5 Flash (recommended)</option>
+                    <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                    <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite (fastest, free tier)</option>
+                    <option value="gemini-1.5-flash">Gemini 1.5 Flash (legacy)</option>
+                </select>
+                <div class="text-muted" style="margin-top: 8px;">Current: <span id="model-status">loading...</span></div>
+                <button class="btn" id="save-model-btn" style="margin-top: 8px;">Update Model</button>
             </div>
 
             <div class="panel">

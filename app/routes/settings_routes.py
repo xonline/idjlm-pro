@@ -7,12 +7,16 @@ bp = Blueprint("settings", __name__, url_prefix="/api/settings")
 
 @bp.route("/", methods=["GET"])
 def get_settings():
-    """Get current API key status (masked)."""
+    """Get current API key status (masked) and model config."""
     load_dotenv(find_dotenv())
+    from app.services.classifier import MODELS_BY_PRIORITY, DEFAULT_MODEL
+    
+    current_model = os.getenv("GEMINI_MODEL", DEFAULT_MODEL)
     return jsonify({
         "gemini_key": "set" if os.getenv("GEMINI_API_KEY") else "unset",
         "spotify_id": "set" if os.getenv("SPOTIFY_CLIENT_ID") else "unset",
         "spotify_secret": "set" if os.getenv("SPOTIFY_CLIENT_SECRET") else "unset",
+        "model": current_model,
     })
 
 
@@ -46,3 +50,31 @@ def update_settings():
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
+
+
+@bp.route("/models", methods=["GET"])
+def list_models():
+    """List available Gemini models and current selection."""
+    from app.services.classifier import MODELS_BY_PRIORITY, DEFAULT_MODEL
+    current = os.getenv("GEMINI_MODEL", DEFAULT_MODEL)
+    return jsonify({
+        "models": MODELS_BY_PRIORITY,
+        "current": current,
+        "default": DEFAULT_MODEL,
+    })
+
+
+@bp.route("/model", methods=["POST"])
+def set_model():
+    """Set the preferred Gemini model (session + env)."""
+    data = request.get_json() or {}
+    model = data.get("model", "").strip()
+    from app.services.classifier import MODELS_BY_PRIORITY, DEFAULT_MODEL
+    
+    if model and model not in MODELS_BY_PRIORITY:
+        return jsonify({"error": "Unknown model"}), 400
+    
+    # Set in environment for this session
+    os.environ["GEMINI_MODEL"] = model or DEFAULT_MODEL
+    
+    return jsonify({"model": os.environ["GEMINI_MODEL"]})
