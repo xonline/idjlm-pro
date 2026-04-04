@@ -90,24 +90,39 @@ def get_settings():
     Returns: {
         "gemini_api_key": "****...xxxx" or null,
         "has_gemini_key": true/false,
+        "anthropic_api_key": "****...xxxx" or null,
+        "has_anthropic_key": true/false,
         "spotify_client_id": "****...xxxx" or null,
         "spotify_client_secret": "****...xxxx" or null,
         "has_spotify": true/false,
-        "flask_port": 5050
+        "ai_model": "claude" | "gemini" | "ollama",
+        "ollama_model": "qwen3:1.7b",
+        "classify_batch_size": 10,
+        "auto_approve_threshold": 0,
+        "spotify_enrich_enabled": true
     }
     """
     try:
         env_dict = load_env()
 
         gemini_key = env_dict.get("GEMINI_API_KEY")
+        anthropic_key = env_dict.get("ANTHROPIC_API_KEY")
         spotify_id = env_dict.get("SPOTIFY_CLIENT_ID")
         spotify_secret = env_dict.get("SPOTIFY_CLIENT_SECRET")
+
         return jsonify({
             "gemini_api_key": mask_key(gemini_key) if gemini_key else None,
             "has_gemini_key": bool(gemini_key),
+            "anthropic_api_key": mask_key(anthropic_key) if anthropic_key else None,
+            "has_anthropic_key": bool(anthropic_key),
             "spotify_client_id": mask_key(spotify_id) if spotify_id else None,
             "spotify_client_secret": mask_key(spotify_secret) if spotify_secret else None,
             "has_spotify": bool(spotify_id) and bool(spotify_secret),
+            "ai_model": env_dict.get("AI_MODEL", "claude"),
+            "ollama_model": env_dict.get("OLLAMA_MODEL", "qwen3:1.7b"),
+            "classify_batch_size": int(env_dict.get("CLASSIFY_BATCH_SIZE", "10")),
+            "auto_approve_threshold": int(env_dict.get("AUTO_APPROVE_THRESHOLD", "0")),
+            "spotify_enrich_enabled": env_dict.get("SPOTIFY_ENRICH_ENABLED", "true").lower() == "true",
         }), 200
 
     except Exception as e:
@@ -120,10 +135,15 @@ def save_settings():
     Save settings to .env file.
     POST /api/settings
     body: {
-        "gemini_api_key": "sk-...",        (optional, full unmasked value)
-        "spotify_client_id": "...",        (optional)
-        "spotify_client_secret": "...",    (optional)
-        "flask_port": 5050                 (optional)
+        "gemini_api_key": "sk-...",              (optional, full unmasked value)
+        "anthropic_api_key": "sk-...",           (optional, full unmasked value)
+        "spotify_client_id": "...",              (optional)
+        "spotify_client_secret": "...",          (optional)
+        "ai_model": "claude" | "gemini" | "ollama",  (optional)
+        "ollama_model": "qwen3:1.7b",            (optional)
+        "classify_batch_size": 10,               (optional, 1-20)
+        "auto_approve_threshold": 0,             (optional, 0-100)
+        "spotify_enrich_enabled": true           (optional, boolean)
     }
     Only sends non-empty values; existing values not provided are preserved.
     """
@@ -137,11 +157,40 @@ def save_settings():
         if "gemini_api_key" in data and data["gemini_api_key"]:
             env_dict["GEMINI_API_KEY"] = data["gemini_api_key"]
 
+        if "anthropic_api_key" in data and data["anthropic_api_key"]:
+            env_dict["ANTHROPIC_API_KEY"] = data["anthropic_api_key"]
+
         if "spotify_client_id" in data and data["spotify_client_id"]:
             env_dict["SPOTIFY_CLIENT_ID"] = data["spotify_client_id"]
 
         if "spotify_client_secret" in data and data["spotify_client_secret"]:
             env_dict["SPOTIFY_CLIENT_SECRET"] = data["spotify_client_secret"]
+
+        if "ai_model" in data and data["ai_model"]:
+            if data["ai_model"] in ["claude", "gemini", "ollama"]:
+                env_dict["AI_MODEL"] = data["ai_model"]
+
+        if "ollama_model" in data and data["ollama_model"]:
+            env_dict["OLLAMA_MODEL"] = data["ollama_model"]
+
+        if "classify_batch_size" in data:
+            try:
+                batch_size = int(data["classify_batch_size"])
+                if 1 <= batch_size <= 20:
+                    env_dict["CLASSIFY_BATCH_SIZE"] = str(batch_size)
+            except (ValueError, TypeError):
+                pass
+
+        if "auto_approve_threshold" in data:
+            try:
+                threshold = int(data["auto_approve_threshold"])
+                if 0 <= threshold <= 100:
+                    env_dict["AUTO_APPROVE_THRESHOLD"] = str(threshold)
+            except (ValueError, TypeError):
+                pass
+
+        if "spotify_enrich_enabled" in data:
+            env_dict["SPOTIFY_ENRICH_ENABLED"] = "true" if data["spotify_enrich_enabled"] else "false"
 
         # Write back
         write_env(env_dict)

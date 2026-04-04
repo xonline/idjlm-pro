@@ -81,59 +81,144 @@ def _parse_classification_response(response_text: str, num_tracks: int) -> list[
         return []
 
 
+def _classify_with_claude(prompt: str, batch: list[Track]) -> tuple[bool, str]:
+    """
+    Classify tracks using Claude Sonnet API.
+    Returns (success: bool, response_text: str)
+    """
+    try:
+        import anthropic
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            return False, "ANTHROPIC_API_KEY not set"
+
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return True, response.content[0].text
+    except Exception as e:
+        return False, str(e)
+
+
+def _classify_with_gemini(prompt: str, batch: list[Track]) -> tuple[bool, str]:
+    """
+    Classify tracks using Gemini API (fallback).
+    Returns (success: bool, response_text: str)
+    """
+    try:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            return False, "GEMINI_API_KEY not set"
+
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(prompt)
+        return True, response.text
+    except Exception as e:
+        return False, str(e)
+
+
+def _classify_with_ollama(prompt: str, batch: list[Track]) -> tuple[bool, str]:
+    """
+    Classify tracks using Ollama (fallback).
+    Returns (success: bool, response_text: str)
+    """
+    try:
+        import requests as req
+        model_name = os.getenv("OLLAMA_MODEL", "qwen3:1.7b")
+        response = req.post(
+            "http://localhost:11434/api/generate",
+            json={"model": model_name, "prompt": prompt, "stream": False},
+            timeout=120
+        )
+        if response.status_code != 200:
+            return False, f"Ollama API error: {response.status_code}"
+        return True, response.json()["response"]
+    except Exception as e:
+        return False, str(e)
+
+
 def classify_tracks(tracks: list[Track], taxonomy: dict) -> list[Track]:
     """
-    Classify tracks using Gemini API.
-    Sends up to 10 tracks per API call to reduce costs.
+    Classify tracks using Claude Sonnet (primary) with Gemini and Ollama fallbacks.
+    Sends up to batch_size tracks per API call.
     Populates: proposed_genre, proposed_subgenre, confidence, reasoning, classification_done=True
     Sets track.error on failure.
     """
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        for track in tracks:
-            track.error = "GEMINI_API_KEY not set"
-        return tracks
+    ai_model = os.getenv("AI_MODEL", "claude").lower()
+    batch_size = int(os.getenv("CLASSIFY_BATCH_SIZE", "10"))
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    # Define model chain in order
+    model_chain = []
+    if ai_model == "claude" or ai_model == "":
+        model_chain = ["claude", "gemini", "ollama"]
+    elif ai_model == "gemini":
+        model_chain = ["gemini", "claude", "ollama"]
+    elif ai_model == "ollama":
+        model_chain = ["ollama", "claude", "gemini"]
+    else:
+        model_chain = ["claude", "gemini", "ollama"]
 
-    # Process tracks in batches of up to 10
-    batch_size = 10
+    # Process tracks in batches
     for batch_start in range(0, len(tracks), batch_size):
         batch_end = min(batch_start + batch_size, len(tracks))
         batch = tracks[batch_start:batch_end]
 
-        try:
-            prompt = _build_classification_prompt(batch, taxonomy)
+        prompt = _build_classification_prompt(batch, taxonomy)
 
-            response = model.generate_content(prompt)
-            response_text = response.text
+        # Try models in chain order
+        success = False
+        response_text = None
+        used_model = None
 
-            # Parse response
-            classifications = _parse_classification_response(response_text, len(batch))
+        for model_name in model_chain:
+            if model_name == "claude":
+                success, response_text = _classify_with_claude(prompt, batch)
+                if success:
+                    used_model = "claude"
+                    break
+            elif model_name == "gemini":
+                success, response_text = _classify_with_gemini(prompt, batch)
+                if success:
+                    used_model = "gemini"
+                    break
+            elif model_name == "ollama":
+                success, response_text = _classify_with_ollama(prompt, batch)
+                if success:
+                    used_model = "ollama"
+                    break
 
-            # Apply results to batch
-            for classification in classifications:
-                idx = classification.get("index")
-                if idx is None or not (0 <= idx < len(batch)):
-                    continue
-
-                track = batch[idx]
-                track.proposed_genre = classification.get("genre")
-                track.proposed_subgenre = classification.get("subgenre")
-                track.confidence = classification.get("confidence")
-                track.reasoning = classification.get("reasoning")
-                track.classification_done = True
-
-            # Mark any unprocessed tracks in batch as failed
-            processed_indices = {c.get("index") for c in classifications if c.get("index") is not None}
-            for idx, track in enumerate(batch):
-                if idx not in processed_indices and not track.classification_done:
-                    track.error = "Classification response malformed"
-
-        except Exception as e:
-            # Mark all tracks in batch with error
+        if not success or not response_text:
+            # All models failed
             for track in batch:
-                track.error = f"Classification API error: {str(e)}"
+                track.error = f"Classification failed: {response_text}"
+            continue
+
+        print(f"[classifier] Using {used_model}")
+
+        # Parse response
+        classifications = _parse_classification_response(response_text, len(batch))
+
+        # Apply results to batch
+        for classification in classifications:
+            idx = classification.get("index")
+            if idx is None or not (0 <= idx < len(batch)):
+                continue
+
+            track = batch[idx]
+            track.proposed_genre = classification.get("genre")
+            track.proposed_subgenre = classification.get("subgenre")
+            track.confidence = classification.get("confidence")
+            track.reasoning = classification.get("reasoning")
+            track.classification_done = True
+
+        # Mark any unprocessed tracks in batch as failed
+        processed_indices = {c.get("index") for c in classifications if c.get("index") is not None}
+        for idx, track in enumerate(batch):
+            if idx not in processed_indices and not track.classification_done:
+                track.error = "Classification response malformed"
 
     return tracks

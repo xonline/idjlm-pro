@@ -4,8 +4,12 @@ from typing import Optional
 
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TYER, TCON, COMM, TBPM, TKEY
 from mutagen.mp3 import MP3
+from mutagen import File as MutagenFile
 
 from app.models.track import Track
+
+# Supported audio file extensions
+SUPPORTED_EXTENSIONS = {'.mp3', '.flac', '.wav', '.m4a', '.aac', '.ogg'}
 
 
 def _extract_id3_text(frame) -> Optional[str]:
@@ -64,9 +68,51 @@ def _read_id3_tags(file_path: str) -> dict:
     return tags
 
 
+def _read_tags_universal(file_path: str) -> dict:
+    """
+    Read tags from audio files using mutagen's format-agnostic API.
+    Used for FLAC, WAV, M4A, AAC, OGG, and other formats.
+    Returns dict with keys: title, artist, album, year, genre, comment, bpm, key
+    """
+    tags = {
+        'title': None,
+        'artist': None,
+        'album': None,
+        'year': None,
+        'genre': None,
+        'comment': None,
+        'bpm': None,
+        'key': None,
+    }
+
+    try:
+        audio = MutagenFile(file_path, easy=True)
+        if audio is None or audio.tags is None:
+            return tags
+
+        def get(key):
+            """Extract first value from tag, or None if missing."""
+            v = audio.tags.get(key)
+            return str(v[0]) if v else None
+
+        tags['title'] = get('title')
+        tags['artist'] = get('artist')
+        tags['album'] = get('album')
+        tags['year'] = get('date')
+        tags['genre'] = get('genre')
+        tags['comment'] = get('comment')
+        tags['bpm'] = get('bpm')
+        tags['key'] = get('initialkey')
+    except Exception:
+        pass
+
+    return tags
+
+
 def scan_folder(folder_path: str) -> list[Track]:
     """
-    Recursively scan folder for MP3 files and extract ID3 tags.
+    Recursively scan folder for supported audio files (MP3, FLAC, WAV, M4A, AAC, OGG)
+    and extract tags.
     Returns list of Track objects with existing_* fields populated.
     Handles files with no tags gracefully (sets all existing_* to None).
     Files that can't be read set the error field.
@@ -79,25 +125,30 @@ def scan_folder(folder_path: str) -> list[Track]:
 
     for root, dirs, files in os.walk(folder_path):
         for filename in files:
-            if not filename.lower().endswith('.mp3'):
+            suffix = Path(filename).suffix.lower()
+            if suffix not in SUPPORTED_EXTENSIONS:
                 continue
 
             file_path = os.path.join(root, filename)
 
             try:
-                id3_tags = _read_id3_tags(file_path)
+                # Use MP3-specific reader for MP3 files, universal reader for others
+                if suffix == '.mp3':
+                    audio_tags = _read_id3_tags(file_path)
+                else:
+                    audio_tags = _read_tags_universal(file_path)
 
                 track = Track(
                     file_path=file_path,
                     filename=filename,
-                    existing_title=id3_tags['title'],
-                    existing_artist=id3_tags['artist'],
-                    existing_album=id3_tags['album'],
-                    existing_year=id3_tags['year'],
-                    existing_genre=id3_tags['genre'],
-                    existing_comment=id3_tags['comment'],
-                    existing_bpm=id3_tags['bpm'],
-                    existing_key=id3_tags['key'],
+                    existing_title=audio_tags['title'],
+                    existing_artist=audio_tags['artist'],
+                    existing_album=audio_tags['album'],
+                    existing_year=audio_tags['year'],
+                    existing_genre=audio_tags['genre'],
+                    existing_comment=audio_tags['comment'],
+                    existing_bpm=audio_tags['bpm'],
+                    existing_key=audio_tags['key'],
                 )
                 tracks.append(track)
 
@@ -106,7 +157,7 @@ def scan_folder(folder_path: str) -> list[Track]:
                 track = Track(
                     file_path=file_path,
                     filename=filename,
-                    error=f"Failed to read ID3 tags: {str(e)}",
+                    error=f"Failed to read tags: {str(e)}",
                 )
                 tracks.append(track)
 
