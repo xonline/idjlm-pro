@@ -1,4 +1,4 @@
-# IDLM Pro
+# IDJLM Pro
 
 **Intelligent DJ Library Manager** — AI-powered genre + sub-genre classification for Latin dance music libraries.
 
@@ -7,8 +7,8 @@
 ## Download
 
 Get the latest release from [Releases](../../releases/latest):
-- **macOS** — download `IDLM-Pro-vX.X.X-macOS.dmg`
-- **Windows** — download `IDLM-Pro-vX.X.X-Windows.zip`
+- **macOS** — download `IDJLM-Pro-vX.X.X-macOS.dmg`
+- **Windows** — download `IDJLM-Pro-vX.X.X-Windows.zip`
 
 No Python or terminal required — just open and run.
 
@@ -49,8 +49,8 @@ No Python or terminal required — just open and run.
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/xonline/IDLM-Pro.git
-cd IDLM-Pro
+git clone https://github.com/xonline/IDJLM-Pro.git
+cd IDJLM-Pro
 
 # 2. Copy the config template and add your API key(s)
 cp config.example.env .env

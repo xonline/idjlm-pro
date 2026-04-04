@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate IDLM Pro app icon — vinyl record + purple/teal gradient on dark bg.
+Generate IDJLM Pro app icon — vinyl record + purple/teal gradient on dark bg.
 Outputs: icon_1024.png, and icon.icns (macOS) via iconutil or sips.
 """
 
@@ -213,7 +213,7 @@ def make_ico(png_1024: Path, out: Path):
 
 
 if __name__ == "__main__":
-    print("Generating IDLM Pro icon…")
+    print("Generating IDJLM Pro icon…")
     icon = make_icon(SIZE)
     png_path = OUT_DIR / "icon_1024.png"
     write_png(icon, png_path)

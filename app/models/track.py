@@ -50,6 +50,7 @@ class Track:
     override_bpm: Optional[str] = None
     override_key: Optional[str] = None
     override_year: Optional[str] = None
+    override_comment: Optional[str] = None
 
     # Write state
     tags_written: bool = False
@@ -83,7 +84,17 @@ class Track:
     key_mismatch_detail: Optional[str] = None # e.g. "Stored: 8A, Detected: 7B"
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        # asdict() only serialises dataclass fields — add @property values explicitly
+        d['display_title'] = self.display_title
+        d['display_artist'] = self.display_artist
+        d['final_genre'] = self.final_genre
+        d['final_subgenre'] = self.final_subgenre
+        d['final_bpm'] = self.final_bpm
+        d['final_key'] = self.final_key
+        d['final_year'] = self.final_year
+        d['final_comment'] = self.final_comment
+        return d
 
     @property
     def display_title(self) -> str:
@@ -116,3 +127,7 @@ class Track:
     @property
     def final_year(self) -> Optional[str]:
         return self.override_year or self.existing_year or self.spotify_year
+
+    @property
+    def final_comment(self) -> Optional[str]:
+        return self.override_comment or self.proposed_subgenre or self.existing_comment

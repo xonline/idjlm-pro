@@ -1,13 +1,13 @@
 #!/bin/bash
-# Creates "IDLM Pro.app" — a clickable macOS app launcher.
+# Creates "IDJLM Pro.app" — a clickable macOS app launcher.
 # Run this once on your Mac from inside the idlm-pro folder:
 #   bash create-mac-app.sh
-# Then drag "IDLM Pro.app" to your Dock or Applications folder.
+# Then drag "IDJLM Pro.app" to your Dock or Applications folder.
 
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_NAME="IDLM Pro"
+APP_NAME="IDJLM Pro"
 APP_PATH="$PROJECT_DIR/$APP_NAME.app"
 CONTENTS="$APP_PATH/Contents"
 MACOS="$CONTENTS/MacOS"
@@ -26,8 +26,8 @@ cat > "$CONTENTS/Info.plist" << 'PLIST'
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key>         <string>IDLM Pro</string>
-  <key>CFBundleDisplayName</key>  <string>IDLM Pro</string>
+  <key>CFBundleName</key>         <string>IDJLM Pro</string>
+  <key>CFBundleDisplayName</key>  <string>IDJLM Pro</string>
   <key>CFBundleIdentifier</key>   <string>com.poy.idlm-pro</string>
   <key>CFBundleVersion</key>      <string>1.0</string>
   <key>CFBundleExecutable</key>   <string>launcher</string>
@@ -64,7 +64,7 @@ osascript << EOF
 tell application "Terminal"
   activate
   set newTab to do script "cd '\$PROJECT_DIR' && ./start.sh"
-  set custom title of front window to "IDLM Pro"
+  set custom title of front window to "IDJLM Pro"
 end tell
 EOF
 

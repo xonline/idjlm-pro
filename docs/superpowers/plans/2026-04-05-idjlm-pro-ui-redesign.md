@@ -1,4 +1,4 @@
-# IDLM Pro UI Redesign — Implementation Plan
+# IDJLM Pro UI Redesign — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -36,7 +36,7 @@
   <nav class="sidebar">
     <div class="logo-container">
       <div class="logo-icon">🎛️</div>
-      <div class="logo-text">IDLM Pro</div>
+      <div class="logo-text">IDJLM Pro</div>
     </div>
     <div class="nav-menu">
       <button class="nav-btn active" data-tab="library">

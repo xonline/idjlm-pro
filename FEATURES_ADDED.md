@@ -1,4 +1,4 @@
-# IDLM Pro — 6 New Frontend Features
+# IDJLM Pro — 6 New Frontend Features
 
 All features have been implemented and integrated into the existing application. Below is a summary of each feature.
 

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to IDLM Pro are documented here.
+All notable changes to IDJLM Pro are documented here.
 
 ---
 
@@ -122,7 +122,7 @@ All notable changes to IDLM Pro are documented here.
 ## [1.9.0] — 2026-04-04
 
 ### Rebrand
-- Rebranded to IDLM Pro (Intelligent DJ Library Manager)
+- Rebranded to IDJLM Pro (Intelligent DJ Library Manager)
 
 ---
 

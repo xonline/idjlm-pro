@@ -363,7 +363,7 @@ def export_rekordbox():
         root_node.set('Count', '1')
 
         playlist_node = ET.SubElement(root_node, 'NODE')
-        playlist_node.set('Name', 'IDLM Pro Export')
+        playlist_node.set('Name', 'IDJLM Pro Export')
         playlist_node.set('Type', '1')
         playlist_node.set('KeyType', '0')
         playlist_node.set('Entries', str(len(tracks)))

@@ -92,7 +92,7 @@ SPLASH_HTML = """<!DOCTYPE html>
 </head>
 <body>
   <div class="icon">🎵</div>
-  <h1>IDLM Pro</h1>
+  <h1>IDJLM Pro</h1>
   <p class="subtitle">Intelligent DJ Library Manager</p>
   <div class="bar-track"><div class="bar-fill"></div></div>
   <p class="status">Starting up&hellip;</p>
@@ -128,7 +128,7 @@ if __name__ == "__main__":
 
         # Create window immediately with splash HTML — visible before Flask is ready.
         window = webview.create_window(
-            title="IDLM Pro",
+            title="IDJLM Pro",
             html=SPLASH_HTML,
             width=1280,
             height=820,

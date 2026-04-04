@@ -1,0 +1,70 @@
+<h2>What lives in the sidebar?</h2>
+<p class="subtitle">Option A has a compact sidebar (~4 items). You currently have 11 tabs. Which of these do you actually use? Pick the ones that should stay.</p>
+
+<div class="cards">
+
+  <!-- Core workflow -->
+  <div class="card selected" data-choice="core" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0f0f13;border-radius:8px;padding:16px;font-family:monospace;font-size:11px;">
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="background:#8b5cf6;border-radius:6px;padding:8px 12px;color:#fff;font-size:12px;font-weight:bold;">📚 Library</div>
+          <div style="color:#555;font-size:9px;padding-left:4px;">▸ Import + Tracks + Pipeline</div>
+          <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;color:#ccc;font-size:12px;">📋 Organise</div>
+          <div style="color:#555;font-size:9px;padding-left:4px;">▸ Health + Filename parser + Folders</div>
+          <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;color:#ccc;font-size:12px;">🎛️ Set Planner</div>
+          <div style="color:#555;font-size:9px;padding-left:4px;">▸ Energy arc + M3U export</div>
+          <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;color:#ccc;font-size:12px;">⚙️ Settings</div>
+          <div style="color:#555;font-size:9px;padding-left:4px;">▸ API keys + Taxonomy + Preferences</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>4 items — lean</h3>
+      <p>Library (the main screen), Organise (health/filing), Set Planner, Settings. Taxonomy editor moves inside Settings. Stats folds into Library header.</p>
+    </div>
+  </div>
+
+  <!-- With Stats -->
+  <div class="card" data-choice="stats" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0f0f13;border-radius:8px;padding:16px;font-family:monospace;font-size:11px;">
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;color:#ccc;font-size:12px;font-weight:bold;">📚 Library</div>
+          <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;color:#ccc;font-size:12px;">📊 Stats</div>
+          <div style="color:#555;font-size:9px;padding-left:4px;">▸ Genre/BPM/Year charts</div>
+          <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;color:#ccc;font-size:12px;">📋 Organise</div>
+          <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;color:#ccc;font-size:12px;">🎛️ Set Planner</div>
+          <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;color:#ccc;font-size:12px;">⚙️ Settings</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>5 items — with Stats</h3>
+      <p>Same as lean but Stats gets its own tab. Good if you check genre/BPM breakdown often.</p>
+    </div>
+  </div>
+
+  <!-- Keep it as-is but group -->
+  <div class="card" data-choice="grouped" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0f0f13;border-radius:8px;padding:16px;font-family:monospace;font-size:11px;">
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;color:#ccc;font-size:12px;font-weight:bold;">📚 Library</div>
+          <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;color:#ccc;font-size:12px;">🔍 Review</div>
+          <div style="color:#555;font-size:9px;padding-left:4px;">▸ Approve / edit proposed tags</div>
+          <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;color:#ccc;font-size:12px;">📋 Organise</div>
+          <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;color:#ccc;font-size:12px;">🎛️ Set Planner</div>
+          <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;color:#ccc;font-size:12px;">⚙️ Settings</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>5 items — with Review</h3>
+      <p>Review gets its own tab for the approve/edit workflow. Useful if you want a dedicated place to inspect AI classifications before writing tags.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px;">My pick is <strong>4 items (lean)</strong> — Review moves inline into the Library track table (approve from the row), and Stats shows as a summary bar at the top of Library. But you know how you work best.</p>

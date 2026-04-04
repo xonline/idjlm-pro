@@ -1,5 +1,5 @@
 // ============================================================================
-// IDLM Pro — Vanilla JS Application
+// IDJLM Pro — Vanilla JS Application
 // ============================================================================
 
 // Global state
@@ -3047,7 +3047,7 @@ function exportTracks(format) {
     // Rekordbox XML format
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <DJ_PLAYLISTS Version="1.0.0">
-  <PLAYLIST Name="IDLM Export" Type="1">
+  <PLAYLIST Name="IDJLM Export" Type="1">
     <PLAYLIST_TRACKS>
       ${tracks.map((t, idx) => `
       <TRACK TrackID="${idx + 1}">

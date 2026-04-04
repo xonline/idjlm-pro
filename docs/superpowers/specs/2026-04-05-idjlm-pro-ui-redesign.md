@@ -1,4 +1,4 @@
-# IDLM Pro — UI Redesign Spec
+# IDJLM Pro — UI Redesign Spec
 
 **Date:** 2026-04-05  
 **Status:** Approved  

@@ -1,4 +1,4 @@
-# Implementation Notes — IDLM Pro Features
+# Implementation Notes — IDJLM Pro Features
 
 ## Quick Reference for Developers
 

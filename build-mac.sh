@@ -1,6 +1,6 @@
 #!/bin/bash
-# Builds a self-contained IDLM Pro.app using PyInstaller.
-# Run this once on your Mac. Output: dist/IDLM Pro.app
+# Builds a self-contained IDJLM Pro.app using PyInstaller.
+# Run this once on your Mac. Output: dist/IDJLM Pro.app
 # Share that .app (or zip it) — no Python/pip needed on the target machine.
 #
 # Requires Python 3.10+ (pywebview won't compile on 3.9).
@@ -10,7 +10,7 @@ set -e
 cd "$(dirname "$0")"
 
 echo ""
-echo "  IDLM Pro — Mac Build"
+echo "  IDJLM Pro — Mac Build"
 echo "  This will take a few minutes..."
 echo ""
 
@@ -63,7 +63,7 @@ fi
 pyinstaller \
     --noconfirm \
     --windowed \
-    --name "IDLM Pro" \
+    --name "IDJLM Pro" \
     --add-data "templates:templates" \
     --add-data "app/static:app/static" \
     --add-data "taxonomy.json:." \
@@ -80,8 +80,8 @@ pyinstaller \
     run_app.py
 
 echo ""
-echo "  ✅ Built: dist/IDLM Pro.app"
+echo "  ✅ Built: dist/IDJLM Pro.app"
 echo ""
 echo "  To distribute:"
-echo "  zip -r 'IDLM Pro.zip' 'dist/IDLM Pro.app'"
+echo "  zip -r 'IDJLM Pro.zip' 'dist/IDJLM Pro.app'"
 echo ""

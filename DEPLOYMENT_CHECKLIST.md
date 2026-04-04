@@ -1,4 +1,4 @@
-# Deployment Checklist — 6 New IDLM Pro Features
+# Deployment Checklist — 6 New IDJLM Pro Features
 
 ## Status: READY FOR TESTING ✓
 

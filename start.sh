@@ -30,7 +30,7 @@ export $(grep -v '^#' .env | grep -v '^$' | xargs)
 PORT="${FLASK_PORT:-5050}"
 
 echo ""
-echo "  IDLM Pro"
+echo "  IDJLM Pro"
 echo "  Open: http://localhost:$PORT"
 echo ""
 
