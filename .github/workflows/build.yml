@@ -21,7 +21,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="v${{ env.APP_VERSION }}"
-          # Try to delete existing release (ignore errors if it doesn't exist)
           RELEASE_ID=$(curl -s -H "Authorization: token $GH_TOKEN" \
             "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG" \
             | python3 -c "import sys,json; r=json.load(sys.stdin); print(r.get('id',''))" 2>/dev/null || true)
@@ -29,7 +28,6 @@ jobs:
             curl -s -X DELETE -H "Authorization: token $GH_TOKEN" \
               "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID" || true
           fi
-          # Delete the tag too
           curl -s -X DELETE -H "Authorization: token $GH_TOKEN" \
             "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$TAG" || true
 
@@ -106,6 +104,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
+          pip install pillow
           pip install -r requirements.txt
           pip install pywebview pyinstaller
 
@@ -166,6 +165,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
+          pip install pillow
           pip install -r requirements.txt
           pip install pywebview pyinstaller
 
