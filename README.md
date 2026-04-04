@@ -1,135 +1,118 @@
-# DJ Library Manager
+# XDJ Library Manager
 
-A web-based music library management system for DJs. Automatically analyze tracks (BPM, key, energy), classify genres using AI, enrich with Spotify metadata, and maintain a structured music database.
+Automatically classify your DJ music library by genre and sub-genre using AI — in bulk.
 
-## Features
+Built for DJs with large Latin dance collections (Salsa, Bachata, Kizomba, and more).
 
-- **Audio Analysis**: Extract BPM, musical key (Camelot notation), and energy levels using librosa
-- **AI Classification**: Genre and subgenre classification via Google Gemini API
-- **Spotify Integration**: Optional metadata enrichment (artist, genres, release year)
-- **Tag Management**: Read/write ID3v2 tags with mutagen
-- **Folder Watching**: Auto-import new MP3s as they arrive
-- **Review Workflow**: Approve or modify AI suggestions before writing tags
-- **Playlist Export**: Generate M3U playlists filtered by genre/status
-- **Session Persistence**: Save and load your entire library state
-- **Premium UI**: Dark/light theme with responsive design
+---
 
-## Quick Start
+## Download
 
-### Prerequisites
-- Python 3.10+ (macOS build requires 3.10+)
-- Gemini API key (free at https://aistudio.google.com)
+Go to the **[Releases](https://github.com/xonline/dj-library-manager/releases)** page and download for your platform:
 
-### Install & Run
+| Platform | What to download |
+|----------|------------------|
+| 🍎 Mac | `XDJ-Library-Manager-mac.zip` |
+| 🪟 Windows | `XDJ-Library-Manager-windows.zip` |
+
+**Mac:** Unzip → double-click `XDJ Library Manager.app`
+**Windows:** Unzip → double-click `XDJ Library Manager.exe`
+
+> **Mac note:** First time you open it, macOS may say "unidentified developer".
+> Right-click the app → **Open** → **Open anyway**. Only needed once.
+
+No Python. No Terminal. No installation.
+
+---
+
+## Setup (first time only)
+
+You need a free **Gemini API key** to use the AI classification.
+
+1. Go to [aistudio.google.com](https://aistudio.google.com/) — sign in with your Google account
+2. Click **Get API key** → **Create API key**
+3. Open **XDJ Library Manager** → go to the **Settings** tab
+4. Paste your API key → Save
+
+That's it. The app is ready.
+
+---
+
+## How to use
+
+### Import your music
+1. Click **Import Folder**
+2. Select the folder with your MP3s (works recursively — subfolders included)
+3. All tracks appear in the list with their existing tags
+
+### Analyse tracks
+- Click **Analyse All** — detects BPM, musical key (Camelot notation), and energy level
+- Takes about 5–10 seconds per track
+
+### Classify with AI
+- Click **Classify All** — AI reads each track's metadata + audio features and suggests genre + sub-genre
+- Shows confidence score (0–100%) and reasoning
+
+### Review and approve
+- Go to the **Review** tab
+- Each track shows: current tags vs. AI suggestion
+- Click **Approve** to accept, **Skip** to leave unchanged, or edit manually
+- **Bulk approve** — approve everything above a confidence threshold in one click
+
+### Write tags
+- Click **Write Tags** — approved changes are saved to the MP3 files (ID3 tags)
+- Genre → TCON, Sub-genre → Comment, BPM → TBPM, Key → TKEY
+
+---
+
+## Genre taxonomy
+
+The app ships with 7 Latin dance genres:
+
+| Genre | Sub-genres |
+|-------|------------|
+| Salsa | Salsa Romantica, Salsa Dura, Timba, Salsa Choke, Salsa Sensual, Guaracha, Son Cubano |
+| Bachata | Bachata Tradicional, Bachata Sensual, Bachata Moderna, Bachata Urbana |
+| Kizomba | Kizomba Tradicional, Urban Kiz, Semba, Ghetto Zouk, Tarraxinha |
+| Cha Cha | — |
+| Merengue | — |
+| Reggaeton | — |
+| Zouk | — |
+
+Edit the **Taxonomy** tab to add your own sub-genres. Changes apply immediately.
+
+---
+
+## Changelog
+
+### Latest
+- Initial release
+- Mac + Windows standalone app (no installation needed)
+- AI genre + sub-genre classification via Gemini 1.5 Flash
+- BPM, Camelot key, energy analysis via librosa
+- Spotify enrichment (optional — year, popularity)
+- Review queue with bulk approve
+- ID3 tag writer (genre, comment, BPM, key)
+- Folder watcher — auto-import new files
+- Session save/load
+- Taxonomy editor
+
+---
+
+## For developers
 
 ```bash
+git clone https://github.com/xonline/dj-library-manager.git
+cd dj-library-manager
+cp config.example.env .env
+# Add GEMINI_API_KEY to .env
 ./start.sh
-# Opens http://localhost:5050
+# Open http://localhost:5050
 ```
 
-### Configuration
-
-Create `.env` from `config.example.env`:
-
-```bash
-GEMINI_API_KEY=your-api-key-here
-SPOTIFY_CLIENT_ID=optional
-SPOTIFY_CLIENT_SECRET=optional
-FLASK_PORT=5050
-FLASK_DEBUG=false
-```
-
-## API Keys
-
-- **Gemini** (required): Get free at https://aistudio.google.com/app/apikey
-- **Spotify** (optional): Get at https://developer.spotify.com/dashboard
-
-## Build macOS App
-
+**Build standalone app (Mac):**
 ```bash
 ./build-mac.sh
-# Creates: dist/DJ Library Manager.app
+# Requires Python 3.10+ (brew install python@3.12)
+# Output: dist/XDJ Library Manager.app
 ```
-
-Requirements: Python 3.10+, PyInstaller, macOS.
-
-## Taxonomy
-
-Edit `taxonomy.json` to customize genres and subgenres:
-
-```json
-{
-  "genres": [
-    {
-      "name": "Salsa",
-      "subgenres": ["Cuban", "Puerto Rican"],
-      "bpm_range": [160, 220]
-    }
-  ]
-}
-```
-
-## Architecture
-
-- **Backend**: Flask REST API with blueprints for import, track management, review, analytics
-- **Audio**: librosa for BPM/key detection, mutagen for ID3 tags
-- **AI**: Google Gemini 1.5 Flash for classification (batched up to 10 tracks)
-- **Database**: In-memory store with JSON session persistence
-- **Frontend**: Vanilla JavaScript + CSS (dark theme, responsive)
-
-## API Endpoints
-
-### Import
-- `POST /api/import/pick-folder` - Native macOS folder picker
-- `POST /api/import/import` - Scan folder for MP3s
-- `POST /api/import/analyze` - Extract BPM/key/energy
-- `POST /api/import/classify` - AI genre classification + Spotify enrichment
-
-### Tracks
-- `GET /api/tracks` - List with sort/filter
-- `PUT /api/tracks/<id>` - Update overrides
-- `GET /api/audio/<id>` - Stream MP3 with range support
-
-### Review
-- `POST /api/review/approve` - Mark as approved
-- `POST /api/review/skip` - Skip review
-- `POST /api/review/bulk-approve` - Batch approve above threshold
-- `POST /api/review/write-tags` - Persist to ID3 tags
-
-### Taxonomy
-- `GET /api/bulk/taxonomy` - Get all genres
-- `PUT /api/bulk/taxonomy/<genre>` - Update genre
-- `POST /api/bulk/taxonomy` - Add genre
-- `DELETE /api/bulk/taxonomy/<genre>` - Delete genre
-
-### Session
-- `POST /api/session/save` - Save library state
-- `POST /api/session/load` - Restore from backup
-- `GET /api/session/stats` - Track counts (total/analyzed/classified/approved)
-
-### Settings
-- `GET /api/settings` - Get API key status
-- `POST /api/settings` - Update API keys
-
-### Watch
-- `POST /api/watch/start` - Start folder monitoring
-- `POST /api/watch/stop` - Stop monitoring
-- `GET /api/watch/poll` - Check for new files
-
-### Export
-- `GET /api/export/m3u` - Generate M3U playlist (filters: genre, subgenre, status)
-
-## Development
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python run_app.py  # Standalone launcher with WebKit
-# or
-flask run  # Web-only, default http://localhost:5000
-```
-
-## License
-
-MIT

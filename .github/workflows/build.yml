@@ -1,0 +1,141 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pywebview pyinstaller
+
+      - name: Create .env
+        run: cp config.example.env .env
+
+      - name: Build .app
+        run: |
+          pyinstaller \
+            --noconfirm \
+            --windowed \
+            --name "XDJ Library Manager" \
+            --add-data "templates:templates" \
+            --add-data "app/static:app/static" \
+            --add-data "taxonomy.json:." \
+            --add-data ".env:." \
+            --hidden-import "engineio.async_drivers.threading" \
+            --hidden-import "pkg_resources.py2_compat" \
+            --hidden-import "webview.platforms.cocoa" \
+            --collect-all webview \
+            --collect-all librosa \
+            --collect-all mutagen \
+            --collect-all flask \
+            run_app.py
+
+      - name: Zip .app
+        run: cd dist && zip -r "../XDJ-Library-Manager-mac.zip" "XDJ Library Manager.app"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-build
+          path: XDJ-Library-Manager-mac.zip
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pywebview pyinstaller
+
+      - name: Create .env
+        run: copy config.example.env .env
+
+      - name: Build .exe folder
+        run: |
+          pyinstaller `
+            --noconfirm `
+            --windowed `
+            --name "XDJ Library Manager" `
+            --add-data "templates;templates" `
+            --add-data "app/static;app/static" `
+            --add-data "taxonomy.json;." `
+            --add-data ".env;." `
+            --hidden-import "engineio.async_drivers.threading" `
+            --hidden-import "pkg_resources.py2_compat" `
+            --hidden-import "webview.platforms.edgechromium" `
+            --hidden-import "webview.platforms.mshtml" `
+            --collect-all webview `
+            --collect-all librosa `
+            --collect-all mutagen `
+            --collect-all flask `
+            run_app.py
+
+      - name: Zip output
+        run: Compress-Archive -Path "dist\XDJ Library Manager" -DestinationPath "XDJ-Library-Manager-windows.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: XDJ-Library-Manager-windows.zip
+
+  release:
+    needs: [build-mac, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Mac build
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-build
+
+      - name: Download Windows build
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+
+      - name: Create or update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Latest Build' }}
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          body: |
+            ## Download
+
+            | Platform | File |
+            |----------|------|
+            | 🍎 Mac   | `XDJ-Library-Manager-mac.zip` |
+            | 🪟 Windows | `XDJ-Library-Manager-windows.zip` |
+
+            **Mac:** Unzip → double-click `XDJ Library Manager.app`
+            **Windows:** Unzip → double-click `XDJ Library Manager.exe`
+
+            No Python, no Terminal, no installation needed.
+
+            > ⚠️ First launch: Mac may say "unidentified developer" — right-click the .app → Open → Open anyway.
+          files: |
+            XDJ-Library-Manager-mac.zip
+            XDJ-Library-Manager-windows.zip

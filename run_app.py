@@ -30,7 +30,7 @@ if __name__ == "__main__":
     try:
         import webview
         window = webview.create_window(
-            title="DJ Library Manager",
+            title="XDJ Library Manager",
             url=f"http://localhost:{PORT}",
             width=1280,
             height=820,

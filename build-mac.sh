@@ -1,13 +1,16 @@
 #!/bin/bash
-# Builds a self-contained DJ Library Manager.app using PyInstaller.
-# Run this once on your Mac. Output: dist/DJ Library Manager.app
+# Builds a self-contained XDJ Library Manager.app using PyInstaller.
+# Run this once on your Mac. Output: dist/XDJ Library Manager.app
 # Share that .app (or zip it) — no Python/pip needed on the target machine.
+#
+# Requires Python 3.10+ (pywebview won't compile on 3.9).
+# If Homebrew Python 3.12 is installed it will be used automatically.
 
 set -e
 cd "$(dirname "$0")"
 
 echo ""
-echo "  DJ Library Manager — Mac Build"
+echo "  XDJ Library Manager — Mac Build"
 echo "  This will take a few minutes..."
 echo ""
 
@@ -49,7 +52,7 @@ source .venv-build/bin/activate
 
 pip install -q --upgrade pip
 pip install -q -r requirements.txt
-pip install -q pyinstaller
+pip install -q pywebview pyinstaller
 
 # Create .env if missing (bundled app needs it present)
 if [ ! -f .env ]; then
@@ -60,7 +63,7 @@ fi
 pyinstaller \
     --noconfirm \
     --windowed \
-    --name "DJ Library Manager" \
+    --name "XDJ Library Manager" \
     --add-data "templates:templates" \
     --add-data "app/static:app/static" \
     --add-data "taxonomy.json:." \
@@ -77,8 +80,8 @@ pyinstaller \
     run_app.py
 
 echo ""
-echo "  ✅ Built: dist/DJ Library Manager.app"
+echo "  ✅ Built: dist/XDJ Library Manager.app"
 echo ""
 echo "  To distribute:"
-echo "  zip -r 'DJ Library Manager.zip' 'dist/DJ Library Manager.app'"
+echo "  cd dist && zip -r 'XDJ-Library-Manager-mac.zip' 'XDJ Library Manager.app'"
 echo ""
