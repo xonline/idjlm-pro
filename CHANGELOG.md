@@ -4,6 +4,33 @@ All notable changes to IDLM Pro are documented here.
 
 ---
 
+## [2.4.0] — 2026-04-05
+
+### UI Redesign — Single Library View
+- **Sidebar trimmed to 4 items** — Library, Organise, Set Planner, Settings
+- **Library toolbar** — folder picker + Analyze All + Classify All + Approve ≥N% + Write Tags on one row
+- **Inline stats bar** — total/analyzed/classified/approved always visible; progress bar appears during pipeline runs
+- **Inline approve column** — approve/unapprove per row, no Review tab needed
+- **SSE progress** — analyze/classify/write-tags progress shown inline in stats bar
+- **Removed standalone tabs** — Import, Review, Stats, Taxonomy, Setlist, Wheel, Duplicates; content folded into Library / Settings / Set Planner / Organise
+- **No backend changes** — all API routes unchanged
+
+---
+
+## [2.3.2] — 2026-04-05
+
+### Bug Fixes
+- **Track data missing in UI** — `Track.to_dict()` used `dataclasses.asdict()` which excludes `@property` methods; all computed fields (`final_genre`, `final_bpm`, `final_key`, `display_title`, `display_artist`, `final_subgenre`, `final_year`, `final_comment`) now explicitly included in the serialised dict
+- **Audio playback broken** — audio route changed from `/api/audio/<path:file_path>` to `/api/audio?path=...` (query param); `encodeURIComponent` was encoding `/` → `%2F` making Flask `os.path.abspath()` resolve to wrong path
+- **Edit modal couldn't be closed** — JS errors from undefined track properties prevented event handlers; root cause fixed; Escape key handler added as belt-and-braces
+- **Session lost on browser refresh** — session now auto-saved immediately after every import
+- **No UX guidance after import** — toast now says "click Analyze All to extract BPM & key"; app auto-switches to Tracks tab after import so user can see what was loaded
+
+### Track Model
+- Added `override_comment` field and `final_comment` property (falls back to `proposed_subgenre` then `existing_comment`)
+
+---
+
 ## [2.3.1] — 2026-04-05
 
 ### Launch UX
