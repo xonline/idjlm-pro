@@ -1207,9 +1207,10 @@ function initReviewTab() {
   // Export all approved
   btnExportAll.addEventListener('click', () => {
     const split = document.getElementById('checkbox-split-m3u').checked;
+    const chunkSize = document.getElementById('select-chunk-size')?.value || '500';
     let url = '/api/export/m3u?status=approved';
     if (split) {
-      url += '&split=true';
+      url += `&split=true&chunk_size=${chunkSize}`;
     }
     window.location = url;
     exportMenu.style.display = 'none';

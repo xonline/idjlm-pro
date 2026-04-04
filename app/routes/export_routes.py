@@ -36,7 +36,8 @@ def export_m3u():
     - energy_max: maximum energy 1-10 (int)
     - key: Camelot key filter e.g. "8B" (str)
     - filename: custom download filename (default: "idlm-playlist.m3u")
-    - split: "true" to create ZIP with multiple M3U files if >100 tracks (optional)
+    - split: "true" to create ZIP with multiple M3U files (optional)
+    - chunk_size: tracks per file when split=true, default 500 (options: 100, 500, 1000)
     """
     try:
         from app import get_track_store
@@ -52,6 +53,11 @@ def export_m3u():
         key = request.args.get("key", "").strip() or None
         filename = request.args.get("filename", "idlm-playlist.m3u").strip()
         split = request.args.get("split", "false").strip().lower() == "true"
+        try:
+            chunk_size = int(request.args.get("chunk_size", "500"))
+            chunk_size = max(100, min(1000, chunk_size))
+        except ValueError:
+            chunk_size = 500
 
         # Parse numeric filters
         try:
@@ -102,10 +108,9 @@ def export_m3u():
         if key:
             tracks = [t for t in tracks if t.final_key == key]
 
-        # Handle split: if split=true and >100 tracks, return ZIP with multiple M3U files
-        if split and len(tracks) > 100:
-            # Split into chunks of 100
-            chunks = [tracks[i:i + 100] for i in range(0, len(tracks), 100)]
+        # Handle split: if split=true, return ZIP with multiple M3U files
+        if split and len(tracks) > chunk_size:
+            chunks = [tracks[i:i + chunk_size] for i in range(0, len(tracks), chunk_size)]
 
             # Create ZIP file in memory
             zip_buffer = io.BytesIO()

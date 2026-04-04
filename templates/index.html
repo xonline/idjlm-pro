@@ -280,7 +280,13 @@
                 <div style="border-top: 1px solid #333; margin: 8px 0;"></div>
                 <label class="dropdown-item-checkbox">
                   <input type="checkbox" id="checkbox-split-m3u">
-                  <span>Split into 100-track playlists (djay Pro)</span>
+                  <span>Split playlist into</span>
+                  <select id="select-chunk-size" style="margin: 0 4px; background: var(--bg-subtle); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; padding: 1px 4px; font-size: 12px;">
+                    <option value="500" selected>500</option>
+                    <option value="1000">1000</option>
+                    <option value="100">100</option>
+                  </select>
+                  <span>tracks/file</span>
                 </label>
                 <button class="dropdown-item" id="btn-export-cue-sheet">📋 Export Cue Sheet (JSON)</button>
               </div>
