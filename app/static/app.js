@@ -79,8 +79,10 @@ document.getElementById("finalize-btn")?.addEventListener("click", async () => {
 function renderImportTracks() {
   const tbody = document.querySelector("#import-table tbody");
   tbody.innerHTML = "";
+  const fragment = document.createDocumentFragment();
   importState.tracks.forEach((t) => {
-    const row = `<tr>
+    const row = document.createElement("tr");
+    row.innerHTML = `
       <td><input type="checkbox" class="import-track-check" value="${t.id}" /></td>
       <td>${t.existing_title || "—"}</td>
       <td>${t.existing_artist || "—"}</td>
@@ -89,9 +91,10 @@ function renderImportTracks() {
       <td>${t.classified_genre || "—"}</td>
       <td>${t.classified_subgenre || "—"}</td>
       <td>${(t.classification_confidence || 0).toFixed(2)}</td>
-    </tr>`;
-    tbody.innerHTML += row;
+    `;
+    fragment.appendChild(row);
   });
+  tbody.appendChild(fragment);
 }
 
 // === TRACK LIST ===
@@ -105,8 +108,12 @@ async function loadTracks() {
 function renderTracks() {
   const tbody = document.querySelector("#track-table tbody");
   tbody.innerHTML = "";
+  const fragment = document.createDocumentFragment();
   allTracks.forEach((t) => {
-    const row = `<tr data-track-id="${t.id}" ondblclick="editTrack('${t.id}')">
+    const row = document.createElement("tr");
+    row.setAttribute("data-track-id", t.id);
+    row.setAttribute("ondblclick", `editTrack('${t.id}')`);
+    row.innerHTML = `
       <td>${t.existing_title || "—"}</td>
       <td>${t.existing_artist || "—"}</td>
       <td>${t.final_bpm ? t.final_bpm.toFixed(1) : "—"}</td>
@@ -114,9 +121,10 @@ function renderTracks() {
       <td>${t.final_genre || t.classified_genre || "—"}</td>
       <td>${t.final_subgenre || t.classified_subgenre || "—"}</td>
       <td>${t.approved ? "✓" : ""}</td>
-    </tr>`;
-    tbody.innerHTML += row;
+    `;
+    fragment.appendChild(row);
   });
+  tbody.appendChild(fragment);
 }
 
 function editTrack(trackId) {
@@ -156,8 +164,11 @@ async function loadReview() {
   const pending = allTracks.filter((t) => !t.approved && !t.skipped);
   const tbody = document.querySelector("#review-table tbody");
   tbody.innerHTML = "";
+  const fragment = document.createDocumentFragment();
   pending.forEach((t) => {
-    const row = `<tr data-review-id="${t.id}">
+    const row = document.createElement("tr");
+    row.setAttribute("data-review-id", t.id);
+    row.innerHTML = `
       <td>${t.existing_title || "—"}</td>
       <td>${t.existing_artist || "—"}</td>
       <td>${t.classified_genre || "—"} / ${t.classified_subgenre || "—"}</td>
@@ -167,9 +178,10 @@ async function loadReview() {
         <button onclick="approveTrack('${t.id}')" class="btn-small">✓</button>
         <button onclick="skipTrack('${t.id}')" class="btn-small">✗</button>
       </td>
-    </tr>`;
-    tbody.innerHTML += row;
+    `;
+    fragment.appendChild(row);
   });
+  tbody.appendChild(fragment);
 }
 
 async function approveTrack(trackId) {
