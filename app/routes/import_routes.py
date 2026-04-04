@@ -1,5 +1,6 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response, stream_with_context
 import os
+import json
 
 bp = Blueprint("import", __name__, url_prefix="/api/import")
 
@@ -50,6 +51,41 @@ def analyze():
     return jsonify({"tracks": [t.to_dict() for t in tracks]})
 
 
+@bp.route("/analyze/stream", methods=["POST"])
+def analyze_stream():
+    """SSE stream for analysis progress."""
+    from app.services.analyzer import analyze_track
+
+    data = request.json or {}
+    track_ids = data.get("track_ids", [])
+
+    tracks = _current_import_state["tracks"]
+    selected = [t for t in tracks if t.id in track_ids] if track_ids else tracks
+    total = len(selected)
+
+    def generate():
+        for i, track in enumerate(selected):
+            try:
+                analyze_track(track)
+                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"success\"})}
+\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"error\", \"error\": str(e)})}
+\n\n"
+        yield f"data: {json.dumps({\"complete\": True, \"total\": total})}
+\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
 @bp.route("/classify", methods=["POST"])
 def classify():
     """AI genre classification + Spotify enrichment."""
@@ -69,6 +105,43 @@ def classify():
         pass
 
     return jsonify({"tracks": [t.to_dict() for t in tracks]})
+
+
+@bp.route("/classify/stream", methods=["POST"])
+def classify_stream():
+    """SSE stream for classification progress."""
+    from app.services.classifier import classify_tracks
+    from app.services.enricher import enrich_tracks
+
+    data = request.json or {}
+    track_ids = data.get("track_ids", [])
+
+    tracks = _current_import_state["tracks"]
+    selected = [t for t in tracks if t.id in track_ids] if track_ids else [t for t in tracks if t.bpm]
+    total = len(selected)
+
+    def generate():
+        for i, track in enumerate(selected):
+            try:
+                classify_tracks([track])
+                enrich_tracks([track])
+                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"success\", \"genre\": track.classified_genre or \"—\", \"confidence\": round(track.classification_confidence or 0, 2)})}
+\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({\"done\": i+1, \"total\": total, \"track\": track.existing_title or track.id, \"status\": \"error\", \"error\": str(e)})}
+\n\n"
+        yield f"data: {json.dumps({\"complete\": True, \"total\": total})}
+\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @bp.route("/finalize", methods=["POST"])

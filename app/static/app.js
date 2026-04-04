@@ -7,6 +7,7 @@ let currentFolder = "";
 let importState = { tracks: [], folder: "" };
 let taxonomy = {};
 let stats = {};
+let activeStream = null; // Track active SSE connection
 
 // === TAB NAVIGATION ===
 document.querySelectorAll(".nav-btn").forEach((btn) => {
@@ -16,6 +17,69 @@ document.querySelectorAll(".nav-btn").forEach((btn) => {
     document.getElementById(`tab-${currentTab}`).style.display = "block";
     if (currentTab === "stats") loadStats();
   });
+});
+
+// === PROGRESS BAR SETUP ===
+function initProgressBar() {
+  const container = document.getElementById("progress-bar-container");
+  if (!container) {
+    const html = `
+      <div id="progress-bar-container" class="progress-container" style="display:none">
+        <div class="progress-header">
+          <span id="progress-text">Processing...</span>
+          <button id="progress-cancel-btn" class="btn-small">Cancel</button>
+        </div>
+        <div class="progress-bar-outer">
+          <div id="progress-bar" class="progress-bar-inner"></div>
+        </div>
+        <div id="progress-details" class="progress-details"></div>
+      </div>
+    `;
+    document.querySelector(".container").insertAdjacentHTML("beforebegin", html);
+  }
+}
+
+function showProgress(label) {
+  initProgressBar();
+  const container = document.getElementById("progress-bar-container");
+  container.style.display = "block";
+  document.getElementById("progress-text").innerText = label;
+  document.getElementById("progress-bar").style.width = "0%";
+  document.getElementById("progress-details").innerText = "";
+}
+
+function updateProgress(done, total, track, status, details) {
+  const percent = Math.round((done / total) * 100);
+  document.getElementById("progress-bar").style.width = percent + "%";
+  document.getElementById("progress-text").innerText = `${done} / ${total} — ${track}`;
+  
+  const detailsEl = document.getElementById("progress-details");
+  if (details) {
+    detailsEl.innerText = details;
+  }
+}
+
+function hideProgress() {
+  const container = document.getElementById("progress-bar-container");
+  if (container) container.style.display = "none";
+  activeStream = null;
+}
+
+function cancelProgress() {
+  if (activeStream) {
+    activeStream.close();
+    hideProgress();
+  }
+}
+
+// Cancel button listener
+document.addEventListener("DOMContentLoaded", () => {
+  setTimeout(() => {
+    const cancelBtn = document.getElementById("progress-cancel-btn");
+    if (cancelBtn) {
+      cancelBtn.addEventListener("click", cancelProgress);
+    }
+  }, 100);
 });
 
 // === IMPORT WORKFLOW ===
@@ -43,29 +107,114 @@ document.getElementById("analyze-btn")?.addEventListener("click", async () => {
   const selected = Array.from(document.querySelectorAll(".import-track-check:checked")).map(
     (cb) => cb.value
   );
-  const res = await fetch(`${API_BASE}/import/analyze`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ track_ids: selected }),
-  });
-  const data = await res.json();
-  importState.tracks = data.tracks || [];
-  renderImportTracks();
+  if (selected.length === 0) {
+    alert("Please select at least one track");
+    return;
+  }
+  
+  showProgress("Analyzing...");
+  
+  try {
+    activeStream = new EventSource(
+      `${API_BASE}/import/analyze/stream?track_ids=${encodeURIComponent(JSON.stringify(selected))}`
+    );
+    
+    activeStream.addEventListener("message", (e) => {
+      const data = JSON.parse(e.data);
+      
+      if (data.complete) {
+        hideProgress();
+        // Refresh track list
+        const res = await fetch(`${API_BASE}/import`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ folder: currentFolder || process.env.HOME + "/Music" }),
+        });
+        const updated = await res.json();
+        importState.tracks = updated.tracks || [];
+        renderImportTracks();
+        alert("Analysis complete!");
+      } else {
+        updateProgress(data.done, data.total, data.track, data.status, data.error ? `Error: ${data.error}` : "");
+        // Update row in table
+        updateTrackRow(data.track, { bpm: data.bpm });
+      }
+    });
+    
+    activeStream.addEventListener("error", () => {
+      hideProgress();
+      alert("Stream error");
+    });
+  } catch (err) {
+    hideProgress();
+    alert("Analysis failed: " + err.message);
+  }
 });
 
 document.getElementById("classify-btn")?.addEventListener("click", async () => {
   const selected = Array.from(document.querySelectorAll(".import-track-check:checked")).map(
     (cb) => cb.value
   );
-  const res = await fetch(`${API_BASE}/import/classify`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ track_ids: selected }),
-  });
-  const data = await res.json();
-  importState.tracks = data.tracks || [];
-  renderImportTracks();
+  if (selected.length === 0) {
+    alert("Please select at least one track");
+    return;
+  }
+  
+  showProgress("Classifying...");
+  
+  try {
+    activeStream = new EventSource(
+      `${API_BASE}/import/classify/stream?track_ids=${encodeURIComponent(JSON.stringify(selected))}`
+    );
+    
+    activeStream.addEventListener("message", (e) => {
+      const data = JSON.parse(e.data);
+      
+      if (data.complete) {
+        hideProgress();
+        // Refresh track list
+        const res = await fetch(`${API_BASE}/import`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ folder: currentFolder || process.env.HOME + "/Music" }),
+        });
+        const updated = await res.json();
+        importState.tracks = updated.tracks || [];
+        renderImportTracks();
+        alert("Classification complete!");
+      } else {
+        const details = data.genre ? `Genre: ${data.genre} (${data.confidence * 100}%)` : "";
+        updateProgress(data.done, data.total, data.track, data.status, details);
+        // Update row in table
+        updateTrackRow(data.track, { 
+          classified_genre: data.genre,
+          classification_confidence: data.confidence
+        });
+      }
+    });
+    
+    activeStream.addEventListener("error", () => {
+      hideProgress();
+      alert("Stream error");
+    });
+  } catch (err) {
+    hideProgress();
+    alert("Classification failed: " + err.message);
+  }
 });
+
+function updateTrackRow(trackName, updates) {
+  const rows = document.querySelectorAll("#import-table tbody tr");
+  for (const row of rows) {
+    const titleCell = row.cells[1];
+    if (titleCell && titleCell.innerText === trackName) {
+      if (updates.bpm) row.cells[3].innerText = updates.bpm.toFixed(1);
+      if (updates.classified_genre) row.cells[5].innerText = updates.classified_genre;
+      if (updates.classification_confidence) row.cells[7].innerText = (updates.classification_confidence * 100).toFixed(0) + "%";
+      break;
+    }
+  }
+}
 
 document.getElementById("finalize-btn")?.addEventListener("click", async () => {
   const res = await fetch(`${API_BASE}/import/finalize`, { method: "POST" });
@@ -79,10 +228,8 @@ document.getElementById("finalize-btn")?.addEventListener("click", async () => {
 function renderImportTracks() {
   const tbody = document.querySelector("#import-table tbody");
   tbody.innerHTML = "";
-  const fragment = document.createDocumentFragment();
   importState.tracks.forEach((t) => {
-    const row = document.createElement("tr");
-    row.innerHTML = `
+    const row = `<tr>
       <td><input type="checkbox" class="import-track-check" value="${t.id}" /></td>
       <td>${t.existing_title || "—"}</td>
       <td>${t.existing_artist || "—"}</td>
@@ -91,10 +238,9 @@ function renderImportTracks() {
       <td>${t.classified_genre || "—"}</td>
       <td>${t.classified_subgenre || "—"}</td>
       <td>${(t.classification_confidence || 0).toFixed(2)}</td>
-    `;
-    fragment.appendChild(row);
+    </tr>`;
+    tbody.innerHTML += row;
   });
-  tbody.appendChild(fragment);
 }
 
 // === TRACK LIST ===
@@ -108,12 +254,8 @@ async function loadTracks() {
 function renderTracks() {
   const tbody = document.querySelector("#track-table tbody");
   tbody.innerHTML = "";
-  const fragment = document.createDocumentFragment();
   allTracks.forEach((t) => {
-    const row = document.createElement("tr");
-    row.setAttribute("data-track-id", t.id);
-    row.setAttribute("ondblclick", `editTrack('${t.id}')`);
-    row.innerHTML = `
+    const row = `<tr data-track-id="${t.id}" ondblclick="editTrack('${t.id}')">>
       <td>${t.existing_title || "—"}</td>
       <td>${t.existing_artist || "—"}</td>
       <td>${t.final_bpm ? t.final_bpm.toFixed(1) : "—"}</td>
@@ -121,10 +263,9 @@ function renderTracks() {
       <td>${t.final_genre || t.classified_genre || "—"}</td>
       <td>${t.final_subgenre || t.classified_subgenre || "—"}</td>
       <td>${t.approved ? "✓" : ""}</td>
-    `;
-    fragment.appendChild(row);
+    </tr>`;
+    tbody.innerHTML += row;
   });
-  tbody.appendChild(fragment);
 }
 
 function editTrack(trackId) {
@@ -164,11 +305,8 @@ async function loadReview() {
   const pending = allTracks.filter((t) => !t.approved && !t.skipped);
   const tbody = document.querySelector("#review-table tbody");
   tbody.innerHTML = "";
-  const fragment = document.createDocumentFragment();
   pending.forEach((t) => {
-    const row = document.createElement("tr");
-    row.setAttribute("data-review-id", t.id);
-    row.innerHTML = `
+    const row = `<tr data-review-id="${t.id}">
       <td>${t.existing_title || "—"}</td>
       <td>${t.existing_artist || "—"}</td>
       <td>${t.classified_genre || "—"} / ${t.classified_subgenre || "—"}</td>
@@ -178,10 +316,9 @@ async function loadReview() {
         <button onclick="approveTrack('${t.id}')" class="btn-small">✓</button>
         <button onclick="skipTrack('${t.id}')" class="btn-small">✗</button>
       </td>
-    `;
-    fragment.appendChild(row);
+    </tr>`;
+    tbody.innerHTML += row;
   });
-  tbody.appendChild(fragment);
 }
 
 async function approveTrack(trackId) {
@@ -389,6 +526,7 @@ window.addEventListener("click", (e) => {
 });
 
 // === INIT ===
+initProgressBar();
 loadTracks();
 loadSettings();
 loadModelSettings();
