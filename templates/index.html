@@ -34,155 +34,118 @@
     <!-- Main Content -->
     <main class="content">
 
-      <!-- Import Tab -->
-      <section id="tab-import" class="tab active">
-        <div class="tab-header">
-          <div class="tab-header-left">
-            <h1>Import Music Library</h1>
-            <p>Scan a folder of MP3s to begin tagging</p>
+      <!-- LIBRARY TAB -->
+      <div id="tab-library" class="tab active">
+
+        <!-- Toolbar -->
+        <div class="library-toolbar">
+          <div class="toolbar-import">
+            <span class="toolbar-label">📁</span>
+            <span id="folder-display" class="folder-display">No folder selected</span>
+            <button class="btn btn-secondary btn-sm" id="btn-change-folder">Change</button>
+            <input type="text" id="folder-input" class="folder-input-inline" placeholder="/path/to/music" style="display:none;" />
+            <button class="btn btn-primary btn-sm" id="btn-import" style="display:none;">Import</button>
+          </div>
+          <div class="toolbar-pipeline">
+            <button class="btn pipeline-btn" id="btn-analyze" disabled>▶ Analyze All</button>
+            <button class="btn pipeline-btn" id="btn-classify" disabled>✦ Classify All</button>
+            <button class="btn pipeline-btn" id="btn-bulk-approve-toolbar" disabled>✓ Approve ≥<span id="toolbar-threshold">80</span>%</button>
+            <button class="btn pipeline-btn pipeline-btn-write" id="btn-write-tags" disabled>✎ Write Tags</button>
           </div>
         </div>
 
-        <!-- Resume Session Banner -->
-        <div id="resume-session-banner" class="resume-banner" style="display: none;">
-          <div class="resume-banner-content">
-            <span id="resume-banner-text"></span>
-            <div class="resume-banner-actions">
-              <button id="btn-resume-session" class="btn btn-primary" style="padding: 8px 14px; font-size: 13px;">Resume</button>
-              <button id="btn-dismiss-session" class="btn btn-secondary" style="padding: 8px 14px; font-size: 13px;">Dismiss</button>
-            </div>
-          </div>
+        <!-- Stats bar -->
+        <div class="stats-bar" id="library-stats-bar">
+          <span class="stat-item"><span id="stat-total">0</span> tracks</span>
+          <span class="stat-sep">•</span>
+          <span class="stat-item"><span id="stat-analyzed">0</span> analyzed</span>
+          <span class="stat-sep">•</span>
+          <span class="stat-item"><span id="stat-classified">0</span> classified</span>
+          <span class="stat-sep">•</span>
+          <span class="stat-item"><span id="stat-approved">0</span> approved</span>
+          <span class="stat-sep stat-progress-sep" id="stat-progress-sep" style="display:none;">•</span>
+          <span class="stat-progress-wrap" id="stat-progress-wrap" style="display:none;">
+            <span id="stat-progress-text"></span>
+            <div class="stat-progress-bar"><div class="stat-progress-fill" id="stat-progress-fill"></div></div>
+          </span>
         </div>
 
-        <div class="import-form">
-          <button id="btn-choose-folder" class="btn btn-choose-folder">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            Choose Music Folder
-          </button>
-          <div id="chosen-folder-display" class="chosen-folder" style="display:none;">
-            <span class="chosen-folder-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
-            <span id="chosen-folder-path" class="chosen-folder-path"></span>
-            <button id="btn-import" class="btn btn-primary btn-import-go">Import</button>
-          </div>
-          <input type="hidden" id="folder-input">
+        <!-- Session resume banner -->
+        <div class="resume-banner" id="resume-banner" style="display:none;">
+          <span id="resume-info"></span>
+          <button class="btn btn-sm btn-primary" id="btn-resume-session">Resume</button>
+          <button class="btn btn-sm btn-secondary" id="btn-dismiss-session">Dismiss</button>
         </div>
 
-        <div class="pipeline-section">
-          <h2>Processing Pipeline</h2>
-          <div class="pipeline-steps">
-            <div class="step">
-              <button id="btn-analyze" class="btn btn-secondary" disabled>
-                <span class="step-number">1</span>
-                Analyze Audio
-              </button>
-              <div class="step-description">Extracts BPM, musical key, and energy from audio</div>
-            </div>
-
-            <div class="arrow">→</div>
-
-            <div class="step">
-              <button id="btn-classify" class="btn btn-secondary" disabled>
-                <span class="step-number">2</span>
-                Classify Genres
-              </button>
-              <div class="step-description">Uses Gemini AI to suggest genre and sub-genre</div>
-            </div>
-
-            <div class="arrow">→</div>
-
-            <div class="step">
-              <button id="btn-review-tab" class="btn btn-secondary" disabled>
-                <span class="step-number">3</span>
-                Review & Approve
-              </button>
-              <div class="step-description">Review suggestions before writing to files</div>
-            </div>
-          </div>
+        <!-- Filter bar -->
+        <div class="filter-bar">
+          <input type="text" id="search-tracks" class="search-input" placeholder="Search tracks..." />
+          <select id="filter-genre" class="filter-select">
+            <option value="">All Genres</option>
+          </select>
+          <select id="filter-status" class="filter-select">
+            <option value="">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="skipped">Skipped</option>
+            <option value="written">Written</option>
+          </select>
+          <select id="filter-sort" class="filter-select">
+            <option value="display_title">Sort: Title</option>
+            <option value="display_artist">Sort: Artist</option>
+            <option value="final_genre">Sort: Genre</option>
+            <option value="final_bpm">Sort: BPM</option>
+            <option value="confidence">Sort: Confidence</option>
+          </select>
         </div>
 
-        <div id="import-status" class="status-area" style="display: none;">
-          <div class="status-message" id="status-message"></div>
-          <div class="progress-bar">
-            <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
-          </div>
-        </div>
-
-        <!-- Session & Folder Watch Controls -->
-        <div class="import-controls-section">
-          <div class="controls-row">
-            <button id="btn-save-session" class="btn btn-secondary">💾 Save Session</button>
-            <button id="btn-toggle-watch" class="btn btn-secondary" data-watching="false">👁️ Watch Folder (Off)</button>
-            <span id="watch-status" class="watch-status-text"></span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Tracks Tab -->
-      <section id="tab-tracks" class="tab">
-        <div class="tab-header">
-          <div class="tab-header-left">
-            <h1>Music Library</h1>
-            <p>All imported tracks with their current and suggested tags</p>
-          </div>
-        </div>
-
-        <div class="controls-row">
-          <div class="filter-controls">
-            <select id="filter-genre" class="input-select">
-              <option value="">All Genres</option>
-            </select>
-            <select id="filter-status" class="input-select">
-              <option value="">All Status</option>
-              <option value="pending">Pending Review</option>
-              <option value="approved">Approved</option>
-              <option value="skipped">Skipped</option>
-              <option value="written">Written</option>
-            </select>
-          </div>
-          <div class="search-controls">
-            <input
-              type="text"
-              id="search-tracks"
-              placeholder="Search title or artist…"
-              class="input-text"
-            >
-            <button id="btn-search-clear" class="btn btn-secondary" style="padding: 10px 12px; display: none;">×</button>
-          </div>
-        </div>
-
-        <div class="tracks-container">
-          <table class="tracks-table">
+        <!-- Track table -->
+        <div class="table-wrap">
+          <table class="tracks-table" id="tracks-table">
             <thead>
               <tr>
-                <th class="checkbox-col"><input type="checkbox" id="checkbox-select-all"></th>
-                <th class="sortable" data-sort="display_title">Title</th>
-                <th class="sortable" data-sort="display_artist">Artist</th>
+                <th class="checkbox-col"><input type="checkbox" id="select-all-checkbox" /></th>
+                <th data-sort="display_title">Title</th>
+                <th data-sort="display_artist">Artist</th>
                 <th class="wave-col">Wave</th>
-                <th class="sortable" data-sort="final_genre">Genre</th>
-                <th class="sortable" data-sort="final_subgenre">Sub-Genre</th>
-                <th class="sortable" data-sort="confidence">Confidence</th>
-                <th class="sortable" data-sort="final_bpm">BPM</th>
-                <th class="sortable" data-sort="final_key">Key</th>
-                <th class="sortable" data-sort="clave_pattern">Clave</th>
-                <th class="sortable" data-sort="vocal_flag">Vocal</th>
-                <th class="sortable" data-sort="tempo_category">Tempo</th>
-                <th class="sortable" data-sort="final_year">Year</th>
-                <th class="sortable" data-sort="review_status">Status</th>
-                <th style="text-align: center;">Action</th>
+                <th data-sort="final_genre">Genre</th>
+                <th data-sort="final_subgenre">Sub-Genre</th>
+                <th data-sort="confidence">Conf</th>
+                <th data-sort="final_bpm">BPM</th>
+                <th data-sort="final_key">Key</th>
+                <th data-sort="clave_pattern">Clave</th>
+                <th data-sort="vocal_flag">Vocal</th>
+                <th data-sort="tempo_category">Tempo</th>
+                <th data-sort="final_year">Year</th>
+                <th data-sort="review_status">Status</th>
+                <th class="approve-col">Approve</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody id="tracks-tbody">
               <tr class="empty-state">
-                <td colspan="12">No tracks imported yet</td>
+                <td colspan="16">
+                  <div class="empty-state-content">
+                    <div class="empty-icon">📁</div>
+                    <div class="empty-msg">Pick a folder to get started</div>
+                    <button class="btn btn-primary" id="btn-get-started">Choose Folder</button>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
+        <div class="pagination-info" id="pagination-info"></div>
 
-        <div class="pagination-info">
-          <span id="tracks-count">0 tracks</span>
+        <!-- Bulk action bar -->
+        <div class="bulk-action-bar" id="bulk-action-bar" style="display:none;">
+          <span id="bulk-selected-count">0 selected</span>
+          <button class="btn btn-sm btn-primary" id="btn-bulk-approve-selected">Approve Selected</button>
+          <button class="btn btn-sm btn-secondary" id="btn-bulk-skip-selected">Skip Selected</button>
+          <button class="btn btn-sm btn-danger" id="btn-bulk-delete-selected">Delete Selected</button>
         </div>
-      </section>
+
+      </div>
 
       <!-- Review Tab -->
       <section id="tab-review" class="tab">
