@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 import os
 import json
+import pathlib
 from dotenv import load_dotenv, find_dotenv
 
 bp = Blueprint("settings", __name__, url_prefix="/api/settings")
@@ -108,8 +109,7 @@ def update_settings():
 
             with open(env_file, "w") as f:
                 for k, v in env_vars.items():
-                    f.write(f"{k}={v}
-")
+                    f.write(f"{k}={v}\n")
         except (OSError, IOError):
             # .env file is read-only (bundled .app), but settings.json was saved above
             pass
@@ -145,3 +145,14 @@ def set_model():
     os.environ["GEMINI_MODEL"] = model or DEFAULT_MODEL
     
     return jsonify({"model": os.environ["GEMINI_MODEL"]})
+
+
+@bp.route("/version", methods=["GET"])
+def get_version():
+    """Get app version from VERSION file and build SHA."""
+    version_file = pathlib.Path(__file__).parent.parent.parent / "VERSION"
+    try:
+        version = version_file.read_text().strip()
+    except Exception:
+        version = "unknown"
+    return jsonify({"version": version, "build": os.getenv("BUILD_SHA", "dev")})

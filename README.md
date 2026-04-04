@@ -1,5 +1,7 @@
 # XDJ Library Manager
 
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
+
 Automatically classify your DJ music library by genre and sub-genre using AI — in bulk.
 
 Built for DJs with large Latin dance collections (Salsa, Bachata, Kizomba, and more).
@@ -15,10 +17,11 @@ Go to the **[Releases](https://github.com/xonline/dj-library-manager/releases)**
 | 🍎 Mac | `XDJ-Library-Manager-mac.zip` |
 | 🪟 Windows | `XDJ-Library-Manager-windows.zip` |
 
-**Mac:** Unzip → right-click `XDJ Library Manager.app` → **Open** → **Open anyway**
-(Only needed the very first time — macOS security on unsigned apps)
-
+**Mac:** Unzip → double-click `XDJ Library Manager.app`
 **Windows:** Unzip → double-click `XDJ Library Manager.exe`
+
+> **Mac note:** First time you open it, macOS may say "unidentified developer".
+> Right-click the app → **Open** → **Open anyway**. Only needed once.
 
 No Python. No Terminal. No installation.
 
@@ -95,6 +98,7 @@ Edit the **Taxonomy** tab to add your own sub-genres. Changes apply immediately.
 - Folder watcher — auto-import new files
 - Session save/load
 - Taxonomy editor
+- Version system with `/api/version` endpoint
 
 ---
 
