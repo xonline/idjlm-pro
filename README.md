@@ -93,22 +93,4 @@ Get credentials at https://developer.spotify.com/dashboard (free).
 
 ## Changelog
 
-### v2.1.0 — 2026-04-04
-- SSE progress bars for long-running operations (Analysis, Classification, Tagging)
-- Track detail slide-in panel: full metadata, AI classification with confidence, album art
-- Setlist Builder tab: harmonic mixing suggestions (Camelot wheel compatibility), duration tracking
-- Text search bar with client-side filtering and debounce (333ms)
-- Bulk select with checkboxes and floating action bar for batch operations
-- Apple Music sync button with tooltip
-- Enhanced Settings: AI model selector (Claude/Gemini/Ollama), API key management, batch size, auto-approve threshold
-- Export to CSV, JSON, Rekordbox XML with genre filtering
-- Mobile-responsive UI with dark theme consistency
-
-### v2.0.0 — 2026-04-04
-- Duplicate track detector (scan + remove)
-- Album art auto-fetch from Spotify + embed in ID3
-- BPM half/double auto-correction for Latin dance tempos
-- Smart playlist builder with BPM range, energy, and key filters
-
-### v1.9.0 — 2026-04-04
-- Rebranded to IDLM Pro (Intelligent DJ Library Manager)
+See [CHANGELOG.md](CHANGELOG.md) for the full version history.

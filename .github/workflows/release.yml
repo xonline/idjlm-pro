@@ -1,0 +1,159 @@
+name: Release
+
+# Triggers automatically when a version tag (e.g. v2.3.0) is pushed.
+# Builds macOS DMG + Windows EXE via PyInstaller, then creates a GitHub
+# release with the changelog section for that version attached.
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+
+jobs:
+  # ─── macOS DMG ────────────────────────────────────────────────────────────
+  build-macos:
+    name: Build macOS DMG
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build .app
+        run: |
+          cp config.example.env .env
+          pyinstaller \
+            --noconfirm \
+            --windowed \
+            --name "IDLM Pro" \
+            --add-data "templates:templates" \
+            --add-data "app/static:app/static" \
+            --add-data "taxonomy.json:." \
+            --add-data ".env:." \
+            --hidden-import "engineio.async_drivers.threading" \
+            --hidden-import "pkg_resources.py2_compat" \
+            --hidden-import "webview.platforms.cocoa" \
+            --collect-all webview \
+            --collect-all librosa \
+            --collect-all mutagen \
+            --collect-all flask \
+            run_app.py
+
+      - name: Package as DMG
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          DMG_NAME="IDLM-Pro-${VERSION}-macOS.dmg"
+          hdiutil create \
+            -volname "IDLM Pro ${VERSION}" \
+            -srcfolder "dist/IDLM Pro.app" \
+            -ov -format UDZO \
+            "${DMG_NAME}"
+          echo "DMG_NAME=${DMG_NAME}" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: "IDLM-Pro-${{ github.ref_name }}-macOS.dmg"
+
+  # ─── Windows EXE ─────────────────────────────────────────────────────────
+  build-windows:
+    name: Build Windows EXE
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build EXE
+        run: |
+          copy config.example.env .env
+          pyinstaller `
+            --noconfirm `
+            --name "IDLM Pro" `
+            --add-data "templates;templates" `
+            --add-data "app/static;app/static" `
+            --add-data "taxonomy.json;." `
+            --add-data ".env;." `
+            --hidden-import "engineio.async_drivers.threading" `
+            --hidden-import "pkg_resources.py2_compat" `
+            --hidden-import "webview.platforms.winforms" `
+            --collect-all webview `
+            --collect-all librosa `
+            --collect-all mutagen `
+            --collect-all flask `
+            run_app.py
+
+      - name: Zip Windows build
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          $zipName = "IDLM-Pro-${env:VERSION}-Windows.zip"
+          Compress-Archive -Path "dist\IDLM Pro" -DestinationPath $zipName
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-zip
+          path: "IDLM-Pro-${{ github.ref_name }}-Windows.zip"
+
+  # ─── GitHub Release ───────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ github.ref_name }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract changelog for this version
+        run: |
+          VERSION_NUM="${VERSION#v}"
+          python3 - <<PYEOF
+          import re, os
+
+          version = os.environ["VERSION"].lstrip("v")
+          repo    = os.environ["REPO"]
+
+          with open("CHANGELOG.md") as f:
+              content = f.read()
+
+          pattern = r"## \[" + re.escape(version) + r"\][^\n]*\n(.*?)(?=\n## \[|\Z)"
+          m = re.search(pattern, content, re.DOTALL)
+          notes = m.group(1).strip() if m else "No changelog entry found for this version."
+
+          footer = f"\n\n---\nFull changelog: https://github.com/{repo}/blob/main/CHANGELOG.md"
+          with open("release_notes.txt", "w") as f:
+              f.write(notes + footer)
+          PYEOF
+          cat release_notes.txt
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "IDLM Pro ${{ github.ref_name }}"
+          body_path: release_notes.txt
+          files: |
+            artifacts/macos-dmg/*.dmg
+            artifacts/windows-zip/*.zip
