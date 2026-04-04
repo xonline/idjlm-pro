@@ -33,7 +33,9 @@ jobs:
             | 🍎 Mac | [XDJ-Library-Manager-mac.zip](https://github.com/xonline/dj-library-manager/releases/download/latest/XDJ-Library-Manager-mac.zip) |
             | 🪟 Windows | [XDJ-Library-Manager-windows.zip](https://github.com/xonline/dj-library-manager/releases/download/latest/XDJ-Library-Manager-windows.zip) |
 
-            **Mac:** Unzip → run `install-mac.command` once → double-click `XDJ Library Manager.app`
+            **Mac:** Unzip → right-click `XDJ Library Manager.app` → **Open** → **Open anyway**
+            (Only needed the very first time — macOS security on unsigned apps)
+
             **Windows:** Unzip and double-click `XDJ Library Manager.exe`
 
             No Python. No Terminal. No installation needed.
@@ -117,41 +119,13 @@ jobs:
             --collect-all flask \
             run_app.py
 
-      - name: Remove quarantine attributes
-        run: xattr -cr "dist/XDJ Library Manager.app"
-
-      - name: Create install helper
+      - name: Remove quarantine + sign (ad-hoc)
         run: |
-          cat > "install-mac.command" << 'EOF'
-          #!/bin/bash
-          APP="XDJ Library Manager.app"
-          SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-          
-          if [ ! -d "$SCRIPT_DIR/$APP" ]; then
-              echo "Error: $APP not found next to this script."
-              echo "Make sure both files are in the same folder."
-              read -p "Press Enter to close..."
-              exit 1
-          fi
-          
-          echo "Setting up XDJ Library Manager..."
-          xattr -cr "$SCRIPT_DIR/$APP"
-          chmod +x "$SCRIPT_DIR/$APP/Contents/MacOS/"*
-          
-          echo ""
-          echo "Done! You can now double-click XDJ Library Manager.app to open it."
-          echo "You can delete this install script after."
-          echo ""
-          read -p "Press Enter to close..."
-          EOF
-          chmod +x "install-mac.command"
+          xattr -cr "dist/XDJ Library Manager.app"
+          codesign --force --deep --sign - "dist/XDJ Library Manager.app"
 
-      - name: Zip .app + installer
-        run: |
-          mkdir -p release-mac
-          cp -r "dist/XDJ Library Manager.app" release-mac/
-          cp install-mac.command release-mac/
-          cd release-mac && zip -r "../XDJ-Library-Manager-mac.zip" .
+      - name: Zip .app
+        run: cd dist && zip -r "../XDJ-Library-Manager-mac.zip" "XDJ Library Manager.app"
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2

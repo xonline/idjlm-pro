@@ -15,11 +15,10 @@ Go to the **[Releases](https://github.com/xonline/dj-library-manager/releases)**
 | 🍎 Mac | `XDJ-Library-Manager-mac.zip` |
 | 🪟 Windows | `XDJ-Library-Manager-windows.zip` |
 
-**Mac:** Unzip → double-click `XDJ Library Manager.app`
-**Windows:** Unzip → double-click `XDJ Library Manager.exe`
+**Mac:** Unzip → right-click `XDJ Library Manager.app` → **Open** → **Open anyway**
+(Only needed the very first time — macOS security on unsigned apps)
 
-> **Mac note:** First time you open it, macOS may say "unidentified developer".
-> Right-click the app → **Open** → **Open anyway**. Only needed once.
+**Windows:** Unzip → double-click `XDJ Library Manager.exe`
 
 No Python. No Terminal. No installation.
 
