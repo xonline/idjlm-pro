@@ -49,7 +49,7 @@
           <div class="toolbar-pipeline">
             <button class="btn pipeline-btn" id="btn-analyze" disabled>▶ Analyze All</button>
             <button class="btn pipeline-btn" id="btn-classify" disabled>✦ Classify All</button>
-            <button class="btn pipeline-btn" id="btn-bulk-approve-toolbar" disabled>✓ Approve ≥<span id="toolbar-threshold">80</span>%</button>
+            <button class="btn pipeline-btn" id="btn-bulk-approve-toolbar" disabled>✓ Approve ≥<input type="number" id="toolbar-threshold" value="80" min="1" max="100" title="Confidence threshold">%</button>
             <button class="btn pipeline-btn pipeline-btn-write" id="btn-write-tags" disabled>✎ Write Tags</button>
           </div>
         </div>

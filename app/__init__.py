@@ -11,6 +11,8 @@ _track_store: dict = {}
 _taxonomy: dict = {}
 # Progress queues: { op_id: queue.Queue }
 _progress_queues: dict = {}
+# Last imported folder path (used for auto-save)
+_current_folder_path: str = ""
 
 
 def get_track_store() -> dict:
@@ -23,6 +25,15 @@ def get_taxonomy() -> dict:
 
 def get_progress_queues() -> dict:
     return _progress_queues
+
+
+def get_current_folder_path() -> str:
+    return _current_folder_path
+
+
+def set_current_folder_path(path: str) -> None:
+    global _current_folder_path
+    _current_folder_path = path
 
 
 def create_app() -> Flask:

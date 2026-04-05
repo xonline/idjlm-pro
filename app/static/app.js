@@ -286,7 +286,7 @@ function initLibraryToolbar() {
   if (btnBulkApprove) {
     btnBulkApprove.addEventListener('click', async () => {
       const thresholdEl = document.getElementById('toolbar-threshold');
-      const threshold = parseInt(thresholdEl ? thresholdEl.textContent : '80');
+      const threshold = parseInt(thresholdEl ? (thresholdEl.value || thresholdEl.textContent) : '80');
       try {
         const result = await apiFetch('/api/review/bulk-approve', {
           method: 'POST',
@@ -3134,6 +3134,76 @@ async function handleBulkEdit() {
 // Initialization
 // ============================================================================
 
+// ─── Threshold localStorage persistence ───────────────────────────────────────
+function initThresholdPersistence() {
+  const input = document.getElementById('toolbar-threshold');
+  if (!input) return;
+  const saved = localStorage.getItem('idjlm-threshold');
+  if (saved) input.value = saved;
+  input.addEventListener('change', () => {
+    localStorage.setItem('idjlm-threshold', input.value);
+  });
+  // Stop click on input from firing the parent button
+  input.addEventListener('click', e => e.stopPropagation());
+}
+
+// ─── Keyboard shortcuts for track table ──────────────────────────────────────
+// Space = approve/unapprove selected row
+// ArrowUp / ArrowDown = navigate rows
+(function initKeyboardNav() {
+  let selectedIdx = -1;
+
+  function getRows() {
+    return Array.from(document.querySelectorAll('#tracks-tbody tr:not(.empty-state)'));
+  }
+
+  function selectRow(idx) {
+    const rows = getRows();
+    rows.forEach(r => r.classList.remove('row-selected'));
+    if (idx < 0 || idx >= rows.length) { selectedIdx = -1; return; }
+    selectedIdx = idx;
+    rows[idx].classList.add('row-selected');
+    rows[idx].scrollIntoView({ block: 'nearest' });
+  }
+
+  document.addEventListener('keydown', e => {
+    // Ignore when typing in an input/textarea
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+    const rows = getRows();
+    if (!rows.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectRow(Math.min(selectedIdx + 1, rows.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectRow(Math.max(selectedIdx - 1, 0));
+    } else if (e.key === ' ' && selectedIdx >= 0) {
+      e.preventDefault();
+      const approveBtn = rows[selectedIdx].querySelector('.approve-btn');
+      if (approveBtn) approveBtn.click();
+    }
+  });
+
+  // Re-select same logical row after renderTracks() re-draws the table
+  const origRender = window.renderTracks;
+  if (typeof origRender === 'function') {
+    // renderTracks is already defined — patch it
+    const _orig = window.renderTracks || renderTracks;
+  }
+  // Hook via MutationObserver instead (renderTracks rebuilds innerHTML)
+  const observer = new MutationObserver(() => {
+    const rows = getRows();
+    if (selectedIdx >= 0 && selectedIdx < rows.length) {
+      rows[selectedIdx].classList.add('row-selected');
+    }
+  });
+  const tbody = document.getElementById('tracks-tbody');
+  if (tbody) observer.observe(tbody, { childList: true });
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
   initLibraryToolbar();
   initThemeToggle();
@@ -3142,6 +3212,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadTaxonomy();
   renderTracks();
   checkResumeSession();
+  initThresholdPersistence();
 });
 
 // ============================================================================

@@ -55,11 +55,12 @@ def import_tracks():
 
         # Import scanner service
         from app.services.scanner import scan_folder
-        from app import get_track_store
+        from app import get_track_store, set_current_folder_path
 
         # Clear previous session and scan
         track_store = get_track_store()
         track_store.clear()
+        set_current_folder_path(folder_path)
         tracks = scan_folder(folder_path)
 
         # Store tracks in memory by file_path
@@ -195,6 +196,12 @@ def classify_tracks():
                         'error': str(e)
                     })
             q.put({'done': True, 'classified': classified, 'errors': errors})
+            try:
+                from app.services.session_service import save_session
+                from app import get_current_folder_path
+                save_session(track_store, get_current_folder_path())
+            except Exception:
+                pass
 
         threading.Thread(target=run, daemon=True).start()
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202

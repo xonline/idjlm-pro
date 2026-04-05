@@ -174,6 +174,12 @@ def write_tags():
                     })
 
             q.put({'done': True, 'written': written, 'errors': errors})
+            try:
+                from app.services.session_service import save_session
+                from app import get_track_store, get_current_folder_path
+                save_session(get_track_store(), get_current_folder_path())
+            except Exception:
+                pass
 
         threading.Thread(target=run, daemon=True).start()
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202

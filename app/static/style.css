@@ -2805,6 +2805,14 @@ canvas.waveform-thumb {
   border-color: var(--accent);
 }
 .pipeline-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+#toolbar-threshold {
+  width: 3ch; background: transparent; border: none; border-bottom: 1px solid currentColor;
+  color: inherit; font: inherit; padding: 0; text-align: center;
+  -moz-appearance: textfield; appearance: textfield;
+}
+#toolbar-threshold::-webkit-inner-spin-button,
+#toolbar-threshold::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
 .pipeline-btn-write:not(:disabled) { border-color: var(--green); color: var(--green); }
 .pipeline-btn-write:not(:disabled):hover {
   background: color-mix(in srgb, var(--green) 15%, transparent);
