@@ -23,16 +23,26 @@ def serve_audio():
         if not os.path.isfile(file_path):
             return jsonify({"error": "Path is not a file"}), 400
 
-        if not file_path.lower().endswith('.mp3'):
-            return jsonify({"error": "Only MP3 files are supported"}), 400
-
         if not os.access(file_path, os.R_OK):
             return jsonify({"error": "Audio file is not readable"}), 403
 
-        # Send file with conditional=True for range request support
+        ext = file_path.lower().rsplit('.', 1)[-1]
+        mime_map = {
+            'mp3': 'audio/mpeg',
+            'flac': 'audio/flac',
+            'wav': 'audio/wav',
+            'm4a': 'audio/mp4',
+            'aac': 'audio/aac',
+            'ogg': 'audio/ogg',
+        }
+        mimetype = mime_map.get(ext)
+        if not mimetype:
+            return jsonify({"error": f"Unsupported audio format: .{ext}"}), 400
+
+        # Send file with conditional=True for range request support (enables seeking)
         return send_file(
             file_path,
-            mimetype="audio/mpeg",
+            mimetype=mimetype,
             conditional=True,
             as_attachment=False
         )

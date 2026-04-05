@@ -487,7 +487,8 @@ label {
 }
 
 .input-text,
-.input-select {
+.input-select,
+.input {
   width: 100%;
   height: 40px;
   padding: 0 12px;
@@ -496,11 +497,13 @@ label {
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-size: 14px;
+  font-family: inherit;
   transition: all 0.2s ease;
 }
 
 .input-text:focus,
-.input-select:focus {
+.input-select:focus,
+.input:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-glow);

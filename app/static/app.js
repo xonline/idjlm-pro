@@ -1205,18 +1205,30 @@ function toggleAudioPlay(btn, filePath) {
       b.textContent = '▶';
     });
 
-    // Set new source and play
+    // Set new source and play — wait for canplay before calling play()
     audio.src = audioUrl;
     currentAudioPlayer = audio;
     audio.load();
 
-    audio.play().catch(err => {
-      showToast('Could not play audio', 'error');
-      console.error('Audio play error:', err);
-    });
-
     btn.classList.add('playing');
     btn.textContent = '⏸';
+
+    audio.addEventListener('canplay', function onCanPlay() {
+      audio.removeEventListener('canplay', onCanPlay);
+      audio.play().catch(err => {
+        showToast('Could not play audio', 'error');
+        console.error('Audio play error:', err);
+        btn.classList.remove('playing');
+        btn.textContent = '▶';
+      });
+    }, { once: true });
+
+    audio.addEventListener('error', function onAudioError() {
+      audio.removeEventListener('error', onAudioError);
+      showToast('Could not load audio', 'error');
+      btn.classList.remove('playing');
+      btn.textContent = '▶';
+    }, { once: true });
 
     // Update progress bar
     const updateProgress = () => {
@@ -3524,10 +3536,21 @@ function playTrack(track) {
 
   bar.classList.remove('hidden');
   audio.load();
-  audio.play().catch(err => {
-    showToast('Could not play audio', 'error');
-    console.error('Audio error:', err);
-  });
+
+  audio.addEventListener('canplay', function onCanPlay() {
+    audio.removeEventListener('canplay', onCanPlay);
+    audio.play().catch(err => {
+      showToast('Could not play audio', 'error');
+      console.error('Audio error:', err);
+      if (playPauseBtn) playPauseBtn.textContent = '▶';
+    });
+  }, { once: true });
+
+  audio.addEventListener('error', function onAudioError() {
+    audio.removeEventListener('error', onAudioError);
+    showToast('Could not load audio — check file format', 'error');
+    bar.classList.add('hidden');
+  }, { once: true });
   playPauseBtn.textContent = '⏸';
 }
 

@@ -1,8 +1,34 @@
 import os
 import json
+import logging
 import queue as _queue
 from flask import Flask, render_template
 from flask_cors import CORS
+
+
+def _setup_file_logging():
+    """Write app logs to ~/Library/Logs/IDJLM Pro/idjlm.log (macOS) or ~/.idjlm-pro/idjlm.log."""
+    import platform
+    if platform.system() == "Darwin":
+        log_dir = os.path.expanduser("~/Library/Logs/IDJLM Pro")
+    else:
+        log_dir = os.path.expanduser("~/.idjlm-pro/logs")
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, "idjlm.log")
+
+    handler = logging.handlers.RotatingFileHandler(
+        log_path, maxBytes=2 * 1024 * 1024, backupCount=3
+    )
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s %(levelname)s %(name)s — %(message)s"
+    ))
+    root = logging.getLogger()
+    if not root.handlers:
+        root.addHandler(handler)
+    else:
+        root.addHandler(handler)
+    root.setLevel(logging.INFO)
+    return log_path
 
 
 # In-memory session store: { file_path: Track }
@@ -37,8 +63,12 @@ def set_current_folder_path(path: str) -> None:
 
 
 def create_app() -> Flask:
+    import logging.handlers
+    log_path = _setup_file_logging()
+
     app = Flask(__name__, template_folder="../templates", static_folder="static")
     CORS(app)
+    logging.getLogger(__name__).info("IDJLM Pro starting — log: %s", log_path)
 
     # Load taxonomy
     taxonomy_path = os.path.join(os.path.dirname(__file__), "..", "taxonomy.json")

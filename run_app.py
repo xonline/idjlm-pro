@@ -8,7 +8,19 @@ import threading
 import time
 
 from dotenv import load_dotenv
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+import platform as _platform
+
+# Load settings from user-writable location first (persists across app updates/reinstalls),
+# then fall back to bundle-relative .env for dev/CLI use.
+if _platform.system() == "Darwin":
+    _user_env = os.path.expanduser("~/Library/Application Support/IDJLM Pro/.env")
+else:
+    _user_env = os.path.expanduser("~/.idjlm-pro/.env")
+
+if os.path.exists(_user_env):
+    load_dotenv(_user_env)
+else:
+    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 from app import create_app
 

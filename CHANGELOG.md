@@ -4,6 +4,16 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.5.3] — 2026-04-05
+
+### Bug Fixes
+- **Audio preview "Could not load audio"** — Two fixes: (1) `play()` was called before the audio buffer was ready; now waits for `canplay` event. (2) Audio route only allowed `.mp3` — now supports FLAC, WAV, M4A, AAC, OGG too. An `error` event handler shows a specific message if the file can't load at all.
+- **Set Planner / Organise dropdowns too small** — Those tabs use `class="input"` but CSS only defined `.input-text` / `.input-select`. Added `.input` to the shared selector so font, height, padding and border match the rest of the app.
+- **Settings loaded from wrong path on startup** — `run_app.py` loaded `.env` from the bundle path at startup, ignoring the user-directory settings file we fixed in v2.5.1. Now loads from `~/Library/Application Support/IDJLM Pro/.env` first.
+- **No log file** — Errors from the bundled app were invisible. Now writes to `~/Library/Logs/IDJLM Pro/idjlm.log` (macOS) / `~/.idjlm-pro/logs/idjlm.log` (other). Rotating, max 2 MB × 3 backups.
+
+---
+
 ## [2.5.2] — 2026-04-05
 
 ### Bug Fixes
