@@ -8,7 +8,13 @@
 
 **For:** DJs with Salsa, Bachata, Kizomba (and more) collections who want to bulk-classify tracks and write clean ID3 tags so djay Pro smart playlists just work.
 
-![IDJLM Pro — Library screen](docs/screenshot-v2.4.0.png)
+![IDJLM Pro v2.5 — Welcome & workflow](docs/screenshot-v2.5.4-import.png)
+
+<p align="center">
+  <img src="docs/screenshot-v2.5.4-settings.png" width="48%" alt="Settings — AI model, API keys, thresholds" />
+  &nbsp;
+  <img src="docs/screenshot-v2.5.4-setplanner.png" width="48%" alt="Set Planner — energy arc builder" />
+</p>
 
 ## Download
 
