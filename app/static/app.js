@@ -8,6 +8,8 @@ window.taxonomy = {};
 window.currentSort = { field: 'display_title', direction: 'asc' };
 window.setlist = [];
 window.selectedTracks = new Set();
+window.currentPage = 1;
+const TRACKS_PER_PAGE = 100;
 let statsInterval = null;
 let currentEditPath = null;
 let currentAudioPlayer = null;
@@ -291,7 +293,7 @@ function initLibraryToolbar() {
         const result = await apiFetch('/api/review/bulk-approve', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ threshold })
+          body: JSON.stringify({ min_confidence: threshold })
         });
         if (result) {
           window.tracks = result.tracks || window.tracks;
@@ -742,7 +744,12 @@ function initTracksTab() {
 
   filterGenre.addEventListener('change', renderTracks);
   filterStatus.addEventListener('change', renderTracks);
-  searchInput.addEventListener('input', renderTracks);
+  searchInput.addEventListener('input', (e) => {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+      renderTracks();
+    }, 300);
+  });
 
   // Sortable headers
   document.querySelectorAll('.tracks-table th.sortable').forEach(header => {
@@ -881,6 +888,9 @@ function renderTracks() {
 
   tbody.innerHTML = '';
 
+  // Reset to page 1 when filter/sort changes
+  window.currentPage = 1;
+
   if (!sorted.length) {
     const row = document.createElement('tr');
     row.className = 'empty-state';
@@ -889,11 +899,18 @@ function renderTracks() {
     cell.textContent = 'No tracks match filters';
     row.appendChild(cell);
     tbody.appendChild(row);
-    document.getElementById('tracks-count').textContent = '0 tracks';
+    const countEl = document.getElementById('tracks-count');
+    if (countEl) countEl.textContent = '0 tracks';
+    updatePaginationControls(sorted.length);
     return;
   }
 
-  sorted.forEach(track => {
+  // Pagination: slice to current page
+  const start = (window.currentPage - 1) * TRACKS_PER_PAGE;
+  const end = start + TRACKS_PER_PAGE;
+  const pageData = sorted.slice(start, end);
+
+  pageData.forEach(track => {
     const row = document.createElement('tr');
     row.style.cursor = 'pointer';
 
@@ -1112,7 +1129,62 @@ function renderTracks() {
     tbody.appendChild(row);
   });
 
-  document.getElementById('tracks-count').textContent = `${sorted.length} track${sorted.length !== 1 ? 's' : ''}`;
+  const countEl = document.getElementById('tracks-count');
+  if (countEl) {
+    countEl.textContent = `${sorted.length} track${sorted.length !== 1 ? 's' : ''} (page ${window.currentPage})`;
+  }
+  updatePaginationControls(sorted.length);
+}
+
+// Pagination controls
+function updatePaginationControls(totalTracks) {
+  const totalPages = Math.ceil(totalTracks / TRACKS_PER_PAGE);
+  let container = document.getElementById('tracks-pagination');
+
+  if (!container) {
+    // Fallback to pagination-info if tracks-pagination doesn't exist
+    container = document.getElementById('pagination-info');
+  }
+
+  if (!container) return;
+  container.innerHTML = '';
+  container.style.display = 'flex';
+  container.style.gap = '12px';
+  container.style.justifyContent = 'center';
+  container.style.padding = '12px 0';
+  container.style.alignItems = 'center';
+
+  if (totalPages <= 1) return;
+
+  const prevBtn = document.createElement('button');
+  prevBtn.className = 'btn btn-secondary';
+  prevBtn.textContent = '← Prev';
+  prevBtn.disabled = window.currentPage === 1;
+  prevBtn.addEventListener('click', () => {
+    if (window.currentPage > 1) {
+      window.currentPage--;
+      renderTracks();
+    }
+  });
+  container.appendChild(prevBtn);
+
+  const pageInfo = document.createElement('span');
+  pageInfo.textContent = `Page ${window.currentPage} of ${totalPages}`;
+  pageInfo.style.margin = '0 12px';
+  pageInfo.style.alignSelf = 'center';
+  container.appendChild(pageInfo);
+
+  const nextBtn = document.createElement('button');
+  nextBtn.className = 'btn btn-secondary';
+  nextBtn.textContent = 'Next →';
+  nextBtn.disabled = window.currentPage === totalPages;
+  nextBtn.addEventListener('click', () => {
+    if (window.currentPage < totalPages) {
+      window.currentPage++;
+      renderTracks();
+    }
+  });
+  container.appendChild(nextBtn);
 }
 
 // Audio Player Control
@@ -1498,6 +1570,7 @@ function renderReview() {
     const btnSkip = document.createElement('button');
     btnSkip.className = 'btn btn-secondary';
     btnSkip.textContent = '✗ Skip';
+    btnSkip.setAttribute('data-skip-btn', '');
     btnSkip.addEventListener('click', () => skipTrack(track.file_path));
     actions.appendChild(btnSkip);
 
@@ -1510,6 +1583,7 @@ function renderReview() {
     const btnApprove = document.createElement('button');
     btnApprove.className = 'btn btn-primary';
     btnApprove.textContent = '✓ Approve';
+    btnApprove.setAttribute('data-approve-btn', '');
     btnApprove.addEventListener('click', () => approveTrack(track.file_path));
     actions.appendChild(btnApprove);
 
@@ -2773,7 +2847,7 @@ function renderSetplanResults(d) {
 }
 
 async function exportSetplanM3U() {
-  const res = await apiFetch('/api/setplan/export-m3u', {
+  const res = await fetch('/api/setplan/export-m3u', {
     method: 'POST',
     body: JSON.stringify({tracks: generatedSetTracks, filename: `set-${currentSetplanArc}.m3u`})
   });
@@ -2840,7 +2914,7 @@ function initSearchFeature() {
 // Bulk select with floating action bar
 function initBulkSelectFeature() {
   const selectAllCheckbox = document.getElementById('select-all-checkbox');
-  const trackTableBody = document.getElementById('track-table-body');
+  const trackTableBody = document.getElementById('tracks-tbody');
 
   if (!selectAllCheckbox || !trackTableBody) return;
 
@@ -2914,7 +2988,7 @@ function initAppleMusicSync() {
       const result = await apiFetch('/api/sync/apple-music', {
         method: 'POST',
         body: JSON.stringify({
-          track_ids: Array.from(window.selectedTracks.length > 0 ? window.selectedTracks : window.tracks.map(t => t.file_path))
+          track_ids: Array.from(window.selectedTracks.size > 0 ? window.selectedTracks : window.tracks.map(t => t.file_path))
         })
       });
       showToast(result.message || 'Apple Music sync completed', 'success');
