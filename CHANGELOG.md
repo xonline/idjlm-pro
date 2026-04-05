@@ -4,6 +4,25 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.4.3] — 2026-04-05
+
+### Bug Fixes
+- **Sort failure on null fields** — sorting by confidence/BPM/year no longer silently falls back to wrong order when values are None
+- **Edited status never reverted** — clearing all overrides now correctly reverts track status from `edited` back to `pending`
+- **Bulk-edit validation bypass** — `/api/review/bulk-edit` now validates BPM/key/year identically to the single-track endpoint
+
+### Features
+- **Harmonic mix suggestions** — `/api/mixes/compatible/<path>` endpoint now exists; returns top 10 compatible tracks by Camelot key (±1) + BPM (±8%)
+- **Rekordbox INITIALKEY** — tag writer now writes `TXXX:INITIALKEY` alongside `TKEY` for full Rekordbox/Serato compatibility
+- **Latin metadata in ID3** — clave pattern, energy score, vocal flag, tempo category now written as `COMM` frames (portable to all DJ tools)
+- **Classifier clave + comment hints** — detected clave pattern and existing COMMENT tag now included in AI classification prompt; style hints added for Bachata/Salsa subgenre disambiguation
+- **API retry with backoff** — Claude/Gemini rate limit errors (429) now retry 3× with 30s/60s/120s delays before falling back
+- **Skip already-classified tracks** — "Classify All" skips tracks already classified; add `"force": true` to request body to reclassify all
+- **Onboarding modal** — first-time users see a 6-step quick-start guide (dismissed via localStorage)
+- **Setlist persistence** — setlist survives page refresh via localStorage; "Clear Setlist" button added
+
+---
+
 ## [2.4.2] — 2026-04-05
 
 ### Bug Fixes
