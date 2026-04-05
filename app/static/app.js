@@ -1065,7 +1065,7 @@ function renderTracks() {
         e.stopPropagation();
         const newStatus = track.review_status === 'approved' ? 'pending' : 'approved';
         try {
-          await apiFetch('/api/tracks/' + encodeURIComponent(track.file_path), {
+          await apiFetch('/api/tracks/by-path?path=' + encodeURIComponent(track.file_path), {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ review_status: newStatus })
@@ -1211,7 +1211,8 @@ function toggleAudioPlay(btn, filePath) {
 
   // If different file, stop current and play new
   const audioUrl = `/api/audio?path=${encodeURIComponent(filePath)}`;
-  if (currentAudioPlayer !== audio || audio.src !== audioUrl) {
+  const isSameFile = audio.src.endsWith(audioUrl) || audio.src === audioUrl;
+  if (currentAudioPlayer !== audio || !isSameFile) {
     // Stop any playing audio
     audio.pause();
 
@@ -1224,6 +1225,7 @@ function toggleAudioPlay(btn, filePath) {
     // Set new source and play
     audio.src = audioUrl;
     currentAudioPlayer = audio;
+    audio.load();
 
     audio.play().catch(err => {
       showToast('Could not play audio', 'error');
@@ -1743,20 +1745,22 @@ function initTaxonomyTab() {
     showAddGenreModal();
   });
 
-  btnSaveTaxonomy.addEventListener('click', async () => {
-    showSpinner('Saving taxonomy...');
-    try {
-      await apiFetch('/api/taxonomy', {
-        method: 'PUT',
-        body: JSON.stringify({ genres: window.taxonomy }),
-      });
-      showToast('Taxonomy saved', 'success');
-    } catch (error) {
-      // Error shown
-    } finally {
-      hideSpinner();
-    }
-  });
+  if (btnSaveTaxonomy) {
+    btnSaveTaxonomy.addEventListener('click', async () => {
+      showSpinner('Saving taxonomy...');
+      try {
+        await apiFetch('/api/taxonomy', {
+          method: 'PUT',
+          body: JSON.stringify({ genres: window.taxonomy }),
+        });
+        showToast('Taxonomy saved', 'success');
+      } catch (error) {
+        // Error shown
+      } finally {
+        hideSpinner();
+      }
+    });
+  }
 
   loadTaxonomy();
 }
@@ -2182,7 +2186,7 @@ async function saveTrackEdits() {
 
   showSpinner('Saving changes...');
   try {
-    const result = await apiFetch(`/api/tracks/${encodeURIComponent(currentEditPath)}`, {
+    const result = await apiFetch(`/api/tracks/by-path?path=${encodeURIComponent(currentEditPath)}`, {
       method: 'PUT',
       body: JSON.stringify(override),
     });
@@ -2281,7 +2285,7 @@ async function saveSettings() {
     const geminiKey = document.getElementById('settings-gemini-key').value.trim();
     const spotifyId = document.getElementById('settings-spotify-id').value.trim();
     const spotifySecret = document.getElementById('settings-spotify-secret').value.trim();
-    const threshold = parseInt(document.getElementById('settings-threshold')?.value) || appState.approvalThreshold || 80;
+    const threshold = parseInt(document.getElementById('settings-auto-approve')?.value) || 80;
 
     // Always include threshold so there's always something to save
     const payload = { auto_approve_threshold: threshold };
@@ -2296,7 +2300,12 @@ async function saveSettings() {
     });
 
     if (result.saved) {
-      showToast('Settings saved', 'success');
+      // Also save taxonomy in the same pass
+      await apiFetch('/api/taxonomy', {
+        method: 'PUT',
+        body: JSON.stringify({ genres: window.taxonomy }),
+      });
+      showToast('All settings saved', 'success');
       // Clear key inputs and reload to show masked values in placeholders
       document.getElementById('settings-gemini-key').value = '';
       document.getElementById('settings-spotify-id').value = '';
@@ -3347,6 +3356,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initColumnToggle();
   initBulkSelectFeature();
   initSearchFeature();
+  initSettingsTab();
   startStatsPolling();
   loadTaxonomy();
   loadSetlistFromStorage();
@@ -3429,6 +3439,7 @@ function playTrack(track) {
   document.getElementById('audio-track-artist').textContent = track.display_artist || 'Unknown';
 
   bar.classList.remove('hidden');
+  audio.load();
   audio.play().catch(err => {
     showToast('Could not play audio', 'error');
     console.error('Audio error:', err);

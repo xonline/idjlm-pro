@@ -144,6 +144,10 @@ body.studio {
    Theme: Pure Black (true black/white — Spotify/Apple Music aesthetic)
    ============================================================================ */
 
+body.pure-black .btn-primary {
+  color: #000000;
+}
+
 body.pure-black {
   --bg-page:    #000000;
   --bg-panel:   #0a0a0a;

@@ -91,6 +91,19 @@ def get_track(file_path):
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
+@bp.route("/tracks/by-path", methods=["PUT"])
+def update_track_by_query():
+    """
+    Update track via query parameter.
+    PUT /api/tracks/by-path?path=/absolute/path/to/file.mp3
+    Avoids URL encoding issues with path parameters containing slashes.
+    """
+    file_path = request.args.get("path", "")
+    if not file_path:
+        return jsonify({"error": "Missing path parameter"}), 400
+    return update_track(file_path)
+
+
 @bp.route("/tracks/<path:file_path>", methods=["PUT"])
 def update_track(file_path):
     """

@@ -142,13 +142,8 @@
         </div>
         <div class="pagination-info" id="pagination-info"></div>
 
-        <!-- Bulk action bar -->
-        <div class="bulk-action-bar" id="bulk-action-bar" style="display:none;">
-          <span id="bulk-selected-count">0 selected</span>
-          <button class="btn btn-sm btn-primary" id="btn-bulk-approve-selected">Approve Selected</button>
-          <button class="btn btn-sm btn-secondary" id="btn-bulk-skip-selected">Skip Selected</button>
-          <button class="btn btn-sm btn-danger" id="btn-bulk-delete-selected">Delete Selected</button>
-        </div>
+        <!-- Bulk action bar (populated dynamically by JS) -->
+        <div class="bulk-action-bar" id="bulk-actions-bar" style="display:none;align-items:center;gap:8px;"></div>
 
       </div>
 
@@ -439,7 +434,7 @@
             </label>
           </div>
 
-          <button id="btn-save-settings" class="btn btn-primary">Save Settings</button>
+          <button id="btn-save-settings" class="btn btn-primary">Save All Settings</button>
 
           <div id="settings-status" class="status-area" style="display: none; margin-top: 20px;">
             <div class="status-message" id="settings-message"></div>
@@ -452,7 +447,7 @@
           <p class="settings-section-desc">Define genres and comments used by the AI classifier.</p>
           <button class="btn btn-secondary" id="btn-add-genre">+ Add Genre</button>
           <div id="taxonomy-list" class="taxonomy-list"></div>
-          <button class="btn btn-primary" id="btn-save-taxonomy">Save Taxonomy</button>
+          <button class="btn btn-secondary" id="btn-save-taxonomy" style="display:none;">Save Taxonomy</button>
         </div>
       </section>
     </main>

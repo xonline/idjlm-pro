@@ -4,6 +4,21 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.4.10] — 2026-04-05
+
+### Bug Fixes
+- **"Let's go" button unreadable on Pure Black theme** — `btn-primary` uses accent (`#e0e0e0`) as background with white text, making it invisible. Added `body.pure-black .btn-primary { color: #000000 }` so text is black on the near-white button.
+- **Settings save not working** — `initSettingsTab()` was defined but never called from `DOMContentLoaded`; the Save button had no event listener attached. Fixed.
+- **Settings threshold ID mismatch** — `saveSettings()` read from `settings-threshold` (non-existent) and referenced undefined `appState`; fixed to read from `settings-auto-approve` with safe fallback.
+- **Track edit save → 404** — `saveTrackEdits()` used `encodeURIComponent(path)` in the URL path, but Flask's `<path:>` converter doesn't decode `%2F` as expected, causing lookup misses. Changed to `PUT /api/tracks/by-path?path=...` (query param). Same fix applied to the approve-button in the track table.
+- **Bulk select bar never appeared** — JS referenced `id="bulk-actions-bar"` but HTML had `id="bulk-action-bar"` (no 's'). Fixed HTML id to match.
+- **Audio playback failing** — `audio.play()` was called immediately after setting `audio.src` before the browser loaded the data. Added `audio.load()` before `audio.play()` in both `playTrack()` and `toggleAudioPlay()`. Also fixed `audio.src` absolute vs. relative comparison in `toggleAudioPlay()`.
+
+### Improvements
+- **One save button for Settings** — "Save All Settings" button now saves both API keys and taxonomy in one click. Separate "Save Taxonomy" button removed from UI.
+
+---
+
 ## [2.4.9] — 2026-04-05
 
 ### Bug Fixes
