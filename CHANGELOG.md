@@ -4,6 +4,14 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.4.4] — 2026-04-05
+
+### Native App (run_app.py)
+- **Random port** — Flask now binds to a free ephemeral port instead of hardcoded 5050; overridable via `FLASK_PORT` env var
+- **Close confirmation dialog** — pywebview window now prompts "Are you sure you want to close?" before quitting (prevents accidental data loss mid-session)
+
+---
+
 ## [2.4.3] — 2026-04-05
 
 ### Bug Fixes

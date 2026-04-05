@@ -12,7 +12,15 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 from app import create_app
 
-PORT = int(os.getenv("FLASK_PORT", 5050))
+
+def _find_free_port() -> int:
+    """Bind to port 0 to get a free ephemeral port from the OS."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+PORT = int(os.getenv("FLASK_PORT", 0)) or _find_free_port()
 
 SPLASH_HTML = """<!DOCTYPE html>
 <html>
@@ -133,6 +141,7 @@ if __name__ == "__main__":
             width=1280,
             height=820,
             min_size=(960, 640),
+            confirm_close=True,
         )
 
         def _load_app():
