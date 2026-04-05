@@ -4,6 +4,21 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.4.1] — 2026-04-05
+
+### Improvements
+- **Gemini 2.0-flash** — classifier upgraded from `gemini-1.5-flash` to `gemini-2.0-flash` for better genre accuracy
+- **Auto-save after classify & write-tags** — session persisted automatically so progress is never lost between steps
+- **Keyboard navigation** — ↑/↓ arrows to move between tracks, Space to approve selected row
+- **Threshold input** — confidence threshold is now an inline editable number field (was static text); value persists via `localStorage`
+- **New app icon** — Nano Banana-generated vinyl record icon with purple-to-cyan gradient and neon waveform
+
+### Bug Fixes (Codex-reviewed)
+- **NaN threshold guard** — `parseInt("")` on cleared threshold input now falls back to `80` instead of `NaN`
+- **Stale folder path on session resume** — `_current_folder_path` now restored from session metadata on load so auto-save works correctly in resumed sessions
+
+---
+
 ## [2.4.0] — 2026-04-05
 
 ![v2.4.0 screenshot](docs/screenshot-v2.4.0.png)
