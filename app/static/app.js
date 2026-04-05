@@ -2255,20 +2255,43 @@ async function loadSettings() {
     const geminiInput = document.getElementById('settings-gemini-key');
     const spotifyIdInput = document.getElementById('settings-spotify-id');
     const spotifySecretInput = document.getElementById('settings-spotify-secret');
+    const anthropicInput = document.getElementById('settings-anthropic-key');
 
-    // Show placeholder text for existing keys (masked values)
+    // Show placeholder text for existing keys — format: "sk-a...xyz1 — saved ✓"
+    const keyLabel = (masked) => masked ? `${masked}  —  saved ✓` : 'saved ✓';
     if (response.has_gemini_key) {
-      geminiInput.placeholder = response.gemini_api_key || 'Key is set';
+      geminiInput.placeholder = keyLabel(response.gemini_api_key);
+    } else {
+      geminiInput.placeholder = 'Paste your Gemini API key';
+    }
+    if (response.has_anthropic_key && anthropicInput) {
+      anthropicInput.placeholder = keyLabel(response.anthropic_api_key);
+    } else if (anthropicInput) {
+      anthropicInput.placeholder = 'Paste your Anthropic API key';
     }
     if (response.has_spotify) {
-      spotifyIdInput.placeholder = response.spotify_client_id || 'Value is set';
-      spotifySecretInput.placeholder = response.spotify_client_secret || 'Value is set';
+      spotifyIdInput.placeholder = keyLabel(response.spotify_client_id);
+      spotifySecretInput.placeholder = keyLabel(response.spotify_client_secret);
+    } else {
+      spotifyIdInput.placeholder = 'Paste your Spotify Client ID';
+      spotifySecretInput.placeholder = 'Paste your Spotify Client Secret';
     }
 
     // Clear the actual input values
     geminiInput.value = '';
     spotifyIdInput.value = '';
     spotifySecretInput.value = '';
+    if (anthropicInput) anthropicInput.value = '';
+
+    // Sync Round 2 fields if present
+    const aiModelSelect = document.getElementById('settings-ai-model');
+    if (aiModelSelect && response.ai_model) aiModelSelect.value = response.ai_model;
+    const ollamaModelInput = document.getElementById('settings-ollama-model');
+    if (ollamaModelInput && response.ollama_model) ollamaModelInput.value = response.ollama_model;
+    const batchSizeInput = document.getElementById('settings-batch-size');
+    if (batchSizeInput && response.classify_batch_size) batchSizeInput.value = response.classify_batch_size;
+    const autoApproveInput = document.getElementById('settings-auto-approve-threshold');
+    if (autoApproveInput && response.auto_approve_threshold !== undefined) autoApproveInput.value = response.auto_approve_threshold;
 
   } catch (error) {
     // Error already shown in apiFetch
@@ -2368,7 +2391,9 @@ function connectToProgress(opId, total, onProgress, onComplete, onError) {
   eventSource.addEventListener('error', (event) => {
     eventSource.close();
     if (onError) {
-      onError(event);
+      // DOM Event objects don't have .message — synthesise an Error-like object
+      const err = event instanceof Error ? event : new Error('Connection lost');
+      onError(err);
     }
   });
 
@@ -3230,11 +3255,18 @@ async function saveSettingsRound2() {
 
     if (result.saved) {
       showToast('Settings saved successfully', 'success');
-      // Clear sensitive inputs
-      document.getElementById('settings-anthropic-key').value = '';
-      document.getElementById('settings-gemini-key').value = '';
-      document.getElementById('settings-spotify-id').value = '';
-      document.getElementById('settings-spotify-secret').value = '';
+      // Flash the save button green to confirm
+      const saveBtn = document.getElementById('settings-save-btn');
+      if (saveBtn) {
+        const orig = saveBtn.textContent;
+        saveBtn.textContent = '✓ Saved';
+        saveBtn.style.background = '#22c55e';
+        setTimeout(() => {
+          saveBtn.textContent = orig;
+          saveBtn.style.background = '';
+        }, 2000);
+      }
+      // Clear sensitive inputs — loadSettings will populate placeholders with masked values
       await loadSettings();
     }
   } catch (error) {

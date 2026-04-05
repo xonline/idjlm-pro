@@ -43,13 +43,13 @@ def get_env_path():
 
 
 def mask_key(key_value):
-    """Mask a key to show only last 4 characters."""
+    """Mask a key to show first 4 and last 4 characters."""
     if not key_value:
         return None
     key_str = str(key_value).strip()
-    if len(key_str) <= 4:
+    if len(key_str) <= 8:
         return "****"
-    return "*" * (len(key_str) - 4) + key_str[-4:]
+    return key_str[:4] + "..." + key_str[-4:]
 
 
 def load_env():
