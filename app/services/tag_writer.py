@@ -1,4 +1,4 @@
-from mutagen.id3 import ID3, TCON, COMM, TBPM, TKEY, TDRC, APIC
+from mutagen.id3 import ID3, TCON, COMM, TBPM, TKEY, TDRC, APIC, TXXX
 from mutagen.mp3 import MP3
 import requests
 
@@ -53,6 +53,11 @@ def write_tags(track: Track) -> Track:
         if track.final_key and track.final_key != track.existing_key:
             _write_frame(tags, TKEY, track.final_key, "TKEY")
 
+        # INITIALKEY: Write Camelot notation for Rekordbox/Serato compatibility
+        if track.final_key:
+            initialkey_frame = TXXX(encoding=3, desc='INITIALKEY', text=[track.final_key])
+            tags["TXXX:INITIALKEY"] = initialkey_frame
+
         # Year: final_year vs existing_year
         if track.final_year and track.final_year != track.existing_year:
             _write_frame(tags, TDRC, track.final_year, "TDRC")
@@ -74,6 +79,27 @@ def write_tags(track: Track) -> Track:
             except Exception as img_err:
                 # Log image fetch failure but don't fail the entire tag write
                 print(f"Warning: Failed to fetch/write album art for {track.filename}: {str(img_err)}")
+
+        # Latin metadata to COMM frames
+        # Clave pattern (e.g. "2-3", "3-2")
+        if track.clave_pattern:
+            clave_comm = COMM(encoding=3, lang="eng", desc="clave", text=[track.clave_pattern])
+            tags["COMM:clave:eng"] = clave_comm
+
+        # Energy score
+        if track.analyzed_energy:
+            energy_comm = COMM(encoding=3, lang="eng", desc="energy", text=[str(track.analyzed_energy)])
+            tags["COMM:energy:eng"] = energy_comm
+
+        # Vocal/Instrumental flag
+        if track.vocal_flag:
+            vocal_comm = COMM(encoding=3, lang="eng", desc="vocal_flag", text=[track.vocal_flag])
+            tags["COMM:vocal_flag:eng"] = vocal_comm
+
+        # Tempo category (slow/medium/fast)
+        if track.tempo_category:
+            tempo_comm = COMM(encoding=3, lang="eng", desc="tempo_category", text=[track.tempo_category])
+            tags["COMM:tempo_category:eng"] = tempo_comm
 
         # Save to file
         mp3.save(v2_version=4)

@@ -244,6 +244,82 @@ def get_mix_suggestions():
         return jsonify({"error": str(e)}), 500
 
 
+@bp.route("/mixes/compatible/<path:file_path>", methods=["GET"])
+def get_compatible_tracks(file_path):
+    """
+    Return compatible tracks for harmonic mixing.
+    GET /api/mixes/compatible/{file_path}
+    Finds tracks compatible by:
+    - Camelot key: same key or adjacent keys (±1 semitone)
+    - BPM: within ±8% of the source track
+    Returns: { "compatible_tracks": [{"file_path": ..., "title": ..., "artist": ..., "key": ..., "bpm": ..., "score": ...}] }
+    """
+    try:
+        from app.services.mix_scorer import score_compatibility, camelot_distance
+        from app import get_track_store
+
+        track_store = get_track_store()
+
+        # Look up the source track
+        if file_path not in track_store:
+            return jsonify({"error": "Track not found"}), 404
+
+        source_track = track_store[file_path]
+
+        # Need BPM and key to find compatible tracks
+        if not source_track.analyzed_bpm or not source_track.final_key:
+            return jsonify({
+                "error": "Source track missing BPM or key",
+                "compatible_tracks": []
+            }), 400
+
+        source_bpm = source_track.analyzed_bpm
+        source_key = source_track.final_key
+        bpm_tolerance = source_bpm * 0.08  # ±8%
+
+        compatible = []
+
+        for other_path, other_track in track_store.items():
+            # Skip source track
+            if other_path == file_path:
+                continue
+
+            # Must have BPM and key
+            if not other_track.analyzed_bpm or not other_track.final_key:
+                continue
+
+            # Check Camelot key compatibility (0 = same, 1 = adjacent)
+            key_distance = camelot_distance(source_key, other_track.final_key)
+            if key_distance > 1:
+                continue
+
+            # Check BPM compatibility (within ±8%)
+            bpm_diff = abs(source_bpm - other_track.analyzed_bpm)
+            if bpm_diff > bpm_tolerance:
+                continue
+
+            # Calculate full compatibility score
+            score_dict = score_compatibility(source_track, other_track)
+
+            compatible.append({
+                "file_path": other_path,
+                "title": other_track.display_title,
+                "artist": other_track.display_artist,
+                "key": other_track.final_key,
+                "bpm": other_track.analyzed_bpm,
+                "score": score_dict["score"]
+            })
+
+        # Sort by score descending, limit to top 10
+        compatible.sort(key=lambda x: x["score"], reverse=True)
+        compatible = compatible[:10]
+
+        return jsonify({"compatible_tracks": compatible}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # ============================================================================
 # Feature 4: Cue Sheet Export
 # ============================================================================
