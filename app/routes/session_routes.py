@@ -39,7 +39,7 @@ def load_session_endpoint():
     POST /api/session/load
     """
     try:
-        from app import get_track_store
+        from app import get_track_store, set_current_folder_path
 
         track_store_loaded, metadata = load_session()
 
@@ -47,6 +47,10 @@ def load_session_endpoint():
             return jsonify({
                 "error": "No saved session found"
             }), 404
+
+        # Restore folder path so auto-save works in resumed sessions
+        if metadata and metadata.get("folder_path"):
+            set_current_folder_path(metadata["folder_path"])
 
         # Clear current track store and populate with loaded data
         track_store = get_track_store()

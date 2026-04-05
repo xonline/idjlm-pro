@@ -286,7 +286,7 @@ function initLibraryToolbar() {
   if (btnBulkApprove) {
     btnBulkApprove.addEventListener('click', async () => {
       const thresholdEl = document.getElementById('toolbar-threshold');
-      const threshold = parseInt(thresholdEl ? (thresholdEl.value || thresholdEl.textContent) : '80');
+      const threshold = parseInt(thresholdEl ? (thresholdEl.value || thresholdEl.textContent) : '80') || 80;
       try {
         const result = await apiFetch('/api/review/bulk-approve', {
           method: 'POST',
