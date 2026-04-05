@@ -148,7 +148,7 @@ def classify_tracks():
     """
     Classify tracks by genre and enrich metadata (async).
     POST /api/classify
-    body: { "track_paths": ["/path1", "/path2"] }  # or empty = all analyzed tracks
+    body: { "track_paths": ["/path1", "/path2"], "force": false }  # or empty = all analyzed tracks; force=true reclassifies already-classified
     Returns: { "op_id": "...", "total": N }  (202 Accepted)
     Stream progress via EventSource('/api/progress/<op_id>')
     """
@@ -162,6 +162,7 @@ def classify_tracks():
 
         data = request.get_json() or {}
         track_paths = data.get("track_paths", [])
+        force = data.get("force", False)
         track_store = get_track_store()
 
         # If empty, classify all analyzed tracks
@@ -183,8 +184,8 @@ def classify_tracks():
                     continue
                 try:
                     track = track_store[file_path]
-                    # Classify
-                    classify_service([track], get_taxonomy())
+                    # Classify (pass force parameter)
+                    classify_service([track], get_taxonomy(), force=force)
                     # Enrich
                     enrich_service([track])
                     classified += 1

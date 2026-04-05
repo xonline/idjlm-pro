@@ -1,5 +1,6 @@
 import json
 import os
+import time
 
 import google.generativeai as genai
 
@@ -19,6 +20,14 @@ def _build_classification_prompt(tracks: list[Track], taxonomy: dict) -> str:
   - Key: {track.analyzed_key or track.existing_key or "N/A"}
   - Energy: {track.analyzed_energy or "N/A"}
 """
+        # Add clave pattern if detected
+        if track.clave_pattern:
+            desc += f"  - Detected clave: {track.clave_pattern}.\n"
+
+        # Add existing comment tag if present
+        if track.existing_comment:
+            desc += f"  - Existing comment tag: {track.existing_comment}.\n"
+
         track_descriptions.append(desc)
 
     tracks_str = "\n".join(track_descriptions)
@@ -41,9 +50,14 @@ Return a JSON array with one object per track, in the same order. Each object mu
 
 RULES:
 1. Only use genres and subgenres that exist in the taxonomy provided above
-2. Consider existing_genre, bpm, key, and energy when making decisions
+2. Consider existing_genre, bpm, key, energy, clave pattern, and existing comment tags when making decisions
 3. If truly unclassifiable, use genre "Unknown" and subgenre "Unknown" with low confidence
 4. Return valid JSON array only, no other text
+
+STYLE HINTS FOR DISAMBIGUATION:
+- For Bachata: If BPM 120-135 + romantic/slow feel = Romántica; if BPM 130-145 + heavy guitar = Sensual; if BPM 140-160 + aggressive = Urbana.
+- For Salsa: If BPM 165-185 + aggressive brass = Dura; if BPM 155-175 + romantic vocals = Romántica.
+- Use clave pattern (2-3 vs 3-2) to disambiguate Latin dance styles when BPM alone is ambiguous.
 
 Example output format:
 [
@@ -52,6 +66,26 @@ Example output format:
 ]"""
 
     return prompt
+
+
+def _call_with_backoff(call_fn, max_retries=3):
+    """
+    Call fn with exponential backoff on rate limit errors.
+    Returns the result if successful.
+    Raises Exception if all retries exhausted or non-rate-limit error occurs.
+    """
+    for attempt in range(max_retries):
+        try:
+            return call_fn()
+        except Exception as e:
+            err = str(e).lower()
+            if '429' in err or 'rate limit' in err or 'quota' in err:
+                if attempt < max_retries - 1:
+                    wait = 30 * (2 ** attempt)  # 30s, 60s, 120s
+                    time.sleep(wait)
+                    continue
+            raise  # Re-raise non-rate-limit errors immediately
+    raise Exception("Rate limit exceeded after retries")
 
 
 def _parse_classification_response(response_text: str, num_tracks: int) -> list[dict]:
@@ -83,7 +117,7 @@ def _parse_classification_response(response_text: str, num_tracks: int) -> list[
 
 def _classify_with_claude(prompt: str, batch: list[Track]) -> tuple[bool, str]:
     """
-    Classify tracks using Claude Sonnet API.
+    Classify tracks using Claude Sonnet API with exponential backoff retry.
     Returns (success: bool, response_text: str)
     """
     try:
@@ -92,20 +126,24 @@ def _classify_with_claude(prompt: str, batch: list[Track]) -> tuple[bool, str]:
         if not api_key:
             return False, "ANTHROPIC_API_KEY not set"
 
-        client = anthropic.Anthropic(api_key=api_key)
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=2048,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return True, response.content[0].text
+        def call_claude():
+            client = anthropic.Anthropic(api_key=api_key)
+            response = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=2048,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return response.content[0].text
+
+        response_text = _call_with_backoff(call_claude, max_retries=3)
+        return True, response_text
     except Exception as e:
         return False, str(e)
 
 
 def _classify_with_gemini(prompt: str, batch: list[Track]) -> tuple[bool, str]:
     """
-    Classify tracks using Gemini API (fallback).
+    Classify tracks using Gemini API with exponential backoff retry (fallback).
     Returns (success: bool, response_text: str)
     """
     try:
@@ -113,10 +151,14 @@ def _classify_with_gemini(prompt: str, batch: list[Track]) -> tuple[bool, str]:
         if not api_key:
             return False, "GEMINI_API_KEY not set"
 
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.0-flash")
-        response = model.generate_content(prompt)
-        return True, response.text
+        def call_gemini():
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-2.0-flash")
+            response = model.generate_content(prompt)
+            return response.text
+
+        response_text = _call_with_backoff(call_gemini, max_retries=3)
+        return True, response_text
     except Exception as e:
         return False, str(e)
 
@@ -141,15 +183,25 @@ def _classify_with_ollama(prompt: str, batch: list[Track]) -> tuple[bool, str]:
         return False, str(e)
 
 
-def classify_tracks(tracks: list[Track], taxonomy: dict) -> list[Track]:
+def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False) -> list[Track]:
     """
     Classify tracks using Claude Sonnet (primary) with Gemini and Ollama fallbacks.
     Sends up to batch_size tracks per API call.
     Populates: proposed_genre, proposed_subgenre, confidence, reasoning, classification_done=True
     Sets track.error on failure.
+
+    If force=False, skips tracks that already have proposed_genre set (already classified).
+    If force=True, reclassifies all tracks regardless of prior classification status.
     """
     ai_model = os.getenv("AI_MODEL", "claude").lower()
     batch_size = int(os.getenv("CLASSIFY_BATCH_SIZE", "10"))
+
+    # Skip already-classified tracks unless forced
+    if not force:
+        tracks = [
+            t for t in tracks
+            if t.review_status == 'pending' and t.proposed_genre is None
+        ]
 
     # Define model chain in order
     model_chain = []
