@@ -8,7 +8,7 @@
 
 **For:** DJs with Salsa, Bachata, Kizomba (and more) collections who want to bulk-classify tracks and write clean ID3 tags so djay Pro smart playlists just work.
 
-![IDJLM Pro v2.4.0 — Library screen](docs/screenshot-v2.4.0.png)
+![IDJLM Pro — Library screen](docs/screenshot-v2.4.0.png)
 
 ## Download
 
@@ -20,35 +20,37 @@ No Python or terminal required — just open and run.
 
 ## What it does
 
-1. Point it at a folder of MP3s
-2. AI classifies each track → genre + sub-genre + confidence
-3. Waveform, BPM, key (Camelot), energy analyzed automatically
-4. Review proposed tags, bulk-approve or edit individually
-5. Tags written to ID3: `GENRE`, `COMMENT` (sub-genre), `BPM`, `KEY`, `YEAR`
-6. Open djay Pro → smart playlists filter by genre + comment automatically
+1. Point it at a folder of audio files (MP3, FLAC, WAV, M4A, AAC, OGG)
+2. Existing genre tags are read from each file immediately on import
+3. AI classifies each track → genre + sub-genre + confidence
+4. BPM, key (Camelot), and energy analyzed automatically
+5. Preview any track with the built-in audio player
+6. Review proposed tags, bulk-approve or edit individually
+7. Tags written to ID3: `GENRE`, `COMMENT` (sub-genre), `BPM`, `KEY`, `YEAR`
+8. Open djay Pro → smart playlists filter by genre + comment automatically
 
 ### Tabs
 
 | Tab | What it does |
 |-----|-------------|
 | **Import** | Scan a folder, run analysis + AI classification |
-| **Tracks** | Full library table — search, sort, filter, bulk edit |
+| **Tracks** | Full library table — search, sort, filter, bulk edit, inline audio preview |
 | **Review** | Side-by-side current vs proposed tags, approve/skip/edit |
 | **Organise** | Library health dashboard, filename → tag parser, folder auto-organiser, key validator |
 | **Set Planner** | Auto-build a DJ set shaped to Warm-Up / Peak Hour / Cool-Down energy arc |
 | **Setlist** | Manual setlist builder with Camelot harmonic mixing suggestions |
 | **Taxonomy** | Edit genre/sub-genre definitions — AI adapts immediately |
 | **Duplicates** | Detect and remove duplicate tracks |
-| **Settings** | API keys, batch size, auto-approve threshold |
+| **Settings** | API keys, AI model selection, batch size, auto-approve threshold |
 | **Export** | M3U, CSV, JSON, Rekordbox XML with genre/BPM/key filters |
 
 ## Requirements
 
 - macOS (Apple Silicon M3 supported) or Windows
 - One of:
-  - [Anthropic API key](https://console.anthropic.com/) (optional — for AI classification)
-  - [Google Gemini API key](https://aistudio.google.com/) (optional — for AI classification)
-  - Local [Ollama](https://ollama.com) (optional — for free local AI classification)
+  - [Anthropic API key](https://console.anthropic.com/) — Claude (recommended)
+  - [Google Gemini API key](https://aistudio.google.com/) — free tier available
+  - Local [Ollama](https://ollama.com) — free, runs fully offline
 - Spotify API credentials (optional — for year/metadata enrichment)
 
 ## Setup (run from source)
@@ -72,16 +74,21 @@ cp config.example.env .env
 ## Usage
 
 ### Import
-1. Open http://localhost:5050
-2. Enter your MP3 folder path (e.g. `/Users/yourname/Music/Downloads`) — works with external drives
-3. Click **Import** → tracks appear with existing tags
-4. Click **Analyze All** → BPM, key (Camelot), energy, waveform, vocal/instrumental flag, tempo category
-5. Click **Classify All** → AI returns genre + sub-genre + confidence
+1. Open the app (or http://localhost:5050 if running from source)
+2. Click **Pick Folder** and choose your music folder — works with external drives
+3. Tracks appear with any existing tags already loaded from their files
+4. Click **Analyze All** → BPM, key (Camelot), energy, vocal/instrumental flag, tempo category
+5. Click **Classify All** → AI returns genre + sub-genre + confidence for every track
+
+**Tip:** Select specific tracks with the checkboxes and use the **Analyse** button in the selection bar to process only those tracks — useful for re-checking a subset.
 
 ### Review + Write
 6. **Review** tab → current vs proposed tags side by side
 7. Set confidence threshold → **Bulk Approve ≥80%**
-8. Click **Write Approved Tags** → written to MP3 ID3 tags
+8. Click **Write Approved Tags** → written to file ID3 tags
+
+### Audio Preview
+Click the ▶ play button on any track row to preview it inline. Supports MP3, FLAC, WAV, M4A, AAC, OGG.
 
 ### djay Pro
 After writing tags, djay Pro reads them immediately:
@@ -121,7 +128,7 @@ Get credentials at [developer.spotify.com/dashboard](https://developer.spotify.c
 
 ## AI Model Options
 
-Choose your preferred AI in the **Settings** tab. The app tries your chosen model first, then falls back to the others automatically if one isn't configured.
+Choose your preferred AI in the **Settings** tab. The app tries your chosen model first, then falls back automatically.
 
 | AI | Provider | API Key env var | Notes |
 |----|----------|-----------------|-------|
@@ -129,7 +136,15 @@ Choose your preferred AI in the **Settings** tab. The app tries your chosen mode
 | **Gemini** | Google | `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com/) — free tier available |
 | **Ollama** | Local (free) | — | No key needed. [ollama.com](https://ollama.com) — set `OLLAMA_MODEL` in `.env` |
 
-You only need one. Set `AI_MODEL=claude`, `AI_MODEL=gemini`, or `AI_MODEL=ollama` in `.env` to set your preference.
+You only need one. Set your preference in the **Settings** tab or via `AI_MODEL=claude` / `AI_MODEL=gemini` / `AI_MODEL=ollama` in `.env`.
+
+## Settings Persistence
+
+Settings (API keys, model preference, thresholds) are stored in:
+- **macOS:** `~/Library/Application Support/IDJLM Pro/.env`
+- **Other:** `~/.idjlm-pro/.env`
+
+They survive app updates, reinstalls, and DMG launches. Existing settings from earlier versions are migrated automatically.
 
 ## Changelog
 
