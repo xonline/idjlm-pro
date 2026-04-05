@@ -4,6 +4,18 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.4.5] — 2026-04-05
+
+### Features
+- **4-theme system** — sidebar now shows 4 colour swatches; click to switch theme instantly
+  - **Purple Dark** — original design (unchanged)
+  - **Pro Booth** — amber/orange on deep charcoal; Pioneer CDJ/rekordbox aesthetic
+  - **Studio Dark** — cyan on navy; Ableton/DAW aesthetic
+  - **Pure Black** — true black with white typography; Spotify/Apple Music aesthetic
+- Theme selection persists across sessions via `localStorage`
+
+---
+
 ## [2.4.4] — 2026-04-05
 
 ### Native App (run_app.py)
