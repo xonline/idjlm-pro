@@ -114,7 +114,7 @@
                 <th data-sort="display_artist">Artist</th>
                 <th class="wave-col">Wave</th>
                 <th data-sort="final_genre">Genre</th>
-                <th data-sort="final_subgenre">Sub-Genre</th>
+                <th data-sort="final_subgenre">Comments</th>
                 <th data-sort="confidence">Conf</th>
                 <th data-sort="final_bpm">BPM</th>
                 <th data-sort="final_key">Key</th>
@@ -272,7 +272,7 @@
         <div class="card" style="margin-top:1rem;">
           <div class="card-header">
             <h3>Folder Auto-Organiser</h3>
-            <p class="card-desc">Move approved tracks into organised folders by genre and sub-genre.</p>
+            <p class="card-desc">Move approved tracks into organised folders by genre and comments.</p>
           </div>
           <div class="form-row" style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:1rem;">
             <div class="form-group">
@@ -282,9 +282,9 @@
             <div class="form-group">
               <label>Structure</label>
               <select id="organise-pattern" class="input">
-                <option value="genre/subgenre">Genre / Sub-Genre</option>
+                <option value="genre/subgenre">Genre / Comments</option>
                 <option value="genre">Genre only</option>
-                <option value="genre/subgenre/year">Genre / Sub-Genre / Year</option>
+                <option value="genre/subgenre/year">Genre / Comments / Year</option>
               </select>
             </div>
             <button class="btn" id="btn-organise-preview">Preview</button>
@@ -449,7 +449,7 @@
         <!-- Taxonomy Section -->
         <div class="settings-section" id="settings-taxonomy-section">
           <h2 class="settings-section-title">Taxonomy</h2>
-          <p class="settings-section-desc">Define genres and sub-genres used by the AI classifier.</p>
+          <p class="settings-section-desc">Define genres and comments used by the AI classifier.</p>
           <button class="btn btn-secondary" id="btn-add-genre">+ Add Genre</button>
           <div id="taxonomy-list" class="taxonomy-list"></div>
           <button class="btn btn-primary" id="btn-save-taxonomy">Save Taxonomy</button>
@@ -546,7 +546,7 @@
         </div>
 
         <div class="form-group">
-          <label for="bulk-subgenre">Sub-Genre (optional)</label>
+          <label for="bulk-subgenre">Comments (optional)</label>
           <input type="text" id="bulk-subgenre" class="input-text" placeholder="Leave blank for no change">
         </div>
 
@@ -632,7 +632,7 @@
           </div>
 
           <div class="form-group">
-            <label for="modal-subgenre">Sub-Genre</label>
+            <label for="modal-subgenre">Comments</label>
             <select id="modal-subgenre" class="input-select"></select>
           </div>
 

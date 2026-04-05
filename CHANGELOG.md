@@ -4,6 +4,22 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.4.9] — 2026-04-05
+
+### Bug Fixes
+- **Tab switching broken** — Organise / Set Planner / Settings tabs were unclickable; `initNavigation()` was called in `DOMContentLoaded` but never defined. Added the function to wire `.nav-btn` click events to `switchTab()`.
+- **Edit modal close/save/cancel broken** — `initEditModal()` was defined but never called on page load; all modal button listeners were never attached.
+- **Audio player controls broken** — `initAudioPlayer()` was defined but never called; prev/next/seek/play-pause in the bottom bar didn't respond.
+- **View details panel not opening** — `openTrackDetail()` toggled a CSS `.open` class but no CSS rule for that class existed; panel had inline `style="display:none"` that was never cleared. Fixed to use `style.display` directly. Also wired up the × close button and overlay-click to close.
+- **Column preferences not loading** — `initColumnToggle()` was defined but never called; saved column visibility from localStorage was ignored on load.
+- **Bulk select not wiring** — `initBulkSelectFeature()` and `initSearchFeature()` were defined but never called.
+
+### Improvements
+- **Default theme** — changed from `dark` to `pure-black`; new users no longer need to manually switch theme.
+- **"Sub-Genre" renamed to "Comments"** — all UI labels (table column, edit modal, bulk edit, organise options, taxonomy editor, set planner filter) now read "Comments" to match industry terminology.
+
+---
+
 ## [2.4.8] — 2026-04-05
 
 ### Bug Fixes

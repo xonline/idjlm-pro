@@ -112,6 +112,18 @@ function switchTab(tabName) {
   if (tabName === 'library') renderTracks();
 }
 
+function initNavigation() {
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  const detailCloseBtn = document.getElementById('track-detail-close');
+  if (detailCloseBtn) detailCloseBtn.addEventListener('click', closeTrackDetail);
+
+  const detailOverlay = document.getElementById('track-detail-overlay');
+  if (detailOverlay) detailOverlay.addEventListener('click', closeTrackDetail);
+}
+
 // ============================================================================
 // Stats Panel
 // ============================================================================
@@ -672,7 +684,7 @@ function renderSubgenreList() {
   container.innerHTML = '';
 
   if (!sorted.length) {
-    container.innerHTML = '<div class="empty-state">No sub-genres yet</div>';
+    container.innerHTML = '<div class="empty-state">No comments yet</div>';
     return;
   }
 
@@ -1801,7 +1813,7 @@ function renderTaxonomy() {
     countDiv.style.color = '#888';
     countDiv.style.fontSize = '12px';
     const subgenres = data.subgenres || [];
-    countDiv.textContent = `${subgenres.length} sub-genre${subgenres.length !== 1 ? 's' : ''}`;
+    countDiv.textContent = `${subgenres.length} comment${subgenres.length !== 1 ? 's' : ''}`;
     rightDiv.appendChild(countDiv);
 
     const toggleDiv = document.createElement('span');
@@ -1841,7 +1853,7 @@ function renderTaxonomy() {
     addBtn.className = 'btn btn-primary';
     addBtn.style.width = '100%';
     addBtn.style.marginTop = '10px';
-    addBtn.textContent = '+ Add Sub-Genre';
+    addBtn.textContent = '+ Add Comment';
     addBtn.addEventListener('click', () => addSubgenreForm(genre));
     subgenresDiv.appendChild(addBtn);
 
@@ -1859,7 +1871,7 @@ function toggleGenre(header) {
 }
 
 function addSubgenreForm(genre) {
-  const name = prompt(`Add sub-genre to ${genre}:`);
+  const name = prompt(`Add comment to ${genre}:`);
   if (name) {
     if (!window.taxonomy[genre].subgenres) {
       window.taxonomy[genre].subgenres = [];
@@ -1870,7 +1882,7 @@ function addSubgenreForm(genre) {
 }
 
 function removeSubgenre(genre, idx) {
-  if (confirm('Remove this sub-genre?')) {
+  if (confirm('Remove this comment?')) {
     window.taxonomy[genre].subgenres.splice(idx, 1);
     renderTaxonomy();
   }
@@ -2136,7 +2148,7 @@ function updateSubgenreOptions() {
   subgenreSelect.innerHTML = '';
   const optionDefault = document.createElement('option');
   optionDefault.value = '';
-  optionDefault.textContent = 'Select Sub-Genre';
+  optionDefault.textContent = 'Select Comment';
   subgenreSelect.appendChild(optionDefault);
 
   if (selectedGenre && window.taxonomy[selectedGenre]) {
@@ -2306,7 +2318,7 @@ async function saveSettings() {
 const THEMES = ['dark', 'pro-booth', 'studio', 'pure-black'];
 
 function initTheme() {
-  const saved = localStorage.getItem('theme') || 'dark';
+  const saved = localStorage.getItem('theme') || 'pure-black';
   applyTheme(saved);
 }
 
@@ -2395,7 +2407,7 @@ function openTrackDetail(track) {
             <span class="value">${escapeHtml(genre)}</span>
           </div>
           <div class="classification-item">
-            <span class="label">Sub-genre:</span>
+            <span class="label">Comments:</span>
             <span class="value">${escapeHtml(subgenre)}</span>
           </div>
           <div class="classification-item">
@@ -2478,8 +2490,8 @@ function openTrackDetail(track) {
     </div>
   `;
 
-  overlay.classList.add('open');
-  panel.classList.add('open');
+  overlay.style.display = 'block';
+  panel.style.display = 'block';
 
   // Attach event listeners for track detail buttons
   const cueAnalysisBtn = panel.querySelector('[data-action="analyze-cue-points"]');
@@ -2572,8 +2584,8 @@ function closeTrackDetail() {
   const overlay = document.getElementById('track-detail-overlay');
   const panel = document.getElementById('track-detail-panel');
 
-  if (overlay) overlay.classList.remove('open');
-  if (panel) panel.classList.remove('open');
+  if (overlay) overlay.style.display = 'none';
+  if (panel) panel.style.display = 'none';
 }
 
 // Setlist builder
@@ -3115,7 +3127,7 @@ function exportTracks(format) {
   let data, filename, mime;
 
   if (format === 'csv') {
-    const headers = ['Title', 'Artist', 'Genre', 'Sub-Genre', 'BPM', 'Key', 'Year', 'File Path'];
+    const headers = ['Title', 'Artist', 'Genre', 'Comments', 'BPM', 'Key', 'Year', 'File Path'];
     const rows = tracks.map(t => [
       t.display_title || '',
       t.display_artist || '',
@@ -3330,6 +3342,11 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initThemeSwatches();
   initNavigation();
+  initEditModal();
+  initAudioPlayer();
+  initColumnToggle();
+  initBulkSelectFeature();
+  initSearchFeature();
   startStatsPolling();
   loadTaxonomy();
   loadSetlistFromStorage();
@@ -3480,7 +3497,7 @@ function getColumnToggleMenu() {
 
   const columns = [
     { key: 'genre', label: 'Genre' },
-    { key: 'subgenre', label: 'Sub-Genre' },
+    { key: 'subgenre', label: 'Comments' },
     { key: 'bpm', label: 'BPM' },
     { key: 'key', label: 'Key' },
     { key: 'energy', label: 'Energy' },
@@ -4041,9 +4058,9 @@ function initPlaylistBuilder() {
           </select>
         </div>
         <div class="playlist-filter-group">
-          <label>Sub-Genre</label>
+          <label>Comments</label>
           <select class="input-select" id="pb-subgenre">
-            <option value="">Any Sub-Genre</option>
+            <option value="">Any Comments</option>
           </select>
         </div>
         <div class="playlist-filter-group">
@@ -4113,7 +4130,7 @@ function populatePlaylistSubgenres() {
   const genre = document.getElementById('pb-genre').value;
   const select = document.getElementById('pb-subgenre');
 
-  select.innerHTML = '<option value="">Any Sub-Genre</option>';
+  select.innerHTML = '<option value="">Any Comments</option>';
 
   if (!genre) return;
 
