@@ -73,6 +73,108 @@ body.light {
 }
 
 /* ============================================================================
+   Theme: Pro Booth (amber/charcoal — DJ hardware aesthetic)
+   ============================================================================ */
+
+body.pro-booth {
+  --bg-page:    #09080d;
+  --bg-panel:   #100e14;
+  --bg-subtle:  #18141e;
+  --bg-hover:   #201a28;
+  --bg-deeper:  #281f32;
+  --border:     #2a1f38;
+  --text-primary:     #e8d8c8;
+  --text-secondary:   #8a6a5a;
+  --text-placeholder: #4a3028;
+  --text-loud:  #fff0e0;
+  --accent:       #f97316;
+  --accent-hover: #fb923c;
+  --accent-glow:  rgba(249, 115, 22, 0.22);
+  --accent-dim:   rgba(249, 115, 22, 0.12);
+  --green:  #34d399;
+  --green-dim: rgba(52, 211, 153, 0.12);
+  --amber:  #fbbf24;
+  --amber-dim: rgba(251, 191, 36, 0.12);
+  --red:    #f87171;
+  --red-dim: rgba(248, 113, 113, 0.12);
+  --blue:   #60a5fa;
+  --blue-dim: rgba(96, 165, 250, 0.12);
+  --overlay:        rgba(0, 0, 0, 0.75);
+  --spinner-overlay: rgba(0, 0, 0, 0.85);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+/* ============================================================================
+   Theme: Studio Dark (navy/cyan — DAW/Ableton aesthetic)
+   ============================================================================ */
+
+body.studio {
+  --bg-page:    #060a10;
+  --bg-panel:   #0b1018;
+  --bg-subtle:  #101820;
+  --bg-hover:   #141e2a;
+  --bg-deeper:  #182535;
+  --border:     #1c2d40;
+  --text-primary:     #b8d0e8;
+  --text-secondary:   #4a6a88;
+  --text-placeholder: #243040;
+  --text-loud:  #e0f0ff;
+  --accent:       #00c8f0;
+  --accent-hover: #38dcff;
+  --accent-glow:  rgba(0, 200, 240, 0.20);
+  --accent-dim:   rgba(0, 200, 240, 0.10);
+  --green:  #22d3a0;
+  --green-dim: rgba(34, 211, 160, 0.12);
+  --amber:  #f59e0b;
+  --amber-dim: rgba(245, 158, 11, 0.12);
+  --red:    #f87171;
+  --red-dim: rgba(248, 113, 113, 0.12);
+  --blue:   #818cf8;
+  --blue-dim: rgba(129, 140, 248, 0.12);
+  --overlay:        rgba(0, 0, 0, 0.75);
+  --spinner-overlay: rgba(0, 0, 0, 0.85);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+/* ============================================================================
+   Theme: Pure Black (true black/white — Spotify/Apple Music aesthetic)
+   ============================================================================ */
+
+body.pure-black {
+  --bg-page:    #000000;
+  --bg-panel:   #0a0a0a;
+  --bg-subtle:  #111111;
+  --bg-hover:   #181818;
+  --bg-deeper:  #222222;
+  --border:     #282828;
+  --text-primary:     #d0d0d0;
+  --text-secondary:   #555555;
+  --text-placeholder: #303030;
+  --text-loud:  #ffffff;
+  --accent:       #e0e0e0;
+  --accent-hover: #ffffff;
+  --accent-glow:  rgba(255, 255, 255, 0.10);
+  --accent-dim:   rgba(255, 255, 255, 0.06);
+  --green:  #1db954;
+  --green-dim: rgba(29, 185, 84, 0.12);
+  --amber:  #f59e0b;
+  --amber-dim: rgba(245, 158, 11, 0.12);
+  --red:    #f87171;
+  --red-dim: rgba(248, 113, 113, 0.12);
+  --blue:   #60a5fa;
+  --blue-dim: rgba(96, 165, 250, 0.12);
+  --overlay:        rgba(0, 0, 0, 0.80);
+  --spinner-overlay: rgba(0, 0, 0, 0.90);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.7);
+}
+
+/* ============================================================================
    Reset & Base
    ============================================================================ */
 
@@ -213,28 +315,34 @@ body {
 }
 
 /* Theme Toggle Button */
-.theme-toggle {
+.theme-swatches {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 38px;
-  padding: 0 12px;
-  margin: 12px 8px 0 8px;
-  width: calc(100% - 16px);
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  gap: 6px;
+  padding: 10px 14px 12px;
+  justify-content: center;
 }
 
-.theme-toggle:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+.swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  position: relative;
 }
+
+.swatch:hover { transform: scale(1.2); }
+
+.swatch.active {
+  border-color: var(--text-primary);
+  transform: scale(1.15);
+}
+
+.swatch-purple { background: linear-gradient(135deg, #7c5af6, #06b6d4); }
+.swatch-booth  { background: linear-gradient(135deg, #f97316, #fbbf24); }
+.swatch-studio { background: linear-gradient(135deg, #00c8f0, #818cf8); }
+.swatch-black  { background: linear-gradient(135deg, #444, #111); }
 
 /* Stats Panel */
 .stats-panel {

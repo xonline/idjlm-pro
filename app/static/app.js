@@ -2302,19 +2302,26 @@ async function saveSettings() {
 // Theme
 // ============================================================================
 
+const THEMES = ['dark', 'pro-booth', 'studio', 'pure-black'];
+
 function initTheme() {
-  if (localStorage.getItem('theme') === 'light') {
-    document.body.classList.add('light');
-    document.getElementById('theme-icon').textContent = '🌙';
-    document.getElementById('theme-label').textContent = 'Dark Mode';
-  }
+  const saved = localStorage.getItem('theme') || 'dark';
+  applyTheme(saved);
 }
 
-function toggleTheme() {
-  const isLight = document.body.classList.toggle('light');
-  localStorage.setItem('theme', isLight ? 'light' : 'dark');
-  document.getElementById('theme-icon').textContent = isLight ? '🌙' : '☀️';
-  document.getElementById('theme-label').textContent = isLight ? 'Dark Mode' : 'Light Mode';
+function applyTheme(theme) {
+  document.body.classList.remove('light', ...THEMES.filter(t => t !== 'dark'));
+  if (theme !== 'dark') document.body.classList.add(theme);
+  localStorage.setItem('theme', theme);
+  document.querySelectorAll('.swatch').forEach(s => {
+    s.classList.toggle('active', s.dataset.theme === theme);
+  });
+}
+
+function initThemeSwatches() {
+  document.querySelectorAll('.swatch').forEach(btn => {
+    btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
+  });
 }
 
 // ============================================================================
@@ -3319,7 +3326,8 @@ function loadSetlistFromStorage() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initLibraryToolbar();
-  initThemeToggle();
+  initTheme();
+  initThemeSwatches();
   initNavigation();
   startStatsPolling();
   loadTaxonomy();
