@@ -4,6 +4,25 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.5.0] — 2026-04-05
+
+### Bug Fixes
+- **Organise tab crash** — `initOrganiseTab()` was called from `switchTab()` but never defined, causing `ReferenceError` every time the Organise tab was clicked. Now defined; wires all buttons (health refresh, parse filenames, organise preview/run, key validator, duplicate scan) and triggers a health load on first visit.
+- **Set Planner tab crash** — Same issue: `initSetPlanTab()` was called but never defined. Now defined; loads arc options, populates genre filter from taxonomy, and wires the Generate Set button.
+- **Bulk edit modal buttons dead** — Save / Cancel / × buttons on the bulk-edit modal had no event listeners. Wired in `initBulkSelectFeature()`.
+- **Bulk edit ID mismatch** — `handleBulkEdit()` read from `bulk-edit-genre/subgenre/bpm/year` but the HTML modal uses `bulk-genre/subgenre/bpm/year`. Fixed all four IDs.
+- **Bulk edit genre select empty** — `showBulkEditModal()` now populates the genre `<select>` from `window.taxonomy` before opening.
+- **Setlist never rendered** — `renderSetlist()` used wrong container IDs (`setlist-current-tracks` → `setlist-tracks`; `setlist-suggestions` → `setlist-suggestions-container`). Fixed. Empty-state / main-panel show/hide now works correctly using the static HTML elements.
+- **Setlist footer overwritten** — `renderSetlist()` was dynamically replacing footer innerHTML, destroying the static Export M3U button. Now updates only `setlist-count` and `setlist-duration` span text.
+- **`initSetlistTab()` silently bailed** — Was checking for the wrong container IDs (same mismatch), always returned early. Fixed and now called from `DOMContentLoaded`.
+- **Export modal never wired** — `btn-export-csv/json/rekordbox` had no event listeners. Wired in `initBulkSelectFeature()` alongside the close button. Export modal can now be opened via the new "Export" button in the bulk-action bar.
+
+### Improvements
+- **Export button in bulk-action bar** — Selecting tracks and clicking "Export" now opens the Export Library modal (CSV / JSON / Rekordbox XML).
+- **M3U export in setlist panel** — "Export M3U" button in the Set Planner setlist section now POSTs selected paths and triggers a download.
+
+---
+
 ## [2.4.10] — 2026-04-05
 
 ### Bug Fixes

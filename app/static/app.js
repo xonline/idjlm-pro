@@ -2599,20 +2599,39 @@ function closeTrackDetail() {
 
 // Setlist builder
 function initSetlistTab() {
-  const currentSetlistContainer = document.getElementById('setlist-current-tracks');
-  const suggestionsContainer = document.getElementById('setlist-suggestions');
-
-  if (!currentSetlistContainer || !suggestionsContainer) return;
-
-  // Handle "Add to Setlist" buttons in track list
+  // Wire "Add to Setlist" / "Remove from Setlist" via event delegation (works for both
+  // track table rows and setlist panel items regardless of render order)
   document.addEventListener('click', (e) => {
     if (e.target.dataset.action === 'add-to-setlist') {
-      const filePath = e.target.dataset.filePath;
-      addTrackToSetlist(filePath);
+      addTrackToSetlist(e.target.dataset.filePath);
     }
     if (e.target.dataset.action === 'remove-from-setlist') {
-      const filePath = e.target.dataset.filePath;
-      removeTrackFromSetlist(filePath);
+      removeTrackFromSetlist(e.target.dataset.filePath);
+    }
+  });
+
+  // Wire M3U export button
+  document.getElementById('btn-setlist-export')?.addEventListener('click', async () => {
+    if (!window.setlist.length) return;
+    const paths = window.setlist.map(t => t.file_path);
+    try {
+      const res = await fetch('/api/export/m3u', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_paths: paths }),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'setlist.m3u';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Setlist exported as M3U', 'success');
+    } catch {
+      showToast('Export failed', 'error');
     }
   });
 }
@@ -2639,14 +2658,19 @@ function removeTrackFromSetlist(filePath) {
 }
 
 function renderSetlist() {
-  const currentContainer = document.getElementById('setlist-current-tracks');
-  const suggestionsContainer = document.getElementById('setlist-suggestions');
-  const footerDiv = document.querySelector('.setlist-footer');
+  const currentContainer = document.getElementById('setlist-tracks');
+  const suggestionsContainer = document.getElementById('setlist-suggestions-container');
+  const emptyState = document.getElementById('setlist-empty-state');
+  const mainPanel = document.getElementById('setlist-main');
 
   if (!currentContainer) return;
 
+  // Show/hide empty state vs main panel
+  if (emptyState) emptyState.style.display = window.setlist.length === 0 ? '' : 'none';
+  if (mainPanel) mainPanel.style.display = window.setlist.length === 0 ? 'none' : '';
+
   // Render current setlist
-  currentContainer.innerHTML = '';
+  while (currentContainer.firstChild) currentContainer.removeChild(currentContainer.firstChild);
   let totalDuration = 0;
 
   window.setlist.forEach((track, idx) => {
@@ -2655,59 +2679,91 @@ function renderSetlist() {
 
     const item = document.createElement('div');
     item.className = 'setlist-track-item';
-    item.innerHTML = `
-      <span class="setlist-track-number">${idx + 1}</span>
-      <div class="setlist-track-info">
-        <div class="setlist-track-title">${escapeHtml(track.display_title || 'Unknown')}</div>
-        <div class="setlist-track-meta">${escapeHtml(track.display_artist || '')} — ${track.final_key || 'N/A'} @ ${track.final_bpm || '?'} BPM</div>
-      </div>
-      <span class="setlist-track-duration">${Math.round(duration)}s</span>
-      <button class="btn btn-small" data-action="remove-from-setlist" data-file-path="${track.file_path}">Remove</button>
-    `;
+
+    const numSpan = document.createElement('span');
+    numSpan.className = 'setlist-track-number';
+    numSpan.textContent = String(idx + 1);
+
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'setlist-track-info';
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'setlist-track-title';
+    titleDiv.textContent = track.display_title || 'Unknown';
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'setlist-track-meta';
+    metaDiv.textContent = `${track.display_artist || ''} — ${track.final_key || 'N/A'} @ ${track.final_bpm || '?'} BPM`;
+    infoDiv.appendChild(titleDiv);
+    infoDiv.appendChild(metaDiv);
+
+    const durSpan = document.createElement('span');
+    durSpan.className = 'setlist-track-duration';
+    durSpan.textContent = `${Math.round(duration)}s`;
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn btn-small';
+    removeBtn.dataset.action = 'remove-from-setlist';
+    removeBtn.dataset.filePath = track.file_path;
+    removeBtn.textContent = 'Remove';
+
+    item.appendChild(numSpan);
+    item.appendChild(infoDiv);
+    item.appendChild(durSpan);
+    item.appendChild(removeBtn);
     currentContainer.appendChild(item);
   });
 
   // Render harmonic suggestions if setlist not empty
-  if (window.setlist.length > 0 && suggestionsContainer) {
-    const lastTrack = window.setlist[window.setlist.length - 1];
-    const suggestions = findHarmonicCompatible(lastTrack);
-
-    suggestionsContainer.innerHTML = '<h4>Harmonic Suggestions</h4>';
-    suggestions.slice(0, 5).forEach(suggestion => {
-      const item = document.createElement('div');
-      item.className = 'setlist-suggestion-item';
-      item.innerHTML = `
-        <div class="setlist-suggestion-info">
-          <div class="suggestion-title">${escapeHtml(suggestion.track.display_title || 'Unknown')}</div>
-          <div class="suggestion-meta">${escapeHtml(suggestion.track.display_artist || '')} — ${suggestion.score.toFixed(0)}% match</div>
-        </div>
-        <button class="btn btn-small" data-action="add-to-setlist" data-file-path="${suggestion.track.file_path}">Add</button>
-      `;
-      suggestionsContainer.appendChild(item);
-    });
-  }
-
-  // Update footer with duration
-  if (footerDiv) {
-    const mins = Math.floor(totalDuration / 60);
-    const secs = Math.floor(totalDuration % 60);
+  if (suggestionsContainer) {
+    while (suggestionsContainer.firstChild) suggestionsContainer.removeChild(suggestionsContainer.firstChild);
     if (window.setlist.length > 0) {
-      footerDiv.innerHTML = `
-        <span>Duration: ${mins}m ${secs}s | ${window.setlist.length} tracks</span>
-        <button class="btn btn-sm btn-danger" id="btn-clear-setlist" style="margin-left:auto;">Clear Setlist</button>
-      `;
-      document.getElementById('btn-clear-setlist').addEventListener('click', () => {
-        if (confirm('Clear all tracks from setlist?')) {
-          window.setlist = [];
-          saveSetlistToStorage();
-          renderSetlist();
-          showToast('Setlist cleared', 'success');
-        }
+      const lastTrack = window.setlist[window.setlist.length - 1];
+      const suggestions = findHarmonicCompatible(lastTrack);
+      const header = document.createElement('p');
+      header.style.cssText = 'color:var(--text-secondary);font-size:12px;';
+      header.textContent = suggestions.length ? `${suggestions.length} compatible tracks found` : 'No compatible tracks found';
+      suggestionsContainer.appendChild(header);
+      suggestions.slice(0, 5).forEach(suggestion => {
+        const item = document.createElement('div');
+        item.className = 'setlist-suggestion-item';
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'setlist-suggestion-info';
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'suggestion-title';
+        titleDiv.textContent = suggestion.track.display_title || 'Unknown';
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'suggestion-meta';
+        metaDiv.textContent = `${suggestion.track.display_artist || ''} — ${suggestion.score.toFixed(0)}% match`;
+        infoDiv.appendChild(titleDiv);
+        infoDiv.appendChild(metaDiv);
+
+        const addBtn = document.createElement('button');
+        addBtn.className = 'btn btn-small';
+        addBtn.dataset.action = 'add-to-setlist';
+        addBtn.dataset.filePath = suggestion.track.file_path;
+        addBtn.textContent = 'Add';
+
+        item.appendChild(infoDiv);
+        item.appendChild(addBtn);
+        suggestionsContainer.appendChild(item);
       });
     } else {
-      footerDiv.innerHTML = `<span>Duration: ${mins}m ${secs}s | ${window.setlist.length} tracks</span>`;
+      const hint = document.createElement('p');
+      hint.style.cssText = 'color:var(--text-secondary);font-size:12px;';
+      hint.textContent = 'Select a track to see compatible suggestions';
+      suggestionsContainer.appendChild(hint);
     }
   }
+
+  // Update footer counters using static HTML elements
+  const countEl = document.getElementById('setlist-count');
+  const durEl = document.getElementById('setlist-duration');
+  const exportBtn = document.getElementById('btn-setlist-export');
+  const mins = Math.floor(totalDuration / 60);
+  const secs = Math.floor(totalDuration % 60);
+  if (countEl) countEl.textContent = `${window.setlist.length} track${window.setlist.length !== 1 ? 's' : ''}`;
+  if (durEl) durEl.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+  if (exportBtn) exportBtn.disabled = window.setlist.length === 0;
 }
 
 function findHarmonicCompatible(track) {
@@ -2999,7 +3055,28 @@ function initBulkSelectFeature() {
       window.selectedTracks.clear();
       updateBulkActionsBar();
     }
+    if (e.target.id === 'bulk-export-btn') {
+      const modal = document.getElementById('export-format-modal');
+      if (modal) modal.style.display = 'flex';
+    }
   });
+
+  // Wire bulk edit modal buttons
+  const bulkEditModal = document.getElementById('bulk-edit-modal');
+  const closeFn = () => { if (bulkEditModal) bulkEditModal.style.display = 'none'; };
+  document.getElementById('bulk-edit-close')?.addEventListener('click', closeFn);
+  document.getElementById('bulk-edit-cancel')?.addEventListener('click', closeFn);
+  document.getElementById('bulk-edit-save')?.addEventListener('click', handleBulkEdit);
+  bulkEditModal?.addEventListener('click', e => { if (e.target === bulkEditModal) closeFn(); });
+
+  // Wire export format modal close + export buttons
+  const exportModal = document.getElementById('export-format-modal');
+  const closeExportFn = () => { if (exportModal) exportModal.style.display = 'none'; };
+  document.getElementById('export-format-close')?.addEventListener('click', closeExportFn);
+  exportModal?.addEventListener('click', e => { if (e.target === exportModal) closeExportFn(); });
+  document.getElementById('btn-export-csv')?.addEventListener('click', () => { exportTracks('csv'); closeExportFn(); });
+  document.getElementById('btn-export-json')?.addEventListener('click', () => { exportTracks('json'); closeExportFn(); });
+  document.getElementById('btn-export-rekordbox')?.addEventListener('click', () => { exportTracks('rekordbox'); closeExportFn(); });
 }
 
 function updateBulkActionsBar() {
@@ -3011,6 +3088,7 @@ function updateBulkActionsBar() {
     bar.innerHTML = `
       <span class="bulk-actions-count">${window.selectedTracks.size} selected</span>
       <button class="btn btn-primary btn-small" id="bulk-edit-btn">Edit</button>
+      <button class="btn btn-secondary btn-small" id="bulk-export-btn">Export</button>
       <button class="btn btn-secondary btn-small" id="bulk-add-setlist-btn">Add to Setlist</button>
     `;
   } else {
@@ -3020,7 +3098,28 @@ function updateBulkActionsBar() {
 
 function showBulkEditModal() {
   const modal = document.getElementById('bulk-edit-modal');
-  if (modal) modal.style.display = 'flex';
+  if (!modal) return;
+
+  // Populate genre select from taxonomy
+  const genreSelect = document.getElementById('bulk-genre');
+  if (genreSelect && window.taxonomy) {
+    while (genreSelect.firstChild) genreSelect.removeChild(genreSelect.firstChild);
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = '— No change —';
+    genreSelect.appendChild(defaultOpt);
+    Object.keys(window.taxonomy).forEach(genre => {
+      const opt = document.createElement('option');
+      opt.value = genre;
+      opt.textContent = genre;
+      genreSelect.appendChild(opt);
+    });
+  }
+
+  const countEl = document.getElementById('bulk-edit-count');
+  if (countEl) countEl.textContent = `${window.selectedTracks.size} track${window.selectedTracks.size !== 1 ? 's' : ''} selected`;
+
+  modal.style.display = 'flex';
 }
 
 // Apple Music sync button
@@ -3206,10 +3305,10 @@ function exportTracks(format) {
 // ============================================================================
 
 async function handleBulkEdit() {
-  const genreInput = document.getElementById('bulk-edit-genre')?.value.trim();
-  const subgenreInput = document.getElementById('bulk-edit-subgenre')?.value.trim();
-  const bpmInput = document.getElementById('bulk-edit-bpm')?.value.trim();
-  const yearInput = document.getElementById('bulk-edit-year')?.value.trim();
+  const genreInput = document.getElementById('bulk-genre')?.value.trim();
+  const subgenreInput = document.getElementById('bulk-subgenre')?.value.trim();
+  const bpmInput = document.getElementById('bulk-bpm')?.value.trim();
+  const yearInput = document.getElementById('bulk-year')?.value.trim();
 
   if (!genreInput && !subgenreInput && !bpmInput && !yearInput) {
     showToast('Please enter at least one field to update', 'info');
@@ -3360,7 +3459,9 @@ document.addEventListener('DOMContentLoaded', () => {
   startStatsPolling();
   loadTaxonomy();
   loadSetlistFromStorage();
+  initSetlistTab();
   renderTracks();
+  renderSetlist();
   checkResumeSession();
   initThresholdPersistence();
   initOnboarding();
@@ -3731,6 +3832,49 @@ function initDuplicatesTab() {
   if (scanBtn) {
     scanBtn.addEventListener('click', scanForDuplicates);
   }
+}
+
+// ============================================================================
+// Organise Tab Init (called lazily from switchTab on first visit)
+// ============================================================================
+
+let organiseTabInited = false;
+function initOrganiseTab() {
+  if (organiseTabInited) return;
+  organiseTabInited = true;
+
+  document.getElementById('btn-refresh-health')?.addEventListener('click', loadLibraryHealth);
+  document.getElementById('btn-parse-filenames')?.addEventListener('click', parseFilenames);
+  document.getElementById('btn-organise-preview')?.addEventListener('click', previewOrganise);
+  document.getElementById('btn-organise-run')?.addEventListener('click', runOrganise);
+  document.getElementById('btn-validate-keys')?.addEventListener('click', validateKeys);
+  initDuplicatesTab();
+  loadLibraryHealth();
+}
+
+// ============================================================================
+// Set Planner Tab Init (called lazily from switchTab on first visit)
+// ============================================================================
+
+let setplanTabInited = false;
+function initSetPlanTab() {
+  if (setplanTabInited) return;
+  setplanTabInited = true;
+
+  document.getElementById('btn-generate-set')?.addEventListener('click', generateSet);
+
+  // Populate genre filter from taxonomy
+  const genreSelect = document.getElementById('setplan-genre');
+  if (genreSelect && window.taxonomy) {
+    Object.keys(window.taxonomy).forEach(genre => {
+      const opt = document.createElement('option');
+      opt.value = genre;
+      opt.textContent = genre;
+      genreSelect.appendChild(opt);
+    });
+  }
+
+  loadSetplanArcs();
 }
 
 async function scanForDuplicates() {
