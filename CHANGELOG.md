@@ -4,6 +4,17 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.5.4] — 2026-04-05
+
+### Bug Fixes
+- **Taxonomy edits failing (settings save → 500)** — `PUT /api/taxonomy` tried to write `taxonomy.json` to the read-only `.app` bundle path. Now writes to `~/Library/Application Support/IDJLM Pro/taxonomy.json` (macOS). All three write sites fixed (full replace, add genre, delete genre). Taxonomy is also loaded from the user-writable copy on startup so edits persist across launches.
+- **`/api/analyze` and `/api/session/save` crash with empty body (500)** — `request.get_json()` without `silent=True` raised `BadRequest` when the body was empty or Content-Type missing. Fixed in `import_routes.py` and `session_routes.py`.
+
+### Feature
+- **Bulk Analyse selected tracks** — When tracks are selected via checkboxes, an "Analyse" button now appears in the bulk-actions bar. Only the selected tracks are sent to `/api/analyze`, with progress shown in the stats bar. Previously, only "Analyse All" was available.
+
+---
+
 ## [2.5.3] — 2026-04-05
 
 ### Bug Fixes

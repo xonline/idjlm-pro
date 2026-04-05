@@ -1,11 +1,22 @@
 import os
 import json
 import logging
+import platform
 from flask import Blueprint, request, jsonify
 
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("bulk", __name__, url_prefix="/api")
+
+
+def _get_taxonomy_write_path() -> str:
+    """Return user-writable path for taxonomy.json (never the read-only bundle)."""
+    if platform.system() == "Darwin":
+        d = os.path.expanduser("~/Library/Application Support/IDJLM Pro")
+    else:
+        d = os.path.expanduser("~/.idjlm-pro")
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, "taxonomy.json")
 
 
 @bp.route("/taxonomy", methods=["GET"])
@@ -45,11 +56,8 @@ def update_taxonomy():
         taxonomy.clear()
         taxonomy.update(new_taxonomy)
 
-        # Write back to taxonomy.json
-        taxonomy_path = os.path.join(
-            os.path.dirname(__file__), "..", "..", "taxonomy.json"
-        )
-        with open(taxonomy_path, "w") as f:
+        # Write back to taxonomy.json (user-writable location)
+        with open(_get_taxonomy_write_path(), "w") as f:
             json.dump(taxonomy, f, indent=2)
 
         return jsonify({"ok": True}), 200
@@ -88,11 +96,8 @@ def add_genre():
             "subgenres": subgenres
         }
 
-        # Write back to file
-        taxonomy_path = os.path.join(
-            os.path.dirname(__file__), "..", "..", "taxonomy.json"
-        )
-        with open(taxonomy_path, "w") as f:
+        # Write back to file (user-writable location)
+        with open(_get_taxonomy_write_path(), "w") as f:
             json.dump(taxonomy, f, indent=2)
 
         return jsonify(taxonomy), 200
@@ -121,11 +126,8 @@ def delete_genre(name):
 
         del taxonomy["genres"][name]
 
-        # Write back to file
-        taxonomy_path = os.path.join(
-            os.path.dirname(__file__), "..", "..", "taxonomy.json"
-        )
-        with open(taxonomy_path, "w") as f:
+        # Write back to file (user-writable location)
+        with open(_get_taxonomy_write_path(), "w") as f:
             json.dump(taxonomy, f, indent=2)
 
         return jsonify({"ok": True}), 200

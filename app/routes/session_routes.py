@@ -18,7 +18,7 @@ def save_session_endpoint():
     try:
         from app import get_track_store
 
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         folder_path = data.get("folder_path")
 
         track_store = get_track_store()

@@ -70,8 +70,14 @@ def create_app() -> Flask:
     CORS(app)
     logging.getLogger(__name__).info("IDJLM Pro starting — log: %s", log_path)
 
-    # Load taxonomy
-    taxonomy_path = os.path.join(os.path.dirname(__file__), "..", "taxonomy.json")
+    # Load taxonomy — prefer user-writable copy (may have edits), fall back to bundle
+    import platform
+    if platform.system() == "Darwin":
+        _user_taxonomy = os.path.expanduser("~/Library/Application Support/IDJLM Pro/taxonomy.json")
+    else:
+        _user_taxonomy = os.path.expanduser("~/.idjlm-pro/taxonomy.json")
+    _bundle_taxonomy = os.path.join(os.path.dirname(__file__), "..", "taxonomy.json")
+    taxonomy_path = _user_taxonomy if os.path.exists(_user_taxonomy) else _bundle_taxonomy
     with open(taxonomy_path) as f:
         _taxonomy.update(json.load(f))
 

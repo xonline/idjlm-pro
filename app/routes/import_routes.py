@@ -41,7 +41,7 @@ def import_tracks():
     body: { "folder_path": "/path/to/folder" }
     """
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
         folder_path = data.get("folder_path", "").strip()
 
         if not folder_path:

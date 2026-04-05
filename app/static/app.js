@@ -3082,10 +3082,55 @@ function updateBulkActionsBar() {
     bar.style.display = 'flex';
     bar.innerHTML = `
       <span class="bulk-actions-count">${window.selectedTracks.size} selected</span>
+      <button class="btn btn-accent btn-small" id="bulk-analyze-btn">Analyse</button>
       <button class="btn btn-primary btn-small" id="bulk-edit-btn">Edit</button>
       <button class="btn btn-secondary btn-small" id="bulk-export-btn">Export</button>
       <button class="btn btn-secondary btn-small" id="bulk-add-setlist-btn">Add to Setlist</button>
     `;
+
+    const bulkAnalyzeBtn = document.getElementById('bulk-analyze-btn');
+    if (bulkAnalyzeBtn) {
+      bulkAnalyzeBtn.addEventListener('click', async () => {
+        const paths = Array.from(window.selectedTracks);
+        bulkAnalyzeBtn.disabled = true;
+        showProgressInStatsBar(`Analysing ${paths.length} track${paths.length !== 1 ? 's' : ''}...`);
+        try {
+          const result = await apiFetch('/api/analyze', {
+            method: 'POST',
+            body: JSON.stringify({ track_paths: paths })
+          });
+          if (result && result.op_id) {
+            connectToProgress(
+              result.op_id,
+              result.total,
+              (current, total) => {
+                const pct = Math.round((current / total) * 100);
+                showProgressInStatsBar(`${current} / ${total} analysing...`);
+                const fill = document.getElementById('stat-progress-fill');
+                if (fill) fill.style.width = pct + '%';
+              },
+              (data) => {
+                hideProgressInStatsBar();
+                const fill = document.getElementById('stat-progress-fill');
+                if (fill) fill.style.width = '0%';
+                window.tracks = data.tracks || window.tracks;
+                renderTracks();
+                updateStats();
+                updateToolbarButtonStates();
+                showToast(`Analysed ${paths.length} track${paths.length !== 1 ? 's' : ''}`, 'success');
+              },
+              (err) => {
+                hideProgressInStatsBar();
+                showToast('Analyse error: ' + err.message, 'error');
+              }
+            );
+          }
+        } catch (e) {
+          hideProgressInStatsBar();
+          showToast('Analyse failed: ' + e.message, 'error');
+        }
+      });
+    }
   } else {
     bar.style.display = 'none';
   }
