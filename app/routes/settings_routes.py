@@ -8,8 +8,38 @@ bp = Blueprint("settings", __name__, url_prefix="/api")
 
 
 def get_env_path():
-    """Get path to .env file at project root."""
-    return os.path.join(os.path.dirname(__file__), "..", "..", ".env")
+    """
+    Get path to .env settings file in a user-writable location.
+
+    Uses ~/Library/Application Support/IDJLM Pro/.env on macOS,
+    falling back to ~/.idjlm-pro/.env on other platforms.
+    This ensures settings persist whether the app is run from a DMG,
+    the Applications folder, or any other location.
+
+    On first call, migrates any existing .env from the legacy bundle-relative
+    path so users don't lose previously saved keys.
+    """
+    import platform
+    if platform.system() == "Darwin":
+        settings_dir = os.path.expanduser("~/Library/Application Support/IDJLM Pro")
+    else:
+        settings_dir = os.path.expanduser("~/.idjlm-pro")
+
+    os.makedirs(settings_dir, exist_ok=True)
+    new_path = os.path.join(settings_dir, ".env")
+
+    # One-time migration from legacy bundle-relative .env
+    if not os.path.exists(new_path):
+        legacy_path = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
+        legacy_path = os.path.normpath(legacy_path)
+        if os.path.exists(legacy_path):
+            try:
+                import shutil
+                shutil.copy2(legacy_path, new_path)
+            except Exception:
+                pass
+
+    return new_path
 
 
 def mask_key(key_value):

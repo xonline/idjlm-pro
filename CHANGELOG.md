@@ -4,6 +4,13 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.5.1] — 2026-04-05
+
+### Bug Fixes
+- **Settings lost on every launch (DMG)** — Settings were saved to `.env` at a path relative to the app bundle. When launched directly from a mounted DMG (read-only filesystem), writes failed silently and all settings were gone on next open. Settings now stored in `~/Library/Application Support/IDJLM Pro/.env` (macOS) or `~/.idjlm-pro/.env` (other platforms) — a user-writable location that persists across DMG launches, app updates, and reinstalls. Existing settings are migrated automatically on first launch.
+
+---
+
 ## [2.5.0] — 2026-04-05
 
 ### Bug Fixes
