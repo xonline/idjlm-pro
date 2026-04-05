@@ -82,6 +82,12 @@ def create_app() -> Flask:
 
     @app.route("/")
     def index():
-        return render_template("index.html")
+        import sys as _sys
+        base = getattr(_sys, "_MEIPASS", os.path.dirname(os.path.dirname(__file__)))
+        try:
+            version = open(os.path.join(base, "VERSION")).read().strip()
+        except Exception:
+            version = ""
+        return render_template("index.html", version=version)
 
     return app

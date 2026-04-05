@@ -42,6 +42,7 @@ jobs:
             --add-data "templates:templates" \
             --add-data "app/static:app/static" \
             --add-data "taxonomy.json:." \
+            --add-data "VERSION:." \
             --add-data ".env:." \
             --hidden-import "engineio.async_drivers.threading" \
             --hidden-import "pkg_resources.py2_compat" \
@@ -107,6 +108,7 @@ jobs:
             --add-data "templates;templates" `
             --add-data "app/static;app/static" `
             --add-data "taxonomy.json;." `
+            --add-data "VERSION;." `
             --add-data ".env;." `
             --hidden-import "engineio.async_drivers.threading" `
             --hidden-import "pkg_resources.py2_compat" `

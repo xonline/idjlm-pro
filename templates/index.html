@@ -12,7 +12,7 @@
     <nav class="sidebar">
       <div class="logo-container">
         <div class="logo-icon"><img src="/static/icon_256.png" alt="IDJLM Pro" style="width:32px;height:32px;border-radius:6px;vertical-align:middle;"></div>
-        <div class="logo-text">IDJLM Pro</div>
+        <div class="logo-text">IDJLM Pro{% if version %}<span style="font-size:0.6em;opacity:0.45;margin-left:6px;font-weight:400;">v{{ version }}</span>{% endif %}</div>
       </div>
       <div class="nav-menu">
         <button class="nav-btn active" data-tab="library">

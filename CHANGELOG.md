@@ -4,6 +4,14 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.4.7] — 2026-04-05
+
+### Improvements
+- **Version in sidebar** — app version now shown next to "IDJLM Pro" in top-left (e.g. `IDJLM Pro v2.4.7`); reads from bundled VERSION file at runtime
+- **PyInstaller bundle** — VERSION file now included in macOS DMG and Windows ZIP builds so version displays correctly in the packaged app
+
+---
+
 ## [2.4.6] — 2026-04-05
 
 ### Improvements
