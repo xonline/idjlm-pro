@@ -221,6 +221,35 @@ def bulk_edit():
         track_paths = data.get("track_paths", [])
         track_store = get_track_store()
 
+        # Validate BPM: numeric, 40-300 range (allow wider for Latin music)
+        if "bpm" in data:
+            bpm = data["bpm"]
+            if bpm != "" and bpm is not None:
+                try:
+                    bpm_num = float(bpm)
+                    if not (40 <= bpm_num <= 300):
+                        return jsonify({"error": "BPM must be between 40 and 300"}), 400
+                except (ValueError, TypeError):
+                    return jsonify({"error": "BPM must be numeric"}), 400
+
+        # Validate Key: string ≤10 chars
+        if "key" in data:
+            key = data["key"]
+            if key != "" and key is not None:
+                if not isinstance(key, str) or len(key) > 10:
+                    return jsonify({"error": "Key must be a string up to 10 characters"}), 400
+
+        # Validate Year: 4-digit number between 1900-2030
+        if "year" in data:
+            year = data["year"]
+            if year != "" and year is not None:
+                try:
+                    year_num = int(year)
+                    if not (1900 <= year_num <= 2030):
+                        return jsonify({"error": "Year must be between 1900 and 2030"}), 400
+                except (ValueError, TypeError):
+                    return jsonify({"error": "Year must be a 4-digit number"}), 400
+
         updated = 0
         for file_path in track_paths:
             if file_path not in track_store:
@@ -236,7 +265,21 @@ def bulk_edit():
                 track.override_key = data['key']
             if 'year' in data:
                 track.override_year = data['year']
-            track.review_status = "edited"
+
+            # Recompute review_status based on whether any overrides are set
+            has_overrides = any([
+                track.override_genre,
+                track.override_subgenre,
+                track.override_bpm,
+                track.override_key,
+                track.override_year
+            ])
+            if has_overrides:
+                track.review_status = "edited"
+            elif track.review_status == "edited":
+                # Revert to pending if no overrides are set and status was edited
+                track.review_status = "pending"
+
             updated += 1
 
         return jsonify({"updated": updated}), 200

@@ -46,8 +46,13 @@ def list_tracks():
         sort_attr = sort_key_map.get(sort_by, "filename")
 
         try:
+            # For numeric fields (confidence, bpm, year), sort None as 0 (lowest value)
+            # For string fields, sort None as empty string
+            numeric_fields = {"confidence", "final_bpm", "final_year"}
+            is_numeric = sort_attr in numeric_fields
+
             tracks.sort(
-                key=lambda t: getattr(t, sort_attr) or "",
+                key=lambda t: (getattr(t, sort_attr) or (0 if is_numeric else "")),
                 reverse=reverse
             )
         except Exception:
@@ -153,15 +158,19 @@ def update_track(file_path):
                 except (ValueError, TypeError):
                     return jsonify({"error": "Year must be a 4-digit number"}), 400
 
-        # Mark as edited if any override is set
-        if any([
+        # Recompute review_status based on whether any overrides are set
+        has_overrides = any([
             track.override_genre,
             track.override_subgenre,
             track.override_bpm,
             track.override_key,
             track.override_year
-        ]):
+        ])
+        if has_overrides:
             track.review_status = "edited"
+        elif track.review_status == "edited":
+            # Revert to pending if no overrides are set and status was edited
+            track.review_status = "pending"
 
         return jsonify(track.to_dict()), 200
 
