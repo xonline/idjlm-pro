@@ -955,23 +955,6 @@ function renderTracks() {
     tdArtist.textContent = track.display_artist || '—';
     row.appendChild(tdArtist);
 
-    // Waveform thumbnail
-    const tdWave = document.createElement('td');
-    tdWave.className = 'wave-col';
-    if (track.waveform_data && track.waveform_data.length) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 80;
-      canvas.height = 24;
-      canvas.className = 'waveform-thumb';
-      drawWaveformThumb(canvas, track.waveform_data);
-      tdWave.appendChild(canvas);
-    } else {
-      tdWave.textContent = '—';
-      tdWave.style.color = 'var(--text-muted)';
-      tdWave.style.textAlign = 'center';
-    }
-    row.appendChild(tdWave);
-
     // Genre (with color chip)
     const tdGenre = document.createElement('td');
     tdGenre.innerHTML = genreChip(track.final_genre);

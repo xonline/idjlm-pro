@@ -106,7 +106,7 @@ class Track:
 
     @property
     def final_genre(self) -> Optional[str]:
-        return self.override_genre or self.proposed_genre
+        return self.override_genre or self.proposed_genre or self.existing_genre
 
     @property
     def final_subgenre(self) -> Optional[str]:

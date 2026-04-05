@@ -4,6 +4,17 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.5.2] — 2026-04-05
+
+### Bug Fixes
+- **Genre not shown before AI classification** — `final_genre` now falls back to the file's existing genre tag (`existing_genre`). Tracks with genres already tagged in their files now show them immediately after import, before AI runs.
+- **Wave column removed** — The "Wave" column showed waveform thumbnails only after audio analysis (librosa). Before analysis it always showed `—`. Removed entirely — it added visual noise without value at the typical workflow stage.
+
+### Improvements
+- **Set Planner arc button font** — Arc type buttons (Warm-Up, Peak Hour, etc.) now use the same 14px font as other form controls instead of the slightly-smaller 0.82rem.
+
+---
+
 ## [2.5.1] — 2026-04-05
 
 ### Bug Fixes

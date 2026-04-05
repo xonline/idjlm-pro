@@ -2852,7 +2852,7 @@ canvas.waveform-thumb {
   background: var(--bg-secondary, #1a1a2e);
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   transition: all 0.15s;
 }
 .arc-btn:hover { border-color: var(--accent); color: var(--accent); }
