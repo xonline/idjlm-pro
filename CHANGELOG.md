@@ -4,6 +4,25 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.4.2] — 2026-04-05
+
+### Bug Fixes
+- **M3U export** — was broken; now uses native `fetch()` instead of `apiFetch()` so blob download works
+- **Bulk selection** — never activated due to wrong DOM id (`track-table-body` → `tracks-tbody`)
+- **Apple Music sync** — was sending full library instead of selection; fixed `Set.length` → `Set.size`
+- **Review keyboard shortcuts (a/s)** — were no-ops; added missing `data-approve-btn`/`data-skip-btn` attributes
+- **Stale folder path on session resume** — old sessions without `folder_path` metadata no longer corrupt auto-save path
+- **Stack traces** — no longer leaked to frontend; all routes now log server-side and return generic error messages
+- **Bulk approve parameter** — frontend/backend mismatch fixed (`threshold` → `min_confidence`; backend now accepts both)
+- **Approval log race condition** — concurrent write-tag threads now use a lock to prevent log corruption
+
+### Improvements
+- **Search debounce** — 300ms debounce on library search; no more UI freeze while typing
+- **Track table pagination** — 100 tracks per page with prev/next controls; eliminates browser slowdown on large libraries
+- **Input validation** — BPM (40–300), Key (≤10 chars), Year (1900–2030) validated before saving; returns 400 on invalid input
+
+---
+
 ## [2.4.1] — 2026-04-05
 
 ### Improvements
