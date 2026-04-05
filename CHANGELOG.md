@@ -4,6 +4,19 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.5.6] — 2026-04-06
+
+### Bug Fixes
+- **"Analysis stream error: undefined"** — SSE progress endpoint was sending plain `data:` messages (browser `message` events), but the frontend listened for named events (`progress`, `complete`). No handlers ever fired; the connection silently closed and triggered the error toast with `undefined`. Fixed by emitting `event: progress` / `event: complete` named events. Keep-alive pings now use SSE comment syntax (`: ping`) to avoid being mistaken for data.
+- **Error toast showed "undefined"** — `connectToProgress` passed a raw DOM `Event` to `onError`, which has no `.message`. Now wraps it in `new Error('Connection lost')` so the message is always readable.
+
+### Improvements
+- **API key confirmation** — Saved keys now display first 4 + last 4 characters in the input placeholder (e.g. `sk-a...xyz1  —  saved ✓`) so users can confirm which key is stored without exposing the full value.
+- **Save button feedback** — Save button flashes green with "✓ Saved" for 2 seconds after a successful settings save.
+- **Settings reload** — `loadSettings()` now also populates the Anthropic key placeholder and syncs AI model, Ollama model, batch size, and auto-approve threshold fields on every load.
+
+---
+
 ## [2.5.5] — 2026-04-05
 
 ### Bug Fixes
