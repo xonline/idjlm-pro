@@ -4,6 +4,14 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.4.6] — 2026-04-05
+
+### Improvements
+- **Spotify dev link** — "Get credentials ↗" link to developer.spotify.com/dashboard added inline next to the Spotify Enrichment section label in Settings
+- **Save Settings confirmation** — clicking Save now always shows a "Settings saved" toast; previously showed nothing when API key fields were empty (keys already saved appear masked in placeholders, so inputs look empty)
+
+---
+
 ## [2.4.5] — 2026-04-05
 
 ### Features

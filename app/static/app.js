@@ -2263,18 +2263,13 @@ async function saveSettings() {
     const geminiKey = document.getElementById('settings-gemini-key').value.trim();
     const spotifyId = document.getElementById('settings-spotify-id').value.trim();
     const spotifySecret = document.getElementById('settings-spotify-secret').value.trim();
+    const threshold = parseInt(document.getElementById('settings-threshold')?.value) || appState.approvalThreshold || 80;
 
-    // Build payload with only non-empty values
-    const payload = {};
+    // Always include threshold so there's always something to save
+    const payload = { auto_approve_threshold: threshold };
     if (geminiKey) payload.gemini_api_key = geminiKey;
     if (spotifyId) payload.spotify_client_id = spotifyId;
     if (spotifySecret) payload.spotify_client_secret = spotifySecret;
-
-    // Don't send empty request
-    if (Object.keys(payload).length === 0) {
-      showToast('No settings to save', 'info');
-      return;
-    }
 
     showSpinner('Saving settings...');
     const result = await apiFetch('/api/settings', {
@@ -2283,8 +2278,8 @@ async function saveSettings() {
     });
 
     if (result.saved) {
-      showToast('Settings saved successfully', 'success');
-      // Clear inputs and reload to show masked values in placeholders
+      showToast('Settings saved', 'success');
+      // Clear key inputs and reload to show masked values in placeholders
       document.getElementById('settings-gemini-key').value = '';
       document.getElementById('settings-spotify-id').value = '';
       document.getElementById('settings-spotify-secret').value = '';
