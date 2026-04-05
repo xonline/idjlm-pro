@@ -156,22 +156,28 @@ function initLibraryToolbar() {
   const btnBulkApprove = document.getElementById('btn-bulk-approve-toolbar');
   const btnGetStarted  = document.getElementById('btn-get-started');
 
-  function showFolderInput() {
-    if (folderInput)  folderInput.style.display  = 'inline-block';
-    if (btnImport)    btnImport.style.display    = 'inline-block';
-    if (folderInput)  folderInput.focus();
+  async function openFolderPicker() {
+    if (window.pywebview && window.pywebview.api) {
+      // Native OS folder picker via pywebview
+      const path = await window.pywebview.api.choose_folder();
+      if (path) doImport(path);
+    } else {
+      // Dev-mode fallback: show text input
+      if (folderInput)  folderInput.style.display  = 'inline-block';
+      if (btnImport)    btnImport.style.display    = 'inline-block';
+      if (folderInput)  folderInput.focus();
+    }
   }
 
-  if (btnGetStarted) btnGetStarted.addEventListener('click', showFolderInput);
-  if (btnChange)     btnChange.addEventListener('click', showFolderInput);
+  if (btnGetStarted) btnGetStarted.addEventListener('click', openFolderPicker);
+  if (btnChange)     btnChange.addEventListener('click', openFolderPicker);
 
   if (folderInput) {
-    folderInput.addEventListener('keydown', e => { if (e.key === 'Enter') doImport(); });
+    folderInput.addEventListener('keydown', e => { if (e.key === 'Enter') doImport(folderInput.value.trim()); });
   }
-  if (btnImport) btnImport.addEventListener('click', doImport);
+  if (btnImport) btnImport.addEventListener('click', () => doImport(folderInput ? folderInput.value.trim() : ''));
 
-  async function doImport() {
-    const folder = folderInput ? folderInput.value.trim() : '';
+  async function doImport(folder) {
     if (!folder) return;
     if (folderInput)  folderInput.style.display  = 'none';
     if (btnImport)    btnImport.style.display    = 'none';

@@ -4,6 +4,16 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.4.8] — 2026-04-05
+
+### Bug Fixes
+- **Logo layout** — "IDJLM Pro" and version were stacking vertically (wrong CSS class `logo-container` → `logo`); now inline on one row with correct alignment
+
+### Improvements
+- **Native folder picker** — clicking "Change" or "Choose Folder" now opens a native OS folder dialog instead of a text input; no more typing file paths manually. Falls back to text input in dev/browser mode.
+
+---
+
 ## [2.4.7] — 2026-04-05
 
 ### Improvements

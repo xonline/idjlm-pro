@@ -125,6 +125,16 @@ def _run_flask(flask_app):
     flask_app.run(port=PORT, debug=False, use_reloader=False, threaded=True)
 
 
+class Api:
+    """Python methods exposed to the JS frontend via window.pywebview.api.*"""
+
+    def choose_folder(self):
+        """Open a native OS folder picker and return the selected path (or None)."""
+        import webview
+        result = webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG)
+        return result[0] if result else None
+
+
 if __name__ == "__main__":
     flask_app = create_app()
 
@@ -142,6 +152,7 @@ if __name__ == "__main__":
             height=820,
             min_size=(960, 640),
             confirm_close=True,
+            js_api=Api(),
         )
 
         def _load_app():

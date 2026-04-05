@@ -264,6 +264,8 @@ body {
 .logo-text {
   color: var(--accent);
   letter-spacing: -0.3px;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 /* Navigation Menu */
