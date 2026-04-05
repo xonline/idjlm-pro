@@ -2594,6 +2594,7 @@ function addTrackToSetlist(filePath) {
 
   if (!window.setlist.find(t => t.file_path === filePath)) {
     window.setlist.push(track);
+    saveSetlistToStorage();
     renderSetlist();
     showToast('Track added to setlist', 'success');
   } else {
@@ -2603,6 +2604,7 @@ function addTrackToSetlist(filePath) {
 
 function removeTrackFromSetlist(filePath) {
   window.setlist = window.setlist.filter(t => t.file_path !== filePath);
+  saveSetlistToStorage();
   renderSetlist();
   showToast('Track removed from setlist', 'success');
 }
@@ -2660,7 +2662,22 @@ function renderSetlist() {
   if (footerDiv) {
     const mins = Math.floor(totalDuration / 60);
     const secs = Math.floor(totalDuration % 60);
-    footerDiv.innerHTML = `<span>Duration: ${mins}m ${secs}s | ${window.setlist.length} tracks</span>`;
+    if (window.setlist.length > 0) {
+      footerDiv.innerHTML = `
+        <span>Duration: ${mins}m ${secs}s | ${window.setlist.length} tracks</span>
+        <button class="btn btn-sm btn-danger" id="btn-clear-setlist" style="margin-left:auto;">Clear Setlist</button>
+      `;
+      document.getElementById('btn-clear-setlist').addEventListener('click', () => {
+        if (confirm('Clear all tracks from setlist?')) {
+          window.setlist = [];
+          saveSetlistToStorage();
+          renderSetlist();
+          showToast('Setlist cleared', 'success');
+        }
+      });
+    } else {
+      footerDiv.innerHTML = `<span>Duration: ${mins}m ${secs}s | ${window.setlist.length} tracks</span>`;
+    }
   }
 }
 
@@ -3278,15 +3295,39 @@ function initThresholdPersistence() {
   if (tbody) observer.observe(tbody, { childList: true });
 })();
 
+function initOnboarding() {
+  if (localStorage.getItem('idjlm-onboarded')) return;
+  document.getElementById('onboarding-modal').style.display = 'flex';
+  document.getElementById('onboarding-close').addEventListener('click', () => {
+    document.getElementById('onboarding-modal').style.display = 'none';
+    localStorage.setItem('idjlm-onboarded', '1');
+  });
+}
+
+function saveSetlistToStorage() {
+  localStorage.setItem('idjlm-setlist', JSON.stringify(window.setlist || []));
+}
+
+function loadSetlistFromStorage() {
+  try {
+    const saved = localStorage.getItem('idjlm-setlist');
+    if (saved) window.setlist = JSON.parse(saved);
+  } catch(e) {
+    window.setlist = [];
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initLibraryToolbar();
   initThemeToggle();
   initNavigation();
   startStatsPolling();
   loadTaxonomy();
+  loadSetlistFromStorage();
   renderTracks();
   checkResumeSession();
   initThresholdPersistence();
+  initOnboarding();
 });
 
 // ============================================================================

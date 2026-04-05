@@ -2922,3 +2922,52 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
 .settings-section { margin-top: 24px; }
 .settings-section-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
 .settings-section-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
+
+/* ─── Onboarding Modal ──────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.onboarding-box {
+  background: var(--bg-secondary, #1e1e2e);
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: var(--shadow-lg);
+}
+
+.onboarding-box h2 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 24px;
+  color: var(--text-loud);
+}
+
+.onboarding-box p {
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+}
+
+.onboarding-box ol {
+  padding-left: 1.5rem;
+  line-height: 2;
+  margin-bottom: 1.5rem;
+}
+
+.onboarding-box li {
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.onboarding-box .btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+}

@@ -1,0 +1,73 @@
+CODEX CODE REVIEW OUTPUT — IDJLM Pro
+Date: 2026-04-05
+Tool: OpenAI Codex v0.118.0
+Model: gpt-5.4
+
+================================================================================
+REVIEW 1: Last 3 Commits (git diff HEAD~3..HEAD)
+================================================================================
+
+Full git diff content omitted for brevity (30KB+), showing Codex analysis:
+
+CODEX FINDINGS:
+The patch introduces multiple data-handling regressions: requested numeric sorts can silently return filename order, edited status can become stale after overrides are cleared, and bulk edits bypass the validation enforced elsewhere. These issues affect core API behavior and should be fixed before considering the patch correct.
+
+Full review comments:
+
+- [P2] Handle missing numeric values when sorting tracks — /home/ubuntu/dj-library-manager/app/routes/track.py:42-44
+  When `sort_by` is `confidence`, `bpm`, or `year` and any track has that field unset, `getattr(t, sort_attr) or ""` returns a mix of numbers and strings. In Python 3 that raises `TypeError`, so the `except` block silently falls back to filename ordering and the API returns the wrong sort order for those requests instead of the requested column.
+
+- [P2] Reset edited status when the last override is cleared — /home/ubuntu/dj-library-manager/app/routes/track.py:131-137
+  This only promotes a track to `edited` when any override is present, but it never restores the status when a user clears the final override. A track that was edited once will therefore stay in the `edited` bucket forever, which breaks status filtering and any workflow that relies on "edited" meaning there is still an active override.
+
+- [P2] Validate bulk-edit fields the same way as single-track updates — /home/ubuntu/dj-library-manager/app/routes/review.py:167-176
+  `/api/review/bulk-edit` writes `bpm`, `key`, and `year` directly without the validation used in `update_track`. That means a payload like `{"bpm":"fast"}` or an out-of-range year is accepted for many tracks at once, even though the single-track endpoint rejects it, and those invalid values then propagate into sorting/tag-writing code that expects sanitized metadata.
+
+================================================================================
+REVIEW 2: Backend Route Files (track_routes.py, review_routes.py, session_routes.py)
+================================================================================
+
+CODEX FINDINGS:
+The patch introduces multiple data-handling regressions: requested numeric sorts can silently return filename order, edited status can become stale after overrides are cleared, and bulk edits bypass the validation enforced elsewhere. These issues affect core API behavior and should be fixed before considering the patch correct.
+
+Full review comments:
+
+- [P2] Handle missing numeric values when sorting tracks — /home/ubuntu/dj-library-manager/app/routes/track.py:42-44
+  When `sort_by` is `confidence`, `bpm`, or `year` and any track has that field unset, `getattr(t, sort_attr) or ""` returns a mix of numbers and strings. In Python 3 that raises `TypeError`, so the `except` block silently falls back to filename ordering and the API returns the wrong sort order for those requests instead of the requested column.
+
+- [P2] Reset edited status when the last override is cleared — /home/ubuntu/dj-library-manager/app/routes/track.py:131-137
+  This only promotes a track to `edited` when any override is present, but it never restores the status when a user clears the final override. A track that was edited once will therefore stay in the `edited` bucket forever, which breaks status filtering and any workflow that relies on "edited" meaning there is still an active override.
+
+- [P2] Validate bulk-edit fields the same way as single-track updates — /home/ubuntu/dj-library-manager/app/routes/review.py:167-176
+  `/api/review/bulk-edit` writes `bpm`, `key`, and `year` directly without the validation used in `update_track`. That means a payload like `{"bpm":"fast"}` or an out-of-range year is accepted for many tracks at once, even though the single-track endpoint rejects it, and those invalid values then propagate into sorting/tag-writing code that expects sanitized metadata.
+
+================================================================================
+SUMMARY
+================================================================================
+
+THREE CRITICAL ISSUES IDENTIFIED (all P2 priority):
+
+1. SILENT SORT FAILURE — Numeric sorts on nullable fields fall back to filename order
+   File: app/routes/track.py (lines 42-44)
+   Impact: API silently returns incorrect sort order without error indication
+
+2. STALE EDITED STATUS — Track remains in "edited" status after overrides cleared
+   File: app/routes/track.py (lines 131-137)
+   Impact: Breaks status filtering workflows; "edited" no longer means "has active changes"
+
+3. VALIDATION BYPASS IN BULK OPS — /api/review/bulk-edit skips validation checks
+   File: app/routes/review.py (lines 167-176)
+   Impact: Invalid data (e.g., bpm="fast") accepted in bulk, rejected in single-track API
+           Creates data consistency issues and downstream sorting/tag-writing failures
+
+RECOMMENDATION: Fix all three issues before merging to production.
+
+================================================================================
+NOTES
+================================================================================
+
+Codex could not access git commands due to bubblewrap sandbox restrictions on Oracle ARM.
+Both reviews were conducted on piped stdin content with read-only sandbox.
+Session IDs:
+  - Review 1: 019d5ba5-5fda-7de3-8a51-4d7b0d0dbfb3
+  - Review 2: 019d5ba6-313b-7fc0-962c-a307b94f34f6

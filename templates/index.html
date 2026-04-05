@@ -741,6 +741,24 @@
     <span id="audio-time" class="audio-time">0:00 / 0:00</span>
   </div>
 
+  <!-- Onboarding Modal -->
+  <div id="onboarding-modal" class="modal-overlay" style="display:none">
+    <div class="modal-box onboarding-box">
+      <h2>Welcome to IDJLM Pro</h2>
+      <p>Here's how to classify your DJ library in 6 steps:</p>
+      <ol>
+        <li><strong>Pick a Folder</strong> — point the app at your MP3 collection</li>
+        <li><strong>Analyze All</strong> — extracts BPM, key (Camelot), energy score</li>
+        <li><strong>Classify All</strong> — AI assigns genre + subgenre + confidence</li>
+        <li><strong>Review</strong> — scan the table, edit anything the AI got wrong</li>
+        <li><strong>Approve ≥80%</strong> — bulk-approve high-confidence tracks</li>
+        <li><strong>Write Tags</strong> — saves everything to ID3 tags in your files</li>
+      </ol>
+      <p style="opacity:0.6;font-size:0.85em">Then export to Rekordbox, djay Pro, or M3U playlists.</p>
+      <button class="btn btn-primary" id="onboarding-close">Let's go →</button>
+    </div>
+  </div>
+
   <!-- Chart.js Library -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
