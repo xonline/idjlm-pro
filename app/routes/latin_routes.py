@@ -29,7 +29,7 @@ def analyze_latin_tracks():
         from app.services.latin_analyzer import analyze_latin
         from app import get_track_store, get_progress_queues
 
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         paths = data.get("paths", [])
         analyze_all = data.get("all", False)
 

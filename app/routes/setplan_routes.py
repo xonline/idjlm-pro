@@ -101,7 +101,7 @@ def generate_setplan():
     try:
         from app import get_track_store
 
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         arc = data.get("arc", "warmup")
         duration_minutes = int(data.get("duration_minutes", 60))
         genre = data.get("genre")
@@ -244,7 +244,7 @@ def export_setplan_m3u():
         from app import get_track_store
         from app.routes.export_routes import _generate_m3u_content
 
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         track_paths = [t.get("file_path") for t in data.get("tracks", [])]
         filename = data.get("filename", "setplan.m3u").strip()
 

@@ -37,7 +37,7 @@ def remove_duplicate():
     try:
         from app import get_track_store
 
-        body = request.get_json()
+        body = request.get_json(silent=True)
         if not body or "file_path" not in body:
             return jsonify({"error": "Missing file_path in request body"}), 400
 

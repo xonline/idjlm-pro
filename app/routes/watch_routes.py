@@ -12,7 +12,7 @@ def watch_start():
     body: { "folder_path": "/path/to/folder" }
     """
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         folder_path = data.get("folder_path", "").strip()
 
         if not folder_path:

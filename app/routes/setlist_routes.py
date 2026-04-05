@@ -31,7 +31,7 @@ def get_setlist():
 @bp.route("/setlist", methods=["POST"])
 def update_setlist():
     """Replace full setlist. body: {"tracks": [file_path, ...], "name": "..."}"""
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     _save_setlist(data)
     return jsonify({"saved": True}), 200
 
@@ -41,7 +41,7 @@ def add_to_setlist():
     """Add track to setlist. body: {"file_path": "...", "position": null (append)}"""
     from app import get_track_store
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     file_path = data.get("file_path")
     position = data.get("position")  # None = append
 
@@ -58,7 +58,7 @@ def add_to_setlist():
 @bp.route("/setlist/remove", methods=["POST"])
 def remove_from_setlist():
     """Remove track. body: {"file_path": "..."}"""
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     file_path = data.get("file_path")
     setlist = _load_setlist()
     setlist["tracks"] = [t for t in setlist["tracks"] if t != file_path]
@@ -92,7 +92,7 @@ def suggest_next():
     """
     from app import get_track_store
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     file_path = data.get("file_path")
     limit = int(data.get("limit", 5))
     track_store = get_track_store()

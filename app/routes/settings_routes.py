@@ -182,7 +182,7 @@ def save_settings():
     Only sends non-empty values; existing values not provided are preserved.
     """
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
 
         # Load current .env
         env_dict = load_env()

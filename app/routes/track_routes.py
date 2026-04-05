@@ -120,7 +120,7 @@ def update_track(file_path):
             return jsonify({"error": "Track not found"}), 404
 
         track = track_store[file_path]
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
 
         # Update review_status if provided
         if "review_status" in data:

@@ -45,7 +45,7 @@ def update_taxonomy():
     try:
         from app import get_taxonomy
 
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         new_taxonomy = data  # Accept full taxonomy object
 
         if not new_taxonomy:
@@ -77,7 +77,7 @@ def add_genre():
     try:
         from app import get_taxonomy
 
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         genre_name = data.get("name", "").strip()
         description = data.get("description", "")
         subgenres = data.get("subgenres", {})

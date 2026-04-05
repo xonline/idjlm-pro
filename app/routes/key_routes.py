@@ -112,7 +112,7 @@ def fix_keys():
     try:
         from app import get_track_store
 
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         paths = data.get("paths", [])
         use_analyzed = data.get("use_analyzed", False)
 

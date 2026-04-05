@@ -111,7 +111,7 @@ def parse_filenames():
     try:
         from app import get_track_store
 
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
         if not data:
             return jsonify({"error": "Request body is empty"}), 400
 
@@ -180,7 +180,7 @@ def apply_filename_tags():
     try:
         from app import get_track_store
 
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
         if not data:
             return jsonify({"error": "Request body is empty"}), 400
 
@@ -240,7 +240,7 @@ def organise_folders():
     try:
         from app import get_track_store
 
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
         if not data:
             return jsonify({"error": "Request body is empty"}), 400
 

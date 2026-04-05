@@ -97,7 +97,7 @@ def analyze_tracks():
         from app.services.analyzer import analyze_track
         from app import get_track_store, get_progress_queues
 
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         track_paths = data.get("track_paths", [])
         track_store = get_track_store()
 
@@ -160,7 +160,7 @@ def classify_tracks():
         from app.services.enricher import enrich_tracks as enrich_service
         from app import get_track_store, get_taxonomy, get_progress_queues
 
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         track_paths = data.get("track_paths", [])
         force = data.get("force", False)
         track_store = get_track_store()

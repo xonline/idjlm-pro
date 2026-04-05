@@ -4,6 +4,14 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.5.5] — 2026-04-05
+
+### Bug Fixes
+- **`/api/analyze` and `/api/classify` still crashing (500)** — `get_json()` without `silent=True` was present in both `analyze_tracks` (line 100) and `classify_tracks` (line 163) in `import_routes.py`. Both now use `get_json(silent=True) or {}`. Applied the same fix to all remaining routes app-wide (latin, watch, organise, track, review, setplan, key, settings, bulk, setlist).
+- **`session.json` read-only error** — `session_service.py` wrote `session.json` to the bundle root (read-only inside `.app`). Now writes to `~/Library/Application Support/IDJLM Pro/session.json` (macOS) / `~/.idjlm-pro/session.json` (other). Session persists across launches and survives app updates.
+
+---
+
 ## [2.5.4] — 2026-04-05
 
 ### Bug Fixes

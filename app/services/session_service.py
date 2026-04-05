@@ -1,11 +1,23 @@
 import os
+import sys
 import json
+import platform
 from datetime import datetime
 from typing import Optional, Tuple
 from app.models.track import Track
 
 
-SESSION_FILE = "session.json"
+def _get_session_path() -> str:
+    """Return user-writable path for session.json (never the read-only bundle)."""
+    if platform.system() == "Darwin":
+        d = os.path.expanduser("~/Library/Application Support/IDJLM Pro")
+    else:
+        d = os.path.expanduser("~/.idjlm-pro")
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, "session.json")
+
+
+SESSION_FILE = _get_session_path()
 
 
 def save_session(track_store: dict, folder_path: Optional[str] = None) -> dict:

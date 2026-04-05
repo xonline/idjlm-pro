@@ -21,7 +21,7 @@ def approve_tracks():
     try:
         from app import get_track_store
 
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         track_paths = data.get("track_paths", [])
         track_store = get_track_store()
 
@@ -48,7 +48,7 @@ def skip_tracks():
     try:
         from app import get_track_store
 
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         track_paths = data.get("track_paths", [])
         track_store = get_track_store()
 
@@ -75,7 +75,7 @@ def bulk_approve():
     try:
         from app import get_track_store
 
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         # Support both min_confidence and threshold for backwards compatibility
         min_confidence = data.get("min_confidence") or data.get("threshold") or 0
         track_store = get_track_store()
@@ -116,7 +116,7 @@ def write_tags():
         from app.services.tag_writer import write_tags as write_service
         from app import get_track_store, get_progress_queues
 
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         track_paths = data.get("track_paths", [])
         track_store = get_track_store()
 
@@ -217,7 +217,7 @@ def bulk_edit():
     try:
         from app import get_track_store
 
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         track_paths = data.get("track_paths", [])
         track_store = get_track_store()
 
