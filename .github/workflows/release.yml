@@ -38,7 +38,7 @@ jobs:
             --icon "assets/icon.icns" \
             --noconfirm \
             --windowed \
-            --name "IDLM Pro" \
+            --name "IDJLM Pro" \
             --add-data "templates:templates" \
             --add-data "app/static:app/static" \
             --add-data "taxonomy.json:." \
@@ -63,10 +63,10 @@ jobs:
         env:
           VERSION: ${{ github.ref_name }}
         run: |
-          DMG_NAME="IDLM-Pro-${VERSION}-macOS.dmg"
+          DMG_NAME="IDJLM-Pro-${VERSION}-macOS.dmg"
           hdiutil create \
-            -volname "IDLM Pro ${VERSION}" \
-            -srcfolder "dist/IDLM Pro.app" \
+            -volname "IDJLM Pro ${VERSION}" \
+            -srcfolder "dist/IDJLM Pro.app" \
             -ov -format UDZO \
             "${DMG_NAME}"
           echo "DMG_NAME=${DMG_NAME}" >> "$GITHUB_ENV"
@@ -74,7 +74,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: macos-dmg
-          path: "IDLM-Pro-${{ github.ref_name }}-macOS.dmg"
+          path: "IDJLM-Pro-${{ github.ref_name }}-macOS.dmg"
 
   # ─── Windows EXE ─────────────────────────────────────────────────────────
   build-windows:
@@ -103,7 +103,7 @@ jobs:
           pyinstaller `
             --noconfirm `
             --icon "assets\icon.ico" `
-            --name "IDLM Pro" `
+            --name "IDJLM Pro" `
             --add-data "templates;templates" `
             --add-data "app/static;app/static" `
             --add-data "taxonomy.json;." `
@@ -127,13 +127,13 @@ jobs:
         env:
           VERSION: ${{ github.ref_name }}
         run: |
-          $zipName = "IDLM-Pro-${env:VERSION}-Windows.zip"
-          Compress-Archive -Path "dist\IDLM Pro" -DestinationPath $zipName
+          $zipName = "IDJLM-Pro-${env:VERSION}-Windows.zip"
+          Compress-Archive -Path "dist\IDJLM Pro" -DestinationPath $zipName
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows-zip
-          path: "IDLM-Pro-${{ github.ref_name }}-Windows.zip"
+          path: "IDJLM-Pro-${{ github.ref_name }}-Windows.zip"
 
   # ─── GitHub Release ───────────────────────────────────────────────────────
   release:
@@ -177,7 +177,7 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          name: "IDLM Pro ${{ github.ref_name }}"
+          name: "IDJLM Pro ${{ github.ref_name }}"
           body_path: release_notes.txt
           files: |
             artifacts/macos-dmg/*.dmg
