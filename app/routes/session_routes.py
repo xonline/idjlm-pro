@@ -1,6 +1,9 @@
 import os
+import logging
 from flask import Blueprint, request, jsonify
 from app.services.session_service import save_session, load_session, SESSION_FILE
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("session", __name__, url_prefix="/api")
 
@@ -29,7 +32,8 @@ def save_session_endpoint():
         }), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Error in /api/session/save")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/session/load", methods=["POST"])
@@ -49,8 +53,8 @@ def load_session_endpoint():
             }), 404
 
         # Restore folder path so auto-save works in resumed sessions
-        if metadata and metadata.get("folder_path"):
-            set_current_folder_path(metadata["folder_path"])
+        if metadata:
+            set_current_folder_path(metadata.get("folder_path") or "")
 
         # Clear current track store and populate with loaded data
         track_store = get_track_store()
@@ -68,7 +72,8 @@ def load_session_endpoint():
         }), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Error in /api/session/load")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/session/exists", methods=["GET"])
@@ -100,4 +105,5 @@ def session_exists():
         }), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Error in /api/session/exists")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500

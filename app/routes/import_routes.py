@@ -1,7 +1,10 @@
 import os
 import subprocess
 import sys
+import logging
 from flask import Blueprint, request, jsonify
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("import", __name__, url_prefix="/api")
 
@@ -26,7 +29,8 @@ def pick_folder():
     except subprocess.TimeoutExpired:
         return jsonify({"cancelled": True}), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Error in /api/pick-folder")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/import", methods=["POST"])
@@ -73,7 +77,8 @@ def import_tracks():
         }), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Error in /api/import")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/analyze", methods=["POST"])
@@ -134,7 +139,8 @@ def analyze_tracks():
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Error in /api/analyze")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/classify", methods=["POST"])
@@ -207,4 +213,5 @@ def classify_tracks():
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Error in /api/classify")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500

@@ -1,6 +1,9 @@
 import os
 import json
+import logging
 from flask import Blueprint, request, jsonify
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("bulk", __name__, url_prefix="/api")
 
@@ -17,7 +20,8 @@ def get_taxonomy():
         return jsonify(get_taxonomy()), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception(f"Error in bulk routes endpoint")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/taxonomy", methods=["PUT"])
@@ -51,7 +55,8 @@ def update_taxonomy():
         return jsonify({"ok": True}), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception(f"Error in bulk routes endpoint")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/taxonomy/genre", methods=["POST"])
@@ -93,7 +98,8 @@ def add_genre():
         return jsonify(taxonomy), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception(f"Error in bulk routes endpoint")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/taxonomy/genre/<name>", methods=["DELETE"])
@@ -125,7 +131,8 @@ def delete_genre(name):
         return jsonify({"ok": True}), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception(f"Error in bulk routes endpoint")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/stats", methods=["GET"])
@@ -159,4 +166,5 @@ def get_stats():
         }), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception(f"Error in bulk routes endpoint")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500

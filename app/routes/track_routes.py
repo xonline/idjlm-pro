@@ -1,4 +1,7 @@
+import logging
 from flask import Blueprint, request, jsonify
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("track", __name__, url_prefix="/api")
 
@@ -57,7 +60,8 @@ def list_tracks():
         }), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Error in /api/tracks GET")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/tracks/<path:file_path>", methods=["GET"])
@@ -78,7 +82,8 @@ def get_track(file_path):
         return jsonify(track.to_dict()), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception(f"Error in /api/tracks/{file_path} PUT")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/tracks/<path:file_path>", methods=["PUT"])
@@ -104,17 +109,49 @@ def update_track(file_path):
             track.review_status = data["review_status"]
             return jsonify(track.to_dict()), 200
 
-        # Update overrides if provided
+        # Update overrides if provided with validation
         if "override_genre" in data:
             track.override_genre = data["override_genre"]
         if "override_subgenre" in data:
             track.override_subgenre = data["override_subgenre"]
+
+        # Validate BPM: numeric, 40-300 range (allow wider for Latin music)
         if "override_bpm" in data:
-            track.override_bpm = data["override_bpm"]
+            bpm = data["override_bpm"]
+            if bpm == "" or bpm is None:
+                track.override_bpm = ""
+            else:
+                try:
+                    bpm_num = float(bpm)
+                    if not (40 <= bpm_num <= 300):
+                        return jsonify({"error": "BPM must be between 40 and 300"}), 400
+                    track.override_bpm = data["override_bpm"]
+                except (ValueError, TypeError):
+                    return jsonify({"error": "BPM must be numeric"}), 400
+
+        # Validate Key: Camelot format or standard notation, up to 10 chars
         if "override_key" in data:
-            track.override_key = data["override_key"]
+            key = data["override_key"]
+            if key == "" or key is None:
+                track.override_key = ""
+            else:
+                if not isinstance(key, str) or len(key) > 10:
+                    return jsonify({"error": "Key must be a string up to 10 characters"}), 400
+                track.override_key = key
+
+        # Validate Year: 4-digit number between 1900-2030
         if "override_year" in data:
-            track.override_year = data["override_year"]
+            year = data["override_year"]
+            if year == "" or year is None:
+                track.override_year = ""
+            else:
+                try:
+                    year_num = int(year)
+                    if not (1900 <= year_num <= 2030):
+                        return jsonify({"error": "Year must be between 1900 and 2030"}), 400
+                    track.override_year = data["override_year"]
+                except (ValueError, TypeError):
+                    return jsonify({"error": "Year must be a 4-digit number"}), 400
 
         # Mark as edited if any override is set
         if any([

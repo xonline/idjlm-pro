@@ -2,6 +2,11 @@ from flask import Blueprint, request, jsonify
 import json
 import datetime
 import os
+import logging
+import threading
+
+logger = logging.getLogger(__name__)
+_log_lock = threading.Lock()
 
 bp = Blueprint("review", __name__, url_prefix="/api")
 
@@ -29,7 +34,8 @@ def approve_tracks():
         return jsonify({"approved": approved}), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Error in /api/review/approve")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/review/skip", methods=["POST"])
@@ -55,7 +61,8 @@ def skip_tracks():
         return jsonify({"skipped": skipped}), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Error in /api/review/skip")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/review/bulk-approve", methods=["POST"])
@@ -69,7 +76,8 @@ def bulk_approve():
         from app import get_track_store
 
         data = request.get_json() or {}
-        min_confidence = data.get("min_confidence", 0)
+        # Support both min_confidence and threshold for backwards compatibility
+        min_confidence = data.get("min_confidence") or data.get("threshold") or 0
         track_store = get_track_store()
 
         approved = 0
@@ -85,7 +93,8 @@ def bulk_approve():
         return jsonify({"approved": approved}), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Error in /api/review/bulk-approve")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/review/write", methods=["POST"])
@@ -138,7 +147,7 @@ def write_tags():
                     track.tags_written = True
                     written += 1
 
-                    # Log approval if there are overrides
+                    # Log approval if there are overrides (thread-safe)
                     if track.override_genre or track.override_subgenre or track.override_bpm or track.override_key or track.override_year:
                         entry = {
                             'ts': datetime.datetime.utcnow().isoformat(),
@@ -151,8 +160,9 @@ def write_tags():
                             'bpm': track.final_bpm,
                             'key': track.final_key,
                         }
-                        with open(log_path, 'a') as f:
-                            f.write(json.dumps(entry) + '\n')
+                        with _log_lock:
+                            with open(log_path, 'a') as f:
+                                f.write(json.dumps(entry) + '\n')
                         track.approval_logged = True
 
                     q.put({
@@ -185,7 +195,8 @@ def write_tags():
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Error in /api/review/write")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/review/bulk-edit", methods=["POST"])
@@ -231,4 +242,5 @@ def bulk_edit():
         return jsonify({"updated": updated}), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Error in /api/review/bulk-edit")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500

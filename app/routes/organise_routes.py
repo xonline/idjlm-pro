@@ -1,7 +1,10 @@
 import os
 import shutil
 import re
+import logging
 from flask import Blueprint, request, jsonify
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("organise", __name__, url_prefix="/api")
 
@@ -94,7 +97,8 @@ def library_health():
         })
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception(f"Error in organise routes endpoint")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/organise/parse-filenames", methods=["POST"])
@@ -162,7 +166,8 @@ def parse_filenames():
         return jsonify(results)
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception(f"Error in organise routes endpoint")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/organise/apply-filename-tags", methods=["POST"])
@@ -216,7 +221,8 @@ def apply_filename_tags():
         })
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception(f"Error in organise routes endpoint")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/organise/folders", methods=["POST"])
@@ -314,4 +320,5 @@ def organise_folders():
             })
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception(f"Error in organise routes endpoint")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500

@@ -1,5 +1,8 @@
 import os
+import logging
 from flask import Blueprint, request, jsonify
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("settings", __name__, url_prefix="/api")
 
@@ -126,7 +129,8 @@ def get_settings():
         }), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Error in /api/settings GET")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
 @bp.route("/settings", methods=["POST"])
@@ -198,4 +202,5 @@ def save_settings():
         return jsonify({"saved": True}), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Error in /api/settings POST")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
