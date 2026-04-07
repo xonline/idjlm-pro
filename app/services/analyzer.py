@@ -37,11 +37,11 @@ CAMELOT_MINOR = {
 }
 
 
-def _detect_key_from_chroma(chroma: np.ndarray) -> str:
+def _detect_key_from_chroma(chroma: np.ndarray) -> tuple:
     """
     Detect key from chroma features and estimate major/minor.
     chroma shape: (12, time_frames)
-    Returns Camelot notation string.
+    Returns (Camelot notation string, confidence 0-100).
     """
     # Average chroma across time
     chroma_mean = np.mean(chroma, axis=1)
@@ -64,11 +64,16 @@ def _detect_key_from_chroma(chroma: np.ndarray) -> str:
     # Determine mode: if minor score is notably higher, it's minor
     is_minor = minor_score > major_score * 1.1
 
+    # Compute confidence from template score difference
+    max_score = max(major_score, minor_score, 1e-6)
+    min_score = min(major_score, minor_score)
+    confidence = min(100, int((1 - min_score / max_score) * 100))
+
     # Map to Camelot
     camelot_dict = CAMELOT_MINOR if is_minor else CAMELOT_MAJOR
     camelot_key = camelot_dict.get(dominant_pitch, "Unknown")
 
-    return camelot_key
+    return camelot_key, confidence
 
 
 def _normalize_energy(rms: np.ndarray) -> int:
@@ -157,6 +162,10 @@ def analyze_track(track: Track) -> Track:
             raise ValueError("No BPM detected — audio may be silent or corrupt")
         track.analyzed_bpm = float(bpm_arr.item() if bpm_arr.ndim > 0 else bpm_arr)
 
+        # BPM confidence — based on onset strength peak clarity
+        onset_ratio = np.max(onset_env) / (np.mean(onset_env) + 1e-6)
+        track.bpm_confidence = min(100, int(onset_ratio * 15))
+
         # BPM half/double correction for Latin dance tempos
         if track.analyzed_bpm > 160:
             track.analyzed_bpm = track.analyzed_bpm / 2
@@ -191,7 +200,7 @@ def analyze_track(track: Track) -> Track:
 
         # Key detection via chroma features
         chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
-        track.analyzed_key = _detect_key_from_chroma(chroma)
+        track.analyzed_key, track.key_confidence = _detect_key_from_chroma(chroma)
 
         # Energy score
         # Compute RMS directly from waveform (compatible with all librosa versions)

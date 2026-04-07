@@ -20,6 +20,8 @@ let chartInstances = {
   genres: null,
   bpm: null,
   years: null,
+  keyDist: null,
+  energyDist: null,
 };
 
 // ============================================================================
@@ -137,6 +139,7 @@ function updateStats() {
     if (el('stat-classified'))  el('stat-classified').textContent = data.classified ?? 0;
     if (el('stat-approved'))    el('stat-approved').textContent   = data.approved   ?? 0;
     updateToolbarButtonStates(data);
+    renderStatsDashboard();
   }).catch(() => {});
 }
 
@@ -237,9 +240,12 @@ function initLibraryToolbar() {
               hideProgressInStatsBar();
               const fill = document.getElementById('stat-progress-fill');
               if (fill) fill.style.width = '0%';
-              window.tracks = data.tracks || window.tracks;
-              renderTracks();
-              updateStats();
+              // Refetch fresh track data from server
+              apiFetch('/api/tracks').then(d => {
+                window.tracks = d.tracks || [];
+                renderTracks();
+                updateStats();
+              });
               updateToolbarButtonStates();
               showToast('Analysis complete', 'success');
               btnAnalyze.disabled = false;
@@ -281,9 +287,12 @@ function initLibraryToolbar() {
               hideProgressInStatsBar();
               const fill = document.getElementById('stat-progress-fill');
               if (fill) fill.style.width = '0%';
-              window.tracks = data.tracks || window.tracks;
-              renderTracks();
-              updateStats();
+              // Refetch fresh track data from server
+              apiFetch('/api/tracks').then(d => {
+                window.tracks = d.tracks || [];
+                renderTracks();
+                updateStats();
+              });
               updateToolbarButtonStates();
               showToast('Classification complete', 'success');
               btnClassify.disabled = false;
@@ -314,9 +323,12 @@ function initLibraryToolbar() {
           body: JSON.stringify({ min_confidence: threshold })
         });
         if (result) {
-          window.tracks = result.tracks || window.tracks;
-          renderTracks();
-          updateStats();
+          // Refetch fresh track data from server
+          apiFetch('/api/tracks').then(d => {
+            window.tracks = d.tracks || [];
+            renderTracks();
+            updateStats();
+          });
           showToast((result.approved_count ?? 0) + ' tracks approved', 'success');
         }
       } catch (e) {
@@ -347,9 +359,12 @@ function initLibraryToolbar() {
               hideProgressInStatsBar();
               const fill = document.getElementById('stat-progress-fill');
               if (fill) fill.style.width = '0%';
-              window.tracks = data.tracks || window.tracks;
-              renderTracks();
-              updateStats();
+              // Refetch fresh track data from server
+              apiFetch('/api/tracks').then(d => {
+                window.tracks = d.tracks || [];
+                renderTracks();
+                updateStats();
+              });
               updateToolbarButtonStates();
               showToast('Tags written successfully', 'success');
               btnWriteTags.disabled = false;
@@ -704,6 +719,273 @@ function renderSubgenreList() {
     item.appendChild(countBadge);
     container.appendChild(item);
   });
+}
+
+// ============================================================================
+// Stats Dashboard (Collection Summary, Key/Energy Distribution, Camelot Wheel)
+// ============================================================================
+
+function renderStatsDashboard() {
+  const dashboard = document.getElementById('stats-dashboard');
+  if (!dashboard) return;
+
+  const tracks = window.tracks || [];
+  if (!tracks.length) {
+    dashboard.style.display = 'none';
+    return;
+  }
+
+  dashboard.style.display = 'block';
+  const total = tracks.length;
+  const analyzed = tracks.filter(t => t.final_bpm).length;
+  const classified = tracks.filter(t => t.final_genre && t.final_genre !== 'Unknown').length;
+  const approved = tracks.filter(t => t.review_status === 'approved').length;
+
+  // Collection summary
+  document.getElementById('summary-total').textContent = total;
+  document.getElementById('summary-analyzed-pct').textContent = total ? Math.round((analyzed / total) * 100) + '%' : '0%';
+  document.getElementById('summary-classified-pct').textContent = total ? Math.round((classified / total) * 100) + '%' : '0%';
+  document.getElementById('summary-approved-pct').textContent = total ? Math.round((approved / total) * 100) + '%' : '0%';
+
+  // Key distribution chart
+  renderKeyDistChart(tracks);
+
+  // Energy distribution chart
+  renderEnergyDistChart(tracks);
+
+  // Camelot wheel
+  renderCamelotWheel(tracks);
+}
+
+function renderKeyDistChart(tracks) {
+  const camelotKeys = ['1A','1B','2A','2B','3A','3B','4A','4B','5A','5B','6A','6B','7A','7B','8A','8B','9A','9B','10A','10B','11A','11B','12A','12B'];
+  const counts = {};
+  camelotKeys.forEach(k => counts[k] = 0);
+  tracks.forEach(t => {
+    if (t.final_key && counts.hasOwnProperty(t.final_key)) {
+      counts[t.final_key]++;
+    }
+  });
+
+  const labels = camelotKeys;
+  const data = labels.map(k => counts[k]);
+  const colors = labels.map(k => k.endsWith('A') ? 'rgba(96,165,250,0.7)' : 'rgba(139,92,246,0.7)');
+
+  const ctx = document.getElementById('chart-key-dist');
+  if (!ctx) return;
+
+  if (chartInstances.keyDist) chartInstances.keyDist.destroy();
+
+  chartInstances.keyDist = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Track Count',
+        data: data,
+        backgroundColor: colors,
+        borderColor: labels.map(k => k.endsWith('A') ? '#60a5fa' : '#8b5cf6'),
+        borderWidth: 1,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, ticks: { color: '#888' }, grid: { color: '#2a2a3a' } },
+        y: { ticks: { color: '#888', font: { size: 10 } }, grid: { color: '#2a2a3a' } }
+      }
+    }
+  });
+}
+
+function renderEnergyDistChart(tracks) {
+  const buckets = { '1-2': 0, '3-4': 0, '5-6': 0, '7-8': 0, '9-10': 0 };
+  tracks.forEach(t => {
+    const energy = parseFloat(t.analyzed_energy) || 0;
+    if (energy <= 2) buckets['1-2']++;
+    else if (energy <= 4) buckets['3-4']++;
+    else if (energy <= 6) buckets['5-6']++;
+    else if (energy <= 8) buckets['7-8']++;
+    else buckets['9-10']++;
+  });
+
+  const labels = Object.keys(buckets);
+  const data = Object.values(buckets);
+  const colors = ['#34d399', '#60a5fa', '#fbbf24', '#f97316', '#f87171'];
+
+  const ctx = document.getElementById('chart-energy-dist');
+  if (!ctx) return;
+
+  if (chartInstances.energyDist) chartInstances.energyDist.destroy();
+
+  chartInstances.energyDist = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Track Count',
+        data: data,
+        backgroundColor: colors,
+        borderWidth: 1,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { color: '#888' }, grid: { color: '#2a2a3a' } },
+        x: { ticks: { color: '#888' }, grid: { color: '#2a2a3a' } }
+      }
+    }
+  });
+}
+
+function renderCamelotWheel(tracks) {
+  const svg = document.getElementById('camelot-wheel-svg');
+  const statsEl = document.getElementById('camelot-wheel-stats');
+  if (!svg) return;
+
+  svg.innerHTML = '';
+
+  // Count tracks per Camelot key
+  const keyCounts = {};
+  const allCamelotKeys = [];
+  for (let i = 1; i <= 12; i++) { allCamelotKeys.push(`${i}A`); allCamelotKeys.push(`${i}B`); }
+  allCamelotKeys.forEach(k => keyCounts[k] = 0);
+  tracks.forEach(t => {
+    if (t.final_key && keyCounts.hasOwnProperty(t.final_key)) {
+      keyCounts[t.final_key]++;
+    }
+  });
+
+  const maxCount = Math.max(...Object.values(keyCounts), 1);
+  const size = 280;
+  const center = size / 2;
+  const outerR = 120;
+  const innerR = 80;
+  const coreR = 30;
+
+  const getAngle = (pos) => ((pos - 1) * 30 - 90) * Math.PI / 180;
+
+  // Draw outer ring (B = major keys)
+  for (let i = 1; i <= 12; i++) {
+    const key = `${i}B`;
+    const count = keyCounts[key];
+    const intensity = count / maxCount;
+    const startAngle = getAngle(i);
+    const endAngle = getAngle(i + 1 > 12 ? 1 : i + 1);
+
+    const x1 = center + innerR * Math.cos(startAngle);
+    const y1 = center + innerR * Math.sin(startAngle);
+    const x2 = center + outerR * Math.cos(startAngle);
+    const y2 = center + outerR * Math.sin(startAngle);
+    const x3 = center + outerR * Math.cos(endAngle);
+    const y3 = center + outerR * Math.sin(endAngle);
+    const x4 = center + innerR * Math.cos(endAngle);
+    const y4 = center + innerR * Math.sin(endAngle);
+
+    const alpha = 0.15 + intensity * 0.65;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M ${x1} ${y1} L ${x2} ${y2} A ${outerR} ${outerR} 0 0 1 ${x3} ${y3} L ${x4} ${y4} A ${innerR} ${innerR} 0 0 0 ${x1} ${y1} Z`);
+    path.setAttribute('fill', `rgba(139,92,246,${alpha})`);
+    path.setAttribute('stroke', '#8b5cf6');
+    path.setAttribute('stroke-width', '0.5');
+    svg.appendChild(path);
+
+    // Label
+    const midAngle = (startAngle + endAngle) / 2;
+    const labelR = (innerR + outerR) / 2;
+    const lx = center + labelR * Math.cos(midAngle);
+    const ly = center + labelR * Math.sin(midAngle);
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', lx);
+    text.setAttribute('y', ly);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'middle');
+    text.setAttribute('font-size', '9');
+    text.setAttribute('font-weight', '600');
+    text.setAttribute('fill', '#c8c8e4');
+    text.textContent = key;
+    svg.appendChild(text);
+  }
+
+  // Draw inner ring (A = minor keys)
+  for (let i = 1; i <= 12; i++) {
+    const key = `${i}A`;
+    const count = keyCounts[key];
+    const intensity = count / maxCount;
+    const startAngle = getAngle(i);
+    const endAngle = getAngle(i + 1 > 12 ? 1 : i + 1);
+
+    const x1 = center + coreR * Math.cos(startAngle);
+    const y1 = center + coreR * Math.sin(startAngle);
+    const x2 = center + innerR * Math.cos(startAngle);
+    const y2 = center + innerR * Math.sin(startAngle);
+    const x3 = center + innerR * Math.cos(endAngle);
+    const y3 = center + innerR * Math.sin(endAngle);
+    const x4 = center + coreR * Math.cos(endAngle);
+    const y4 = center + coreR * Math.sin(endAngle);
+
+    const alpha = 0.15 + intensity * 0.65;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M ${x1} ${y1} L ${x2} ${y2} A ${innerR} ${innerR} 0 0 1 ${x3} ${y3} L ${x4} ${y4} A ${coreR} ${coreR} 0 0 0 ${x1} ${y1} Z`);
+    path.setAttribute('fill', `rgba(96,165,250,${alpha})`);
+    path.setAttribute('stroke', '#60a5fa');
+    path.setAttribute('stroke-width', '0.5');
+    svg.appendChild(path);
+
+    // Label
+    const midAngle = (startAngle + endAngle) / 2;
+    const labelR = (coreR + innerR) / 2;
+    const lx = center + labelR * Math.cos(midAngle);
+    const ly = center + labelR * Math.sin(midAngle);
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', lx);
+    text.setAttribute('y', ly);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'middle');
+    text.setAttribute('font-size', '9');
+    text.setAttribute('font-weight', '600');
+    text.setAttribute('fill', '#c8c8e4');
+    text.textContent = key;
+    svg.appendChild(text);
+  }
+
+  // Center circle
+  const centerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  centerCircle.setAttribute('cx', center);
+  centerCircle.setAttribute('cy', center);
+  centerCircle.setAttribute('r', coreR - 2);
+  centerCircle.setAttribute('fill', '#111119');
+  centerCircle.setAttribute('stroke', '#21213a');
+  svg.appendChild(centerCircle);
+
+  const centerText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  centerText.setAttribute('x', center);
+  centerText.setAttribute('y', center);
+  centerText.setAttribute('text-anchor', 'middle');
+  centerText.setAttribute('dominant-baseline', 'middle');
+  centerText.setAttribute('font-size', '10');
+  centerText.setAttribute('font-weight', '700');
+  centerText.setAttribute('fill', '#8b5cf6');
+  centerText.textContent = tracks.length;
+  svg.appendChild(centerText);
+
+  // Stats below wheel
+  if (statsEl) {
+    const sorted = Object.entries(keyCounts).filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1]);
+    statsEl.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px;">' +
+      sorted.map(([key, count]) =>
+        `<span class="camelot-key-badge" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:11px;background:var(--bg-subtle);border:1px solid var(--border);">
+          <span style="color:${key.endsWith('A') ? '#60a5fa' : '#8b5cf6'};font-weight:600;">${key}</span>
+          <span style="color:var(--text-secondary);">${count}</span>
+        </span>`
+      ).join('') + '</div>';
+  }
 }
 
 // ============================================================================
@@ -2256,6 +2538,7 @@ async function loadSettings() {
     const spotifyIdInput = document.getElementById('settings-spotify-id');
     const spotifySecretInput = document.getElementById('settings-spotify-secret');
     const anthropicInput = document.getElementById('settings-anthropic-key');
+    const openrouterInput = document.getElementById('settings-openrouter-key');
 
     // Show placeholder text for existing keys — format: "sk-a...xyz1 — saved ✓"
     const keyLabel = (masked) => masked ? `${masked}  —  saved ✓` : 'saved ✓';
@@ -2263,6 +2546,11 @@ async function loadSettings() {
       geminiInput.placeholder = keyLabel(response.gemini_api_key);
     } else {
       geminiInput.placeholder = 'Paste your Gemini API key';
+    }
+    if (response.has_openrouter_key && openrouterInput) {
+      openrouterInput.placeholder = keyLabel(response.openrouter_api_key);
+    } else if (openrouterInput) {
+      openrouterInput.placeholder = 'Paste your OpenRouter API key';
     }
     if (response.has_anthropic_key && anthropicInput) {
       anthropicInput.placeholder = keyLabel(response.anthropic_api_key);
@@ -2282,6 +2570,7 @@ async function loadSettings() {
     spotifyIdInput.value = '';
     spotifySecretInput.value = '';
     if (anthropicInput) anthropicInput.value = '';
+    if (openrouterInput) openrouterInput.value = '';
 
     // Sync Round 2 fields if present
     const aiModelSelect = document.getElementById('settings-ai-model');
@@ -2305,6 +2594,7 @@ async function loadSettings() {
 async function saveSettings() {
   try {
     const geminiKey = document.getElementById('settings-gemini-key').value.trim();
+    const openrouterKey = document.getElementById('settings-openrouter-key').value.trim();
     const spotifyId = document.getElementById('settings-spotify-id').value.trim();
     const spotifySecret = document.getElementById('settings-spotify-secret').value.trim();
     const threshold = parseInt(document.getElementById('settings-auto-approve')?.value) || 80;
@@ -2312,6 +2602,7 @@ async function saveSettings() {
     // Always include threshold so there's always something to save
     const payload = { auto_approve_threshold: threshold };
     if (geminiKey) payload.gemini_api_key = geminiKey;
+    if (openrouterKey) payload.openrouter_api_key = openrouterKey;
     if (spotifyId) payload.spotify_client_id = spotifyId;
     if (spotifySecret) payload.spotify_client_secret = spotifySecret;
 
@@ -2330,6 +2621,7 @@ async function saveSettings() {
       showToast('All settings saved', 'success');
       // Clear key inputs and reload to show masked values in placeholders
       document.getElementById('settings-gemini-key').value = '';
+      document.getElementById('settings-openrouter-key').value = '';
       document.getElementById('settings-spotify-id').value = '';
       document.getElementById('settings-spotify-secret').value = '';
       await loadSettings();
@@ -3112,7 +3404,7 @@ function updateBulkActionsBar() {
     bar.innerHTML = `
       <span class="bulk-actions-count">${window.selectedTracks.size} selected</span>
       <button class="btn btn-accent btn-small" id="bulk-analyze-btn">Analyse</button>
-      <button class="btn btn-primary btn-small" id="bulk-edit-btn">Edit</button>
+      <button class="btn btn-primary btn-small" id="bulk-edit-btn">Bulk Edit</button>
       <button class="btn btn-secondary btn-small" id="bulk-export-btn">Export</button>
       <button class="btn btn-secondary btn-small" id="bulk-add-setlist-btn">Add to Setlist</button>
     `;
@@ -3142,9 +3434,12 @@ function updateBulkActionsBar() {
                 hideProgressInStatsBar();
                 const fill = document.getElementById('stat-progress-fill');
                 if (fill) fill.style.width = '0%';
-                window.tracks = data.tracks || window.tracks;
-                renderTracks();
-                updateStats();
+                // Refetch fresh track data from server
+                apiFetch('/api/tracks').then(d => {
+                  window.tracks = d.tracks || [];
+                  renderTracks();
+                  updateStats();
+                });
                 updateToolbarButtonStates();
                 showToast(`Analysed ${paths.length} track${paths.length !== 1 ? 's' : ''}`, 'success');
               },
@@ -3231,6 +3526,7 @@ async function saveSettingsRound2() {
     const batchSize = parseInt(document.getElementById('settings-batch-size')?.value) || 5;
     const autoApproveThreshold = parseInt(document.getElementById('settings-auto-approve')?.value) || 80;
     const geminiKey = document.getElementById('settings-gemini-key')?.value.trim() || '';
+    const openrouterKey = document.getElementById('settings-openrouter-key')?.value.trim() || '';
     const spotifyId = document.getElementById('settings-spotify-id')?.value.trim() || '';
     const spotifySecret = document.getElementById('settings-spotify-secret')?.value.trim() || '';
 
@@ -3243,6 +3539,7 @@ async function saveSettingsRound2() {
     if (anthropicKey) payload.anthropic_api_key = anthropicKey;
     if (ollamaModel) payload.ollama_model = ollamaModel;
     if (geminiKey) payload.gemini_api_key = geminiKey;
+    if (openrouterKey) payload.openrouter_api_key = openrouterKey;
     if (spotifyId) payload.spotify_client_id = spotifyId;
     if (spotifySecret) payload.spotify_client_secret = spotifySecret;
 

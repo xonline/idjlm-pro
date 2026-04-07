@@ -183,6 +183,42 @@ def _classify_with_ollama(prompt: str, batch: list[Track]) -> tuple[bool, str]:
         return False, str(e)
 
 
+def _classify_with_openrouter(prompt: str, batch: list[Track]) -> tuple[bool, str]:
+    """
+    Classify tracks using OpenRouter API (supports many models via OpenAI-compatible endpoint).
+    Returns (success: bool, response_text: str)
+    """
+    try:
+        import requests as req
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        if not api_key:
+            return False, "OPENROUTER_API_KEY not set"
+        model_name = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-exp:free")
+        response = req.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            json={
+                "model": model_name,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 2048,
+            },
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "HTTP-Referer": "http://localhost",
+                "X-Title": "IDJLM Pro",
+            },
+            timeout=120,
+        )
+        if response.status_code != 200:
+            return False, f"OpenRouter API error: {response.status_code} — {response.text[:200]}"
+        data = response.json()
+        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        if not content:
+            return False, "OpenRouter returned empty response"
+        return True, content
+    except Exception as e:
+        return False, str(e)
+
+
 def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False) -> list[Track]:
     """
     Classify tracks using Claude Sonnet (primary) with Gemini and Ollama fallbacks.
@@ -206,13 +242,15 @@ def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False) ->
     # Define model chain in order
     model_chain = []
     if ai_model == "claude" or ai_model == "":
-        model_chain = ["claude", "gemini", "ollama"]
+        model_chain = ["claude", "gemini", "openrouter", "ollama"]
     elif ai_model == "gemini":
-        model_chain = ["gemini", "claude", "ollama"]
+        model_chain = ["gemini", "claude", "openrouter", "ollama"]
     elif ai_model == "ollama":
-        model_chain = ["ollama", "claude", "gemini"]
+        model_chain = ["ollama", "claude", "gemini", "openrouter"]
+    elif ai_model == "openrouter":
+        model_chain = ["openrouter", "claude", "gemini", "ollama"]
     else:
-        model_chain = ["claude", "gemini", "ollama"]
+        model_chain = ["claude", "gemini", "openrouter", "ollama"]
 
     # Process tracks in batches
     for batch_start in range(0, len(tracks), batch_size):
@@ -241,6 +279,11 @@ def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False) ->
                 success, response_text = _classify_with_ollama(prompt, batch)
                 if success:
                     used_model = "ollama"
+                    break
+            elif model_name == "openrouter":
+                success, response_text = _classify_with_openrouter(prompt, batch)
+                if success:
+                    used_model = "openrouter"
                     break
 
         if not success or not response_text:

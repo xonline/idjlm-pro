@@ -98,6 +98,7 @@ def create_app() -> Flask:
     from app.routes.latin_routes import bp as latin_bp
     from app.routes.organise_routes import bp as organise_bp
     from app.routes.key_routes import bp as key_bp
+    from app.routes.applescript_routes import bp as applescript_bp
 
     app.register_blueprint(import_bp)
     app.register_blueprint(track_bp)
@@ -115,6 +116,7 @@ def create_app() -> Flask:
     app.register_blueprint(latin_bp)
     app.register_blueprint(organise_bp)
     app.register_blueprint(key_bp)
+    app.register_blueprint(applescript_bp)
 
     @app.route("/")
     def index():

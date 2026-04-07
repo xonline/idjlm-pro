@@ -24,6 +24,8 @@ class Track:
     analyzed_energy: Optional[int] = None    # 1-10
     waveform_data: Optional[list] = None     # 60 normalised amplitude points (0.0–1.0)
     bpm_corrected: bool = False              # True if BPM was half/doubled for correction
+    bpm_confidence: Optional[int] = None     # 0-100
+    key_confidence: Optional[int] = None     # 0-100
     analysis_done: bool = False
 
     # AI classification

@@ -141,6 +141,39 @@
         </div>
         <div class="pagination-info" id="pagination-info"></div>
 
+        <!-- Stats Dashboard -->
+        <div id="stats-dashboard" class="stats-dashboard" style="display:none; margin-top: 24px;">
+          <!-- Collection Summary -->
+          <div class="collection-summary-card" id="collection-summary">
+            <h3>Collection Summary</h3>
+            <div class="summary-grid">
+              <div class="summary-item"><span class="summary-label">Total Tracks</span><span class="summary-value" id="summary-total">0</span></div>
+              <div class="summary-item"><span class="summary-label">Analyzed</span><span class="summary-value" id="summary-analyzed-pct">0%</span></div>
+              <div class="summary-item"><span class="summary-label">Classified</span><span class="summary-value" id="summary-classified-pct">0%</span></div>
+              <div class="summary-item"><span class="summary-label">Approved</span><span class="summary-value" id="summary-approved-pct">0%</span></div>
+            </div>
+          </div>
+          <!-- Charts Row -->
+          <div class="stats-charts-row">
+            <div class="chart-container">
+              <h4>Key Distribution</h4>
+              <canvas id="chart-key-dist" height="200"></canvas>
+            </div>
+            <div class="chart-container">
+              <h4>Energy Distribution</h4>
+              <canvas id="chart-energy-dist" height="200"></canvas>
+            </div>
+          </div>
+          <!-- Camelot Wheel -->
+          <div class="chart-container" id="camelot-wheel-container">
+            <h4>Camelot Wheel</h4>
+            <div id="camelot-wheel-wrap" style="display:flex;justify-content:center;padding:16px 0;">
+              <svg id="camelot-wheel-svg" width="300" height="300" style="max-width:100%;"></svg>
+            </div>
+            <div id="camelot-wheel-stats"></div>
+          </div>
+        </div>
+
         <!-- Bulk action bar (populated dynamically by JS) -->
         <div class="bulk-action-bar" id="bulk-actions-bar" style="display:none;align-items:center;gap:8px;"></div>
 
@@ -332,6 +365,7 @@
             <select id="settings-ai-model" class="input-select">
               <option value="claude">Claude (Anthropic)</option>
               <option value="gemini">Gemini (Google)</option>
+              <option value="openrouter">OpenRouter</option>
               <option value="ollama">Ollama (Local)</option>
             </select>
           </div>
@@ -356,6 +390,17 @@
               class="input-text"
             >
             <div class="settings-hint">Get free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></div>
+          </div>
+
+          <div class="form-group">
+            <label for="settings-openrouter-key">OpenRouter API Key</label>
+            <input
+              type="password"
+              id="settings-openrouter-key"
+              placeholder="Enter your OpenRouter API key (optional)"
+              class="input-text"
+            >
+            <div class="settings-hint">Get key at <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a></div>
           </div>
 
           <div class="form-group">

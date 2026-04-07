@@ -148,6 +148,9 @@ def get_settings():
             "has_gemini_key": bool(gemini_key),
             "anthropic_api_key": mask_key(anthropic_key) if anthropic_key else None,
             "has_anthropic_key": bool(anthropic_key),
+            "openrouter_api_key": mask_key(env_dict.get("OPENROUTER_API_KEY")) if env_dict.get("OPENROUTER_API_KEY") else None,
+            "has_openrouter_key": bool(env_dict.get("OPENROUTER_API_KEY")),
+            "openrouter_model": env_dict.get("OPENROUTER_MODEL", "google/gemini-2.0-flash-exp:free"),
             "spotify_client_id": mask_key(spotify_id) if spotify_id else None,
             "spotify_client_secret": mask_key(spotify_secret) if spotify_secret else None,
             "has_spotify": bool(spotify_id) and bool(spotify_secret),
@@ -194,6 +197,12 @@ def save_settings():
         if "anthropic_api_key" in data and data["anthropic_api_key"]:
             env_dict["ANTHROPIC_API_KEY"] = data["anthropic_api_key"]
 
+        if "openrouter_api_key" in data and data["openrouter_api_key"]:
+            env_dict["OPENROUTER_API_KEY"] = data["openrouter_api_key"]
+
+        if "openrouter_model" in data and data["openrouter_model"]:
+            env_dict["OPENROUTER_MODEL"] = data["openrouter_model"]
+
         if "spotify_client_id" in data and data["spotify_client_id"]:
             env_dict["SPOTIFY_CLIENT_ID"] = data["spotify_client_id"]
 
@@ -201,7 +210,7 @@ def save_settings():
             env_dict["SPOTIFY_CLIENT_SECRET"] = data["spotify_client_secret"]
 
         if "ai_model" in data and data["ai_model"]:
-            if data["ai_model"] in ["claude", "gemini", "ollama"]:
+            if data["ai_model"] in ["claude", "gemini", "ollama", "openrouter"]:
                 env_dict["AI_MODEL"] = data["ai_model"]
 
         if "ollama_model" in data and data["ollama_model"]:

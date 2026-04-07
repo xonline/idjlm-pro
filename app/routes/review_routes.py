@@ -183,7 +183,7 @@ def write_tags():
                         'error': str(e)
                     })
 
-            q.put({'done': True, 'written': written, 'errors': errors})
+            q.put({'done': True, 'written': written, 'errors': errors, 'refetch': True})
             try:
                 from app.services.session_service import save_session
                 from app import get_track_store, get_current_folder_path

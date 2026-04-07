@@ -71,6 +71,11 @@ def import_tracks():
         for track in tracks:
             track_store[track.file_path] = track
 
+        # Normalize genres from existing tags (e.g. "Salsa Romántica" → "Salsa")
+        from app import get_taxonomy
+        from app.services.genre_normalizer import normalize_track_genres
+        normalize_track_genres(tracks, get_taxonomy())
+
         return jsonify({
             "count": len(tracks),
             "tracks": [t.to_dict() for t in tracks]
@@ -133,7 +138,7 @@ def analyze_tracks():
                         'total': total,
                         'error': str(e)
                     })
-            q.put({'done': True, 'analyzed': analyzed, 'errors': errors})
+            q.put({'done': True, 'analyzed': analyzed, 'errors': errors, 'refetch': True})
 
         threading.Thread(target=run, daemon=True).start()
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202
@@ -212,7 +217,7 @@ def classify_tracks():
                         'classified': classified
                     })
 
-            q.put({'done': True, 'classified': classified, 'errors': errors})
+            q.put({'done': True, 'classified': classified, 'errors': errors, 'refetch': True})
             try:
                 from app.services.session_service import save_session
                 from app import get_current_folder_path

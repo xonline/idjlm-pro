@@ -2,6 +2,14 @@ import os
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+# All supported audio extensions for watcher
+AUDIO_EXTENSIONS = {'.mp3', '.flac', '.wav', '.m4a', '.aac', '.ogg', '.aiff', '.aif'}
+
+
+def _is_audio_file(path: str) -> bool:
+    """Check if a file path has a supported audio extension."""
+    return any(path.lower().endswith(ext) for ext in AUDIO_EXTENSIONS)
+
 
 class WatcherState:
     """Module-level state for folder watcher"""
@@ -18,14 +26,14 @@ class MP3EventHandler(FileSystemEventHandler):
         """Called when a file is created"""
         if event.is_directory:
             return
-        if event.src_path.lower().endswith('.mp3'):
+        if _is_audio_file(event.src_path):
             WatcherState.new_files.append(event.src_path)
 
     def on_moved(self, event):
         """Called when a file is moved/renamed"""
         if event.is_directory:
             return
-        if event.dest_path.lower().endswith('.mp3'):
+        if _is_audio_file(event.dest_path):
             WatcherState.new_files.append(event.dest_path)
 
 

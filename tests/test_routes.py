@@ -332,12 +332,12 @@ class TestOrganiseRoutes:
 # Tests verify this so it isn't accidental.
 # ---------------------------------------------------------------------------
 class TestAppleScriptRoutes:
-    def test_sync_apple_music_not_registered(self, client):
-        """applescript_bp is not registered in __init__.py, so 404 is expected."""
+    def test_sync_apple_music_registered(self, client):
+        """applescript_bp is now registered — should return 200 (or 400 with empty body)."""
         resp = client.post("/api/sync/apple-music")
-        assert resp.status_code == 404
+        assert resp.status_code in (200, 400)
 
-    def test_download_applescript_not_registered(self, client):
-        """Same -- blueprint not registered."""
+    def test_download_applescript_registered(self, client):
+        """Same -- blueprint is registered."""
         resp = client.get("/api/sync/apple-music/script")
-        assert resp.status_code == 404
+        assert resp.status_code != 404

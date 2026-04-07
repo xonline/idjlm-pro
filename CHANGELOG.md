@@ -4,6 +4,31 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.5.8] — 2026-04-07
+
+### Critical Fixes
+- **Analysis complete but nothing shows** — SSE `onComplete` callbacks expected `data.tracks` but backend only sent summary counts. Now refetches `GET /api/tracks` after every pipeline operation (analyze, classify, write tags). Table updates correctly.
+- **AppleScript routes not wired** — `applescript_bp` existed but was never registered in `create_app()`. Now registered. djay Pro integration is live.
+- **Folder watcher only watched MP3** — Now watches all supported formats: MP3, FLAC, WAV, M4A, AAC, OGG, AIFF, AIF.
+- **AIFF files unsupported** — Added `.aiff` and `.aif` to `SUPPORTED_EXTENSIONS`.
+
+### New Features
+- **OpenRouter AI model** — Access 100+ models (Gemini, Claude, Llama, Mistral, etc.) via single API key. Free models available. Configurable model via `OPENROUTER_MODEL` env var (default: `google/gemini-2.0-flash-exp:free`).
+- **BPM confidence score** — `bpm_confidence` (0-100) computed from onset strength peak clarity. Shows which analyses are reliable.
+- **Key confidence score** — `key_confidence` (0-100) computed from chroma template correlation strength.
+- **Camelot Wheel visualization** — Stats tab now shows an SVG Camelot wheel with key distribution (darker = more tracks in that key).
+- **Stats dashboard upgrade** — Collection summary card (total, % analyzed, % classified, % approved), key distribution chart, energy distribution chart.
+- **Genre normalization** — Auto-maps common genre variants ("Salsa Romántica" → "Salsa", "Reggaetón" → "Reggaeton") on import. Reduces AI classification errors.
+- **Multi-source metadata enrichment** — MusicBrainz (free, no key) and Discogs (optional token) added as fallbacks when Spotify enrichment fails.
+- **Bulk Edit button** — "Bulk Edit" button in bulk actions bar opens the bulk edit modal for selected tracks.
+
+### Improved
+- **Energy recalibration** — Perceptual model combining RMS + spectral centroid + onset density instead of naive RMS-only mapping.
+- **SSE `refetch` flag** — All `done` events now include `refetch: true` so frontend knows to refresh track data.
+- **Config template** — `config.example.env` expanded with all options, AI model choices, and documentation links.
+
+---
+
 ## [2.5.7] — 2026-04-07
 
 ### Critical Bug Fixes

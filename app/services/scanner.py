@@ -9,7 +9,7 @@ from mutagen import File as MutagenFile
 from app.models.track import Track
 
 # Supported audio file extensions
-SUPPORTED_EXTENSIONS = {'.mp3', '.flac', '.wav', '.m4a', '.aac', '.ogg'}
+SUPPORTED_EXTENSIONS = {'.mp3', '.flac', '.wav', '.m4a', '.aac', '.ogg', '.aiff', '.aif'}
 
 
 def _extract_id3_text(frame) -> Optional[str]:
