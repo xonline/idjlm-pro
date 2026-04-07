@@ -57,7 +57,8 @@ jobs:
             --exclude-module "notebook" \
             --exclude-module "tkinter" \
             --exclude-module "test" \
-            --exclude-module "unittest" \
+            --hidden-import "unittest" \
+            --hidden-import "scipy.special.cython_special" \
             run_app.py
 
       - name: Package as DMG
@@ -65,9 +66,13 @@ jobs:
           VERSION: ${{ github.ref_name }}
         run: |
           DMG_NAME="IDJLM-Pro-${VERSION}-macOS.dmg"
+          # Create staging folder with .app + Applications symlink for drag-drop
+          mkdir -p dmg-staging
+          cp -R "dist/IDJLM Pro.app" "dmg-staging/"
+          ln -s /Applications "dmg-staging/Applications"
           hdiutil create \
             -volname "IDJLM Pro ${VERSION}" \
-            -srcfolder "dist/IDJLM Pro.app" \
+            -srcfolder "dmg-staging" \
             -ov -format UDZO \
             "${DMG_NAME}"
           echo "DMG_NAME=${DMG_NAME}" >> "$GITHUB_ENV"
@@ -122,7 +127,7 @@ jobs:
             --exclude-module "jupyter" `
             --exclude-module "notebook" `
             --exclude-module "test" `
-            --exclude-module "unittest" `
+            --hidden-import "unittest" `
             run_app.py
 
       - name: Zip Windows build

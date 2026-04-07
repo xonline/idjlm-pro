@@ -6,7 +6,7 @@
 
 **Intelligent DJ Library Manager** — AI-powered genre + sub-genre classification for Latin dance music libraries.
 
-**For:** DJs with Salsa, Bachata, Kizomba (and more) collections who want to bulk-classify tracks, analyze loudness and energy, and write clean ID3 tags so djay Pro smart playlists just work.
+**For:** DJs with Salsa, Bachata, Kizomba (and more) collections who want to bulk-classify tracks, analyse loudness and energy, and write clean ID3 tags so djay Pro smart playlists just work.
 
 ![IDJLM Pro v2.5 — Welcome & workflow](docs/screenshot-v2.5.4-import.png)
 
@@ -31,7 +31,7 @@ No Python or terminal required — just open and run.
 1. Point it at a folder of audio files (MP3, FLAC, WAV, M4A, AAC, OGG, AIFF)
 2. Existing genre tags are read from each file immediately on import
 3. AI classifies each track → genre + sub-genre + confidence
-4. BPM, key (Camelot), energy, vocal/instrumental flag, LUFS loudness analyzed automatically
+4. BPM, key (Camelot), energy, vocal/instrumental flag, LUFS loudness analysed automatically
 5. Preview any track with the built-in audio player
 6. Review proposed tags, bulk-approve, edit individually, or **re-classify** with a different AI model
 7. Tags written to ID3: `GENRE`, `COMMENT` (sub-genre), `BPM`, `KEY`, `YEAR`, cover art
@@ -86,10 +86,10 @@ cp config.example.env .env
 2. Click **Pick Folder** and choose your music folder — works with external drives
 3. Tracks appear with any existing tags already loaded from their files
 4. **Optional:** Use import filters (file type, date range, exclude subfolders) before importing
-5. Click **Analyze All** → BPM, key (Camelot), energy, vocal/instrumental flag, LUFS loudness, tempo category, confidence scores
+5. Click **Analyse All** → BPM, key (Camelot), energy, vocal/instrumental flag, LUFS loudness, tempo category, confidence scores
 6. Click **Classify All** → AI returns genre + sub-genre + confidence for every track
 
-**Tip:** Select specific tracks with the checkboxes and use the **Analyze** or **Classify** buttons in the selection bar to process only those tracks.
+**Tip:** Select specific tracks with the checkboxes and use the **Analyse** or **Classify** buttons in the selection bar to process only those tracks.
 
 ### Review + Write
 7. **Review** tab → current vs proposed tags side by side
@@ -181,7 +181,7 @@ They survive app updates, reinstalls, and DMG launches. Existing settings from e
 ## Stats Dashboard
 
 The Library tab includes a stats dashboard with:
-- **Collection Summary** — total tracks, % analyzed, % classified, % approved, average LUFS
+- **Collection Summary** — total tracks, % analysed, % classified, % approved, average LUFS
 - **Key Distribution** — horizontal bar chart showing track count per Camelot key
 - **Energy Distribution** — bar chart bucketed by energy level
 - **Camelot Wheel** — SVG visualization of your library's key distribution

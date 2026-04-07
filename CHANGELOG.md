@@ -4,6 +4,23 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.8.1] — 2026-04-08
+
+### Critical Hotfix
+- **PyInstaller missing `unittest` module** — Removed `--exclude-module "unittest"` and added `--hidden-import "unittest"` to the GitHub Actions workflow and local build script. This was breaking all audio analysis in the built DMG (librosa requires unittest). Every track showed "Audio analysis failed: No module named 'unittest'".
+- **Also added `--hidden-import "scipy.special.cython_special"`** — another librosa/scipy dependency that was causing silent failures.
+
+### Layout Fix
+- **Stats dashboard moved to Organise tab** — Was pushing the track table off-screen in the Library tab. Now the Library tab is a clean track table with filter bar. Stats (collection summary, charts, Camelot wheel, age analysis) live in the Organise tab alongside Library Health.
+
+### DMG Improvements
+- **Drag-and-drop to Applications** — DMG now includes IDJLM Pro.app + Applications symlink side by side. Just drag the app to the Applications folder.
+
+### Localisation
+- **Australian English** — All user-facing text now uses AU spelling: analyse, analysed, analysing (not analyze/analyzed/analyzing). API paths, variable names, and code internals unchanged.
+
+---
+
 ## [2.8.0] — 2026-04-08
 
 ### AI That Learns From Your Corrections
@@ -76,14 +93,14 @@ All notable changes to IDJLM Pro are documented here.
 ### Medium Impact Features
 - **Drag-and-drop setlist reordering** — Native HTML5 DnD on setlist items. Visual drop indicator, saves order immediately on drop.
 - **Smart Playlist builder** — New "Playlists" tab with saved filter queries. Filter by genre, sub-genre, BPM range, energy, key, status. Run anytime against current library.
-- **Latin features UI integration** — "Analyze Latin" button in pipeline. Cue points shown in track detail panel. Mix score badges in setlist. "Mix Well With" suggestions in track detail.
+- **Latin features UI integration** — "Analyse Latin" button in pipeline. Cue points shown in track detail panel. Mix score badges in setlist. "Mix Well With" suggestions in track detail.
 - **Duplicate merge workflow** — Radio buttons to select which duplicate to keep, merge best fields from others. Shows summary of merged fields.
 - **Library-wide search** — Server-side search across 17 fields (title, artist, genre, key, album, comments, reasoning, file path, clave...). Debounced at 300ms. Existing genre/status filters still work on top.
 - **Export filtering UI** — Modal with genre, sub-genre, status, BPM, key, energy filters before export. "Export All" bypasses filters. Works for M3U, CSV, JSON, Rekordbox XML.
 
 ### Nice to Have
 - **Keyboard shortcut reference** — Press `?` or `Cmd+/` to open shortcut cheat sheet. `1-4` for tabs, `/` for search, `Ctrl+S` save session, `Enter`/`Delete` for approve/skip.
-- **Progress bar visualization** — Colored progress bar in stats bar (blue=analyze, green=classify, amber=write). Shows percentage during all SSE operations.
+- **Progress bar visualization** — Colored progress bar in stats bar (blue=analyse, green=classify, amber=write). Shows percentage during all SSE operations.
 - **Post-write change summary** — After writing tags, toast shows "X written, Y changed" with expandable detail of actual field changes.
 - **Mobile-responsive CSS** — 3 breakpoints (1024/768/480px). Sidebar collapses to icons, table scrolls horizontally, modals go full-width, touch-friendly 44px tap targets.
 
@@ -114,7 +131,7 @@ All notable changes to IDJLM Pro are documented here.
 ## [2.5.9] — 2026-04-07
 
 ### Bug Fixes
-- **Analysis results not showing in table** — SSE `onComplete` callbacks now refetch `GET /api/tracks` after every pipeline operation (analyze, classify, write tags).
+- **Analysis results not showing in table** — SSE `onComplete` callbacks now refetch `GET /api/tracks` after every pipeline operation (analyse, classify, write tags).
 - **JS runtime errors breaking page** — `getFilteredTracks()` now guards against missing DOM elements. `renderStatsDashboard()` only calls Chart.js methods if `typeof Chart !== 'undefined'`.
 - **Stats dashboard crashing on empty library** — `renderStatsDashboard()` now exits early if `window.tracks` is empty.
 
@@ -123,7 +140,7 @@ All notable changes to IDJLM Pro are documented here.
 ## [2.5.8] — 2026-04-07
 
 ### Critical Fixes
-- **Analysis complete but nothing shows** — SSE `onComplete` callbacks expected `data.tracks` but backend only sent summary counts. Now refetches `GET /api/tracks` after every pipeline operation (analyze, classify, write tags). Table updates correctly.
+- **Analysis complete but nothing shows** — SSE `onComplete` callbacks expected `data.tracks` but backend only sent summary counts. Now refetches `GET /api/tracks` after every pipeline operation (analyse, classify, write tags). Table updates correctly.
 - **AppleScript routes not wired** — `applescript_bp` existed but was never registered in `create_app()`. Now registered. djay Pro integration is live.
 - **Folder watcher only watched MP3** — Now watches all supported formats: MP3, FLAC, WAV, M4A, AAC, OGG, AIFF, AIF.
 - **AIFF files unsupported** — Added `.aiff` and `.aif` to `SUPPORTED_EXTENSIONS`.
@@ -133,7 +150,7 @@ All notable changes to IDJLM Pro are documented here.
 - **BPM confidence score** — `bpm_confidence` (0-100) computed from onset strength peak clarity. Shows which analyses are reliable.
 - **Key confidence score** — `key_confidence` (0-100) computed from chroma template correlation strength.
 - **Camelot Wheel visualization** — Stats tab now shows an SVG Camelot wheel with key distribution (darker = more tracks in that key).
-- **Stats dashboard upgrade** — Collection summary card (total, % analyzed, % classified, % approved), key distribution chart, energy distribution chart.
+- **Stats dashboard upgrade** — Collection summary card (total, % analysed, % classified, % approved), key distribution chart, energy distribution chart.
 - **Genre normalization** — Auto-maps common genre variants ("Salsa Romántica" → "Salsa", "Reggaetón" → "Reggaeton") on import. Reduces AI classification errors.
 - **Multi-source metadata enrichment** — MusicBrainz (free, no key) and Discogs (optional token) added as fallbacks when Spotify enrichment fails.
 - **Bulk Edit button** — "Bulk Edit" button in bulk actions bar opens the bulk edit modal for selected tracks.
@@ -168,12 +185,12 @@ All notable changes to IDJLM Pro are documented here.
 - **Added missing track detail classes**: `.track-detail-title-header`, `.track-detail-artist`, `.track-detail-album`, `.track-detail-classification`, `.classification-item`
 
 ### Backend Fixes
-- **Analyzer crash on silent/corrupt audio** — `librosa.beat.beat_track` can return an empty array; `.item()` raised `IndexError`. Now checks array size and raises a descriptive error.
+- **Analyser crash on silent/corrupt audio** — `librosa.beat.beat_track` can return an empty array; `.item()` raised `IndexError`. Now checks array size and raises a descriptive error.
 - **Album art content-type not validated** — Spotify URL could return HTML (redirect/error) and write it as image data to ID3. Now validates `Content-Type` starts with `image/` and derives correct MIME type.
 - **`_normalize_energy` unused parameters** removed (`sr`, `hop_length`).
 
 ### Testing
-- **New test suite** (`tests/test_bugfixes.py`) — 11 new tests covering session round-trip, bulk edit payload, settings fields, taxonomy CRUD, analyzer edge cases, static file validation, and review response shapes.
+- **New test suite** (`tests/test_bugfixes.py`) — 11 new tests covering session round-trip, bulk edit payload, settings fields, taxonomy CRUD, analyser edge cases, static file validation, and review response shapes.
 - **All 70 tests pass** (69 passed, 1 skipped).
 
 ---
@@ -194,7 +211,7 @@ All notable changes to IDJLM Pro are documented here.
 ## [2.5.5] — 2026-04-05
 
 ### Bug Fixes
-- **`/api/analyze` and `/api/classify` still crashing (500)** — `get_json()` without `silent=True` was present in both `analyze_tracks` (line 100) and `classify_tracks` (line 163) in `import_routes.py`. Both now use `get_json(silent=True) or {}`. Applied the same fix to all remaining routes app-wide (latin, watch, organise, track, review, setplan, key, settings, bulk, setlist).
+- **`/api/analyse` and `/api/classify` still crashing (500)** — `get_json()` without `silent=True` was present in both `analyse_tracks` (line 100) and `classify_tracks` (line 163) in `import_routes.py`. Both now use `get_json(silent=True) or {}`. Applied the same fix to all remaining routes app-wide (latin, watch, organise, track, review, setplan, key, settings, bulk, setlist).
 - **`session.json` read-only error** — `session_service.py` wrote `session.json` to the bundle root (read-only inside `.app`). Now writes to `~/Library/Application Support/IDJLM Pro/session.json` (macOS) / `~/.idjlm-pro/session.json` (other). Session persists across launches and survives app updates.
 
 ---
@@ -203,10 +220,10 @@ All notable changes to IDJLM Pro are documented here.
 
 ### Bug Fixes
 - **Taxonomy edits failing (settings save → 500)** — `PUT /api/taxonomy` tried to write `taxonomy.json` to the read-only `.app` bundle path. Now writes to `~/Library/Application Support/IDJLM Pro/taxonomy.json` (macOS). All three write sites fixed (full replace, add genre, delete genre). Taxonomy is also loaded from the user-writable copy on startup so edits persist across launches.
-- **`/api/analyze` and `/api/session/save` crash with empty body (500)** — `request.get_json()` without `silent=True` raised `BadRequest` when the body was empty or Content-Type missing. Fixed in `import_routes.py` and `session_routes.py`.
+- **`/api/analyse` and `/api/session/save` crash with empty body (500)** — `request.get_json()` without `silent=True` raised `BadRequest` when the body was empty or Content-Type missing. Fixed in `import_routes.py` and `session_routes.py`.
 
 ### Feature
-- **Bulk Analyse selected tracks** — When tracks are selected via checkboxes, an "Analyse" button now appears in the bulk-actions bar. Only the selected tracks are sent to `/api/analyze`, with progress shown in the stats bar. Previously, only "Analyse All" was available.
+- **Bulk Analyse selected tracks** — When tracks are selected via checkboxes, an "Analyse" button now appears in the bulk-actions bar. Only the selected tracks are sent to `/api/analyse`, with progress shown in the stats bar. Previously, only "Analyse All" was available.
 
 ---
 
@@ -393,10 +410,10 @@ All notable changes to IDJLM Pro are documented here.
 
 ### UI Redesign — Single Library View
 - **Sidebar trimmed to 4 items** — Library, Organise, Set Planner, Settings
-- **Library toolbar** — folder picker + Analyze All + Classify All + Approve ≥N% + Write Tags on one row
-- **Inline stats bar** — total/analyzed/classified/approved always visible; progress bar appears during pipeline runs
+- **Library toolbar** — folder picker + Analyse All + Classify All + Approve ≥N% + Write Tags on one row
+- **Inline stats bar** — total/analysed/classified/approved always visible; progress bar appears during pipeline runs
 - **Inline approve column** — approve/unapprove per row, no Review tab needed
-- **SSE progress** — analyze/classify/write-tags progress shown inline in stats bar
+- **SSE progress** — analyse/classify/write-tags progress shown inline in stats bar
 - **Removed standalone tabs** — Import, Review, Stats, Taxonomy, Setlist, Wheel, Duplicates; content folded into Library / Settings / Set Planner / Organise
 - **No backend changes** — all API routes unchanged
 
@@ -409,7 +426,7 @@ All notable changes to IDJLM Pro are documented here.
 - **Audio playback broken** — audio route changed from `/api/audio/<path:file_path>` to `/api/audio?path=...` (query param); `encodeURIComponent` was encoding `/` → `%2F` making Flask `os.path.abspath()` resolve to wrong path
 - **Edit modal couldn't be closed** — JS errors from undefined track properties prevented event handlers; root cause fixed; Escape key handler added as belt-and-braces
 - **Session lost on browser refresh** — session now auto-saved immediately after every import
-- **No UX guidance after import** — toast now says "click Analyze All to extract BPM & key"; app auto-switches to Tracks tab after import so user can see what was loaded
+- **No UX guidance after import** — toast now says "click Analyse All to extract BPM & key"; app auto-switches to Tracks tab after import so user can see what was loaded
 
 ### Track Model
 - Added `override_comment` field and `final_comment` property (falls back to `proposed_subgenre` then `existing_comment`)
@@ -432,7 +449,7 @@ All notable changes to IDJLM Pro are documented here.
 ## [2.3.0] — 2026-04-05
 
 ### Organise Tab
-- **Library Health Dashboard** — live stats: total, analyzed, classified, approved, tags written, duplicates; coverage bars for BPM/Key/Energy/Artwork; genre breakdown
+- **Library Health Dashboard** — live stats: total, analysed, classified, approved, tags written, duplicates; coverage bars for BPM/Key/Energy/Artwork; genre breakdown
 - **Filename → Tag Parser** — scans tracks named "Artist - Title.mp3" with missing tags, previews parsed values vs existing tags, apply individually or all at once
 - **Folder Auto-Organiser** — move approved tracks into `Genre/Sub-Genre/` (or `Genre/` or `Genre/Sub-Genre/Year/`) folder structure; dry-run preview before committing moves
 - **Key Accuracy Validator** — compares stored Camelot keys against librosa-detected keys; flags mismatches of ≥2 Camelot steps; one-click fix individual or all
@@ -475,7 +492,7 @@ All notable changes to IDJLM Pro are documented here.
 ### Track Waveform Thumbnails
 - Mini waveform thumbnail in every track row (80×24 px canvas, mirrored teal bar graph)
 - 60-point amplitude array computed during librosa analysis — no extra audio load
-- Renders immediately after analysis; updates live as tracks are analyzed
+- Renders immediately after analysis; updates live as tracks are analysed
 
 ---
 
@@ -613,4 +630,4 @@ All notable changes to IDJLM Pro are documented here.
 - **Dark-themed single-page app** — Flask + vanilla JS; tabs: Import, Tracks, Review, Taxonomy, Settings
 - **In-memory track store** — session-scoped dict keyed by file path; all state lives server-side
 - **Settings tab** — Anthropic API key, Spotify credentials, batch size, auto-approve threshold
-- **Import workflow** — enter folder path → scan → analyze → classify → review → write tags
+- **Import workflow** — enter folder path → scan → analyse → classify → review → write tags

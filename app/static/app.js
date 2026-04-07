@@ -214,7 +214,7 @@ function initLibraryToolbar() {
         window.searchResults = null;
         renderTracks();
         updateStats();
-        showToast((result.count || result.tracks.length) + ' tracks imported — click Analyze All to extract BPM & key', 'success');
+        showToast((result.count || result.tracks.length) + ' tracks imported — click Analyse All to extract BPM & key', 'success');
         apiFetch('/api/session/save', { method: 'POST' }).catch(() => {});
       }
     } catch (e) {
@@ -227,7 +227,7 @@ function initLibraryToolbar() {
   if (btnAnalyze) {
     btnAnalyze.addEventListener('click', async () => {
       btnAnalyze.disabled = true;
-      showProgressInStatsBar('Analyzing audio...', 'analyze');
+      showProgressInStatsBar('Analysing audio...', 'analyze');
       try {
         const result = await apiFetch('/api/analyze', { method: 'POST' });
         if (result && result.op_id) {
@@ -2123,8 +2123,8 @@ function renderReview() {
     genreField.appendChild(genreValue);
     rightCol.appendChild(genreField);
 
-    rightCol.appendChild(createField('BPM (analyzed)', track.analyzed_bpm ? Math.round(track.analyzed_bpm) : ''));
-    rightCol.appendChild(createField('Key (analyzed)', track.analyzed_key));
+    rightCol.appendChild(createField('BPM (analysed)', track.analyzed_bpm ? Math.round(track.analyzed_bpm) : ''));
+    rightCol.appendChild(createField('Key (analysed)', track.analyzed_key));
     rightCol.appendChild(createField('Energy Level', track.analyzed_energy ? `${track.analyzed_energy}/10` : ''));
 
     diff.appendChild(rightCol);
@@ -3484,7 +3484,7 @@ function openTrackDetail(track) {
       const currentTrack = window.tracks.find(t => t.file_path === filePath);
       if (!currentTrack) return;
 
-      showSpinner('Analyzing cue points...');
+      showSpinner('Analysing cue points...');
       try {
         const result = await apiFetch('/api/analyze/latin', {
           method: 'POST',
