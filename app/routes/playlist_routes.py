@@ -36,37 +36,60 @@ def _apply_filters(track_store, filters):
             continue
         if filters.get("key") and track.final_key != filters["key"]:
             continue
-        bpm = track.final_bpm
-        if filters.get("bpm_min"):
+
+        # BPM filter
+        try:
+            bpm_min = float(filters["bpm_min"]) if filters.get("bpm_min") else None
+            bpm_max = float(filters["bpm_max"]) if filters.get("bpm_max") else None
+        except (ValueError, TypeError):
+            bpm_min = None
+            bpm_max = None
+
+        if bpm_min is not None or bpm_max is not None:
             try:
-                if float(bpm or 0) < float(filters["bpm_min"]):
-                    continue
+                bpm = float(track.final_bpm or 0)
             except (ValueError, TypeError):
+                bpm = 0
+            if bpm_min is not None and bpm < bpm_min:
                 continue
-        if filters.get("bpm_max"):
+            if bpm_max is not None and bpm > bpm_max:
+                continue
+
+        # Energy filter
+        try:
+            energy_min = int(filters["energy_min"]) if filters.get("energy_min") else None
+            energy_max = int(filters["energy_max"]) if filters.get("energy_max") else None
+        except (ValueError, TypeError):
+            energy_min = None
+            energy_max = None
+
+        if energy_min is not None or energy_max is not None:
+            energy = track.analyzed_energy
+            if energy is None:
+                continue  # Can't filter by energy if track has no energy data
+            if energy_min is not None and energy < energy_min:
+                continue
+            if energy_max is not None and energy > energy_max:
+                continue
+
+        # Year filter
+        try:
+            year_min = int(filters["year_min"]) if filters.get("year_min") else None
+            year_max = int(filters["year_max"]) if filters.get("year_max") else None
+        except (ValueError, TypeError):
+            year_min = None
+            year_max = None
+
+        if year_min is not None or year_max is not None:
             try:
-                if float(bpm or 0) > float(filters["bpm_max"]):
-                    continue
+                year = int(track.final_year or 0)
             except (ValueError, TypeError):
+                year = 0
+            if year_min is not None and year < year_min:
                 continue
-        energy = track.analyzed_energy
-        if filters.get("energy_min") and (not energy or energy < int(filters["energy_min"])):
-            continue
-        if filters.get("energy_max") and (not energy or energy > int(filters["energy_max"])):
-            continue
-        year = track.final_year
-        if filters.get("year_min"):
-            try:
-                if int(year or 0) < int(filters["year_min"]):
-                    continue
-            except (ValueError, TypeError):
+            if year_max is not None and year > year_max:
                 continue
-        if filters.get("year_max"):
-            try:
-                if int(year or 0) > int(filters["year_max"]):
-                    continue
-            except (ValueError, TypeError):
-                continue
+
         results.append(track.to_dict())
     return results
 

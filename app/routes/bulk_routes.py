@@ -537,3 +537,105 @@ def apply_template(name):
     except Exception as e:
         logger.exception(f"Error in apply template endpoint")
         return jsonify({"error": "Failed to apply template. Check server logs."}), 500
+
+
+@bp.route("/taxonomy/import-onetagger", methods=["POST"])
+def import_onetagger():
+    """
+    Import genre mappings from OneTagger settings.json.
+    OneTagger stores genre mappings as a dict of source_genre -> target_genre.
+    We convert these into IDJLM taxonomy sub-genres.
+
+    POST /api/taxonomy/import-onetagger
+    body: { "settings": { ... }, "merge": true }
+      - settings: The full OneTagger settings.json content
+      - merge: if true, add to existing taxonomy; if false, replace
+
+    OneTagger genre mapping format in settings.json:
+    {
+      "genre": { "Salsa": { "target": "Latin", "target_subgenre": "Salsa" }, ... },
+      "subgenre": { "Salsa Romantica": { "target": "Latin", "target_subgenre": "Salsa" }, ... }
+    }
+    """
+    try:
+        from app import get_taxonomy
+
+        data = request.get_json(silent=True) or {}
+        settings = data.get("settings", {})
+        do_merge = data.get("merge", True)
+
+        if not settings:
+            return jsonify({"error": "OneTagger settings JSON is required"}), 400
+
+        taxonomy = get_taxonomy()
+
+        # Build new genres from OneTagger mappings
+        new_genres = {}
+        mappings_found = 0
+
+        # Process genre mappings
+        genre_mappings = settings.get("genre", {})
+        for source_genre, mapping in genre_mappings.items():
+            if not isinstance(mapping, dict):
+                continue
+            target = mapping.get("target", source_genre)
+            target_sub = mapping.get("target_subgenre", "")
+            mappings_found += 1
+
+            if target not in new_genres:
+                new_genres[target] = {"description": f"Imported from OneTagger", "subgenres": {}}
+            if target_sub and target_sub not in new_genres[target]["subgenres"]:
+                new_genres[target]["subgenres"][target_sub] = f"Mapped from '{source_genre}'"
+
+        # Process subgenre mappings
+        subgenre_mappings = settings.get("subgenre", {})
+        for source_sub, mapping in subgenre_mappings.items():
+            if not isinstance(mapping, dict):
+                continue
+            target = mapping.get("target", "Unknown")
+            target_sub = mapping.get("target_subgenre", source_sub)
+            mappings_found += 1
+
+            if target not in new_genres:
+                new_genres[target] = {"description": f"Imported from OneTagger", "subgenres": {}}
+            if target_sub and target_sub not in new_genres[target]["subgenres"]:
+                new_genres[target]["subgenres"][target_sub] = f"Mapped from '{source_sub}'"
+
+        if not new_genres:
+            return jsonify({"error": "No genre mappings found in OneTagger settings", "mappings_found": mappings_found}), 400
+
+        if do_merge:
+            # Merge into existing taxonomy
+            for genre_name, genre_data in new_genres.items():
+                if genre_name in taxonomy.get("genres", {}):
+                    # Merge subgenres
+                    existing_subs = taxonomy["genres"][genre_name].get("subgenres", {})
+                    new_subs = genre_data.get("subgenres", {})
+                    if isinstance(existing_subs, dict) and isinstance(new_subs, dict):
+                        for sub_name, sub_desc in new_subs.items():
+                            if sub_name not in existing_subs:
+                                existing_subs[sub_name] = sub_desc
+                else:
+                    taxonomy["genres"][genre_name] = genre_data
+        else:
+            # Replace taxonomy with imported data
+            taxonomy["genres"] = new_genres
+
+        # Write back to file
+        with open(_get_taxonomy_write_path(), "w") as f:
+            json.dump(taxonomy, f, indent=2)
+
+        genre_count = len(new_genres)
+        subgenre_count = sum(len(g.get("subgenres", {})) for g in new_genres.values())
+
+        return jsonify({
+            "ok": True,
+            "mappings_found": mappings_found,
+            "genres_added": genre_count,
+            "subgenres_added": subgenre_count,
+            "taxonomy": taxonomy
+        }), 200
+
+    except Exception as e:
+        logger.exception(f"Error in OneTagger import endpoint")
+        return jsonify({"error": f"Failed to import OneTagger settings: {str(e)}"}), 500

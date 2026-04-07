@@ -851,10 +851,7 @@ function renderStatsDashboard() {
   if (!dashboard) return;
 
   const tracks = window.tracks || [];
-  if (!tracks.length) {
-    dashboard.style.display = 'none';
-    return;
-  }
+  const hasTracks = tracks.length > 0;
 
   dashboard.style.display = 'block';
   const total = tracks.length;
@@ -864,7 +861,7 @@ function renderStatsDashboard() {
 
   // Collection summary
   document.getElementById('summary-total').textContent = total;
-  document.getElementById('summary-analyzed-pct').textContent = total ? Math.round((analyzed / total) * 100) + '%' : '0%';
+  document.getElementById('summary-analysed-pct').textContent = total ? Math.round((analyzed / total) * 100) + '%' : '0%';
   document.getElementById('summary-classified-pct').textContent = total ? Math.round((classified / total) * 100) + '%' : '0%';
   document.getElementById('summary-approved-pct').textContent = total ? Math.round((approved / total) * 100) + '%' : '0%';
 
@@ -887,8 +884,8 @@ function renderStatsDashboard() {
     renderCamelotWheel(tracks);
   }
 
-  // Age analysis — load once
-  if (!ageAnalysisData) {
+  // Age analysis — load once (only when we have tracks)
+  if (hasTracks && !ageAnalysisData) {
     initAgeAnalysis();
     loadAgeAnalysis();
   }
@@ -2452,6 +2449,54 @@ function initTaxonomyTab() {
         showToast('Invalid JSON file: ' + err.message, 'error');
       }
       fileInput.value = '';
+    });
+  }
+
+  // OneTagger import
+  const btnImportOneTagger = document.getElementById('btn-import-onetagger');
+  const onetaggerFileInput = document.getElementById('onetagger-file-input');
+  if (btnImportOneTagger && onetaggerFileInput) {
+    btnImportOneTagger.addEventListener('click', () => onetaggerFileInput.click());
+    onetaggerFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const json = JSON.parse(text);
+        // OneTagger settings.json is a large object — check it has genre mappings
+        const hasGenreMappings = json.genre || json.subgenre;
+        if (!hasGenreMappings) {
+          showToast('No genre mappings found in this OneTagger settings file', 'error');
+          onetaggerFileInput.value = '';
+          return;
+        }
+        // Count mappings for preview
+        let genreCount = 0, subCount = 0;
+        if (json.genre) genreCount = Object.keys(json.genre).length;
+        if (json.subgenre) subCount = Object.keys(json.subgenre).length;
+        const totalMappings = genreCount + subCount;
+        if (confirm('This will import ' + totalMappings + ' genre mappings from OneTagger into your taxonomy (merge mode). Continue?')) {
+          showSpinner('Importing OneTagger mappings...');
+          try {
+            const result = await apiFetch('/api/taxonomy/import-onetagger', {
+              method: 'POST',
+              body: JSON.stringify({ settings: json, merge: true })
+            });
+            if (result && result.ok) {
+              window.taxonomy = result.taxonomy.genres || {};
+              renderTaxonomy();
+              showToast('Imported ' + result.genres_added + ' genres and ' + result.subgenres_added + ' subgenres from OneTagger', 'success');
+            }
+          } catch (err) {
+            showToast('Import failed: ' + err.message, 'error');
+          } finally {
+            hideSpinner();
+          }
+        }
+      } catch (err) {
+        showToast('Invalid JSON file: ' + err.message, 'error');
+      }
+      onetaggerFileInput.value = '';
     });
   }
 
@@ -5043,17 +5088,17 @@ function statusDot(status) {
 }
 
 // ============================================================================
-// Feature 6: Camelot Wheel Tab
+// Feature 6: Camelot Wheel Tab (unused — no wheel tab in current UI)
 // ============================================================================
 
-function initWheelTab() {
+function _initWheelTabUnused() {
   const wheelBtn = document.querySelector('[data-tab="wheel"]');
   if (wheelBtn) {
-    wheelBtn.addEventListener('click', renderCamelotWheel);
+    wheelBtn.addEventListener('click', _renderCamelotWheelUnused);
   }
 }
 
-function renderCamelotWheel() {
+function _renderCamelotWheelUnused() {
   const svg = document.getElementById('camelot-wheel-svg');
   const stats = document.getElementById('wheel-stats');
 

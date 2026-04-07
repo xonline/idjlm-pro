@@ -264,13 +264,39 @@ def analyze_track(track: Track) -> Track:
         onset_ratio = np.max(onset_env) / (np.mean(onset_env) + 1e-6)
         track.bpm_confidence = min(100, int(onset_ratio * 15))
 
-        # BPM half/double correction for Latin dance tempos
-        if track.analyzed_bpm > 160:
-            track.analyzed_bpm = track.analyzed_bpm / 2
+        # Genre-aware BPM half/double correction for Latin dance tempos
+        bpm_raw = track.analyzed_bpm
+        genre = (track.proposed_genre or track.existing_genre or "").lower()
+
+        # Determine expected BPM range for this genre
+        if "bachata" in genre:
+            expected_min, expected_max = 110, 145
+        elif "kizomba" in genre or "zouk" in genre:
+            expected_min, expected_max = 80, 110
+        elif "reggaeton" in genre:
+            expected_min, expected_max = 90, 110
+        elif "merengue" in genre:
+            expected_min, expected_max = 150, 170
+        else:  # Salsa, Cha Cha, default
+            expected_min, expected_max = 145, 185
+
+        # If raw BPM is roughly double the expected range, halve it
+        if bpm_raw > expected_max * 1.3:
+            track.analyzed_bpm = bpm_raw / 2
             track.bpm_corrected = True
-        elif track.analyzed_bpm < 70:
-            track.analyzed_bpm = track.analyzed_bpm * 2
+        # If raw BPM is roughly half the expected range, double it
+        elif bpm_raw < expected_min * 0.6:
+            track.analyzed_bpm = bpm_raw * 2
             track.bpm_corrected = True
+
+        # Fallback: absolute correction for edge cases
+        if not track.bpm_corrected:
+            if track.analyzed_bpm > 200:
+                track.analyzed_bpm = track.analyzed_bpm / 2
+                track.bpm_corrected = True
+            elif track.analyzed_bpm < 50:
+                track.analyzed_bpm = track.analyzed_bpm * 2
+                track.bpm_corrected = True
 
         # Tempo category based on genre + BPM
         bpm = track.analyzed_bpm

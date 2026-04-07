@@ -4,6 +4,26 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.9.0] — 2026-04-08
+
+### Bug Fixes
+- **Stats dashboard not rendering in Organise tab** — Removed early return when no tracks exist. Fixed duplicate `renderCamelotWheel()` function that was shadowing the real one. Fixed ID mismatch (`summary-analyzed-pct` → `summary-analysed-pct`).
+- **Set Planner API 400 — "No suitable tracks found"** — Set Planner now works with ANY analysed tracks, not just approved ones. Improved error messages to tell you exactly what's wrong.
+- **Playlist API 500 crash** — Fixed null safety in filter logic. BPM, energy, and year filters now handle missing values gracefully instead of crashing.
+- **Audio player bar covering Settings tab content** — Added 100px bottom padding to all tabs so content is never hidden behind the fixed audio bar.
+- **BPM detection too fast for salsa** — Genre-aware BPM correction. Now uses expected BPM ranges per genre (Salsa 145-185, Bachata 110-145, Kizomba 80-110, etc.) to decide whether to halve or double the raw detection. Much more accurate for Latin dance music.
+
+### New Features
+- **OneTagger taxonomy import** — Import your genre mappings from OneTagger's `settings.json` directly into IDJLM. New "Import from OneTagger" button in the Taxonomy section. Merges into your existing taxonomy so you don't lose anything.
+
+### How to import from OneTagger
+1. In OneTagger, go to Settings → Export Settings (or find `settings.json` in your OneTagger config folder)
+2. In IDJLM, go to Settings → Taxonomy → click "Import from OneTagger"
+3. Select your OneTagger `settings.json` file
+4. Confirm the import — your genre mappings will be merged into IDJLM's taxonomy
+
+---
+
 ## [2.8.3] — 2026-04-08
 
 ### Splash Screen Animation

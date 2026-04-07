@@ -114,10 +114,10 @@ def generate_setplan():
 
         track_store = get_track_store()
 
-        # Filter: approved status + analyzed_energy exists
+        # Filter: must have analyzed energy (approved or analyzed tracks)
         tracks = [
             t for t in track_store.values()
-            if t.review_status == "approved" and t.analyzed_energy is not None
+            if t.analyzed_energy is not None and t.final_bpm is not None
         ]
 
         # Apply genre filter
@@ -133,7 +133,10 @@ def generate_setplan():
             ]
 
         if not tracks:
-            return jsonify({"error": "No suitable tracks found for the given filters"}), 400
+            error_detail = "No analyzed tracks found. Run Analyse All first."
+            if genre:
+                error_detail = f"No analyzed tracks found for genre '{genre}'. Run Analyse All or try a different genre."
+            return jsonify({"error": error_detail}), 400
 
         # Calculate number of tracks needed (assume 4 min average)
         num_tracks = max(8, duration_minutes // 4)
