@@ -23,6 +23,8 @@ let chartInstances = {
   years: null,
   keyDist: null,
   energyDist: null,
+  decadeDist: null,
+  genreEra: null,
 };
 
 // ============================================================================
@@ -800,6 +802,12 @@ function renderStatsDashboard() {
     renderEnergyDistChart(tracks);
     renderCamelotWheel(tracks);
   }
+
+  // Age analysis — load once
+  if (!ageAnalysisData) {
+    initAgeAnalysis();
+    loadAgeAnalysis();
+  }
 }
 
 function renderKeyDistChart(tracks) {
@@ -887,6 +895,219 @@ function renderEnergyDistChart(tracks) {
       }
     }
   });
+}
+
+// ============================================================================
+// Age Analysis
+// ============================================================================
+
+let ageAnalysisData = null;
+
+function initAgeAnalysis() {
+  const refreshBtn = document.getElementById('btn-refresh-age');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', loadAgeAnalysis);
+  }
+}
+
+async function loadAgeAnalysis() {
+  try {
+    const data = await apiFetch('/api/stats/age');
+    ageAnalysisData = data;
+    renderAgeAnalysis(data);
+  } catch (e) {
+    // Error shown by apiFetch
+  }
+}
+
+function renderAgeAnalysis(data) {
+  if (!data) return;
+
+  // Summary card
+  document.getElementById('age-median-year').textContent = data.median_year || '--';
+
+  const oldestTrack = data.oldest_tracks && data.oldest_tracks[0];
+  document.getElementById('age-oldest-track').textContent = oldestTrack
+    ? oldestTrack.title + ' (' + oldestTrack.year + ')'
+    : '--';
+
+  const newestTrack = data.newest_tracks && data.newest_tracks[data.newest_tracks.length - 1];
+  document.getElementById('age-newest-track').textContent = newestTrack
+    ? newestTrack.title + ' (' + newestTrack.year + ')'
+    : '--';
+
+  // Top decade
+  const byDecade = data.by_decade || {};
+  let topDecade = '--';
+  let topDecadeCount = 0;
+  Object.entries(byDecade).forEach(([decade, count]) => {
+    if (decade !== 'Unknown' && count > topDecadeCount) {
+      topDecadeCount = count;
+      topDecade = decade;
+    }
+  });
+  document.getElementById('age-top-decade').textContent = topDecade;
+
+  // Decade distribution chart
+  renderDecadeChart(byDecade);
+
+  // Genre-Era stacked bar chart
+  renderGenreEraChart(data.by_genre_decade || {});
+
+  // Era labels
+  renderEraLabels(data.era_labels || {});
+
+  // Genre-decade table
+  renderGenreDecadeTable(data.by_genre_decade || {}, Object.keys(byDecade).filter(d => d !== 'Unknown'));
+}
+
+function renderDecadeChart(byDecade) {
+  const ctx = document.getElementById('chart-decade-dist');
+  if (!ctx) return;
+
+  if (chartInstances.decadeDist) chartInstances.decadeDist.destroy();
+
+  const decadeOrder = Object.keys(byDecade).filter(d => d !== 'Unknown').sort();
+  if (byDecade['Unknown'] !== undefined) decadeOrder.push('Unknown');
+
+  const labels = decadeOrder;
+  const data = labels.map(d => byDecade[d]);
+
+  const decadeColors = {
+    '1960s': '#f87171', '1970s': '#fb923c', '1980s': '#fbbf24',
+    '1990s': '#a3e635', '2000s': '#34d399', '2010s': '#60a5fa',
+    '2020s': '#8b5cf6', 'Unknown': '#6b7280'
+  };
+
+  chartInstances.decadeDist = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Track Count',
+        data: data,
+        backgroundColor: labels.map(d => decadeColors[d] || '#888'),
+        borderWidth: 1,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, ticks: { color: '#888' }, grid: { color: '#2a2a3a' } },
+        y: { ticks: { color: '#888' }, grid: { color: '#2a2a3a' } }
+      }
+    }
+  });
+}
+
+function renderGenreEraChart(byGenreDecade) {
+  const ctx = document.getElementById('chart-genre-era');
+  if (!ctx) return;
+
+  if (chartInstances.genreEra) chartInstances.genreEra.destroy();
+
+  const genres = Object.keys(byGenreDecade).sort((a, b) => {
+    const totalA = Object.values(byGenreDecade[a]).reduce((s, v) => s + v, 0);
+    const totalB = Object.values(byGenreDecade[b]).reduce((s, v) => s + v, 0);
+    return totalB - totalA;
+  }).slice(0, 10);
+
+  const allDecades = new Set();
+  genres.forEach(g => Object.keys(byGenreDecade[g]).forEach(d => allDecades.add(d)));
+  const decades = Array.from(allDecades).sort();
+
+  const decadeColors = {
+    '1960s': '#f87171', '1970s': '#fb923c', '1980s': '#fbbf24',
+    '1990s': '#a3e635', '2000s': '#34d399', '2010s': '#60a5fa',
+    '2020s': '#8b5cf6', 'Unknown': '#6b7280'
+  };
+
+  const datasets = decades.map(decade => ({
+    label: decade,
+    data: genres.map(g => byGenreDecade[g][decade] || 0),
+    backgroundColor: decadeColors[decade] || '#888',
+  }));
+
+  chartInstances.genreEra = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: genres,
+      datasets: datasets,
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: { color: '#888', boxWidth: 12, padding: 8, font: { size: 10 } }
+        }
+      },
+      scales: {
+        x: { stacked: true, beginAtZero: true, ticks: { color: '#888' }, grid: { color: '#2a2a3a' } },
+        y: { stacked: true, ticks: { color: '#888', font: { size: 10 } }, grid: { color: '#2a2a3a' } }
+      }
+    }
+  });
+}
+
+function renderEraLabels(eraLabels) {
+  const container = document.getElementById('era-labels-list');
+  if (!container) return;
+
+  if (!Object.keys(eraLabels).length) {
+    container.innerHTML = '<p style="color:var(--text-secondary);font-size:12px;">No era data available</p>';
+    return;
+  }
+
+  container.innerHTML = Object.entries(eraLabels)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) =>
+      '<div class="era-label-item">' +
+      '<span class="era-label-name">' + escapeHtml(name) + '</span>' +
+      '<span class="era-label-count">' + count + '</span>' +
+      '</div>'
+    ).join('');
+}
+
+function renderGenreDecadeTable(byGenreDecade, decades) {
+  const container = document.getElementById('genre-decade-table-wrap');
+  if (!container) return;
+
+  const genres = Object.keys(byGenreDecade).sort((a, b) => {
+    const totalA = Object.values(byGenreDecade[a]).reduce((s, v) => s + v, 0);
+    const totalB = Object.values(byGenreDecade[b]).reduce((s, v) => s + v, 0);
+    return totalB - totalA;
+  }).slice(0, 15);
+
+  if (!genres.length) {
+    container.innerHTML = '<p style="color:var(--text-secondary);font-size:12px;">No genre-decade data</p>';
+    return;
+  }
+
+  let html = '<table class="genre-decade-table"><thead><tr>';
+  html += '<th>Genre</th>';
+  decades.forEach(d => { html += '<th>' + escapeHtml(d) + '</th>'; });
+  html += '<th>Total</th></tr></thead><tbody>';
+
+  genres.forEach(genre => {
+    html += '<tr><td class="genre-col">' + escapeHtml(genre) + '</td>';
+    let total = 0;
+    decades.forEach(d => {
+      const count = byGenreDecade[genre][d] || 0;
+      total += count;
+      html += '<td class="count-cell">' + (count || '') + '</td>';
+    });
+    html += '<td class="total-col">' + total + '</td></tr>';
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
 }
 
 function renderCamelotWheel(tracks) {
@@ -2077,6 +2298,73 @@ function initTaxonomyTab() {
     });
   }
 
+  // Taxonomy export
+  const btnExportTaxonomy = document.getElementById('btn-export-taxonomy');
+  if (btnExportTaxonomy) {
+    btnExportTaxonomy.addEventListener('click', () => {
+      window.open('/api/taxonomy/export', '_blank');
+      showToast('Downloading taxonomy...', 'info');
+    });
+  }
+
+  // Taxonomy import
+  const btnImportTaxonomy = document.getElementById('btn-import-taxonomy');
+  const fileInput = document.getElementById('taxonomy-file-input');
+  if (btnImportTaxonomy && fileInput) {
+    btnImportTaxonomy.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const json = JSON.parse(text);
+        // Validate
+        if (typeof json !== 'object' || Array.isArray(json)) {
+          showToast('Invalid taxonomy file: must be a JSON object', 'error');
+          fileInput.value = '';
+          return;
+        }
+        const genreCount = Object.keys(json).length;
+        let subCount = 0;
+        Object.values(json).forEach(v => {
+          if (v && typeof v === 'object') {
+            const subs = v.subgenres || [];
+            subCount += Array.isArray(subs) ? subs.length : Object.keys(subs).length;
+          }
+        });
+        if (confirm('This will add ' + genreCount + ' genres and ' + subCount + ' subgenres to your current taxonomy (merge mode). Continue?')) {
+          showSpinner('Importing taxonomy...');
+          try {
+            const result = await apiFetch('/api/taxonomy/import', {
+              method: 'POST',
+              body: JSON.stringify({ taxonomy: json, merge: true })
+            });
+            if (result && result.ok) {
+              window.taxonomy = result.taxonomy || {};
+              renderTaxonomy();
+              showToast('Imported ' + (result.added_genres || []).length + ' genres and ' + (result.added_subgenres || 0) + ' subgenres', 'success');
+            }
+          } catch (err) {
+            showToast('Import failed: ' + err.message, 'error');
+          } finally {
+            hideSpinner();
+          }
+        }
+      } catch (err) {
+        showToast('Invalid JSON file: ' + err.message, 'error');
+      }
+      fileInput.value = '';
+    });
+  }
+
+  // Taxonomy templates
+  loadTaxonomyTemplates();
+
+  const btnApplyTemplate = document.getElementById('btn-apply-template');
+  if (btnApplyTemplate) {
+    btnApplyTemplate.addEventListener('click', applySelectedTemplate);
+  }
+
   loadTaxonomy();
 }
 
@@ -2210,6 +2498,131 @@ function removeSubgenre(genre, idx) {
 function showAddGenreModal() {
   document.getElementById('add-genre-modal').style.display = 'flex';
   document.getElementById('new-genre-name').focus();
+}
+
+// ============================================================================
+// Taxonomy Templates
+// ============================================================================
+
+async function loadTaxonomyTemplates() {
+  try {
+    const data = await apiFetch('/api/taxonomy/templates');
+    const select = document.getElementById('taxonomy-template-select');
+    if (!select) return;
+
+    // Clear existing options except first
+    select.innerHTML = '<option value="">Apply Template...</option>';
+
+    Object.entries(data).forEach(([name, info]) => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name + ' (' + info.genre_count + ' genres, ' + info.subgenre_count + ' subgenres)';
+      select.appendChild(opt);
+    });
+
+    select.addEventListener('change', () => {
+      const btn = document.getElementById('btn-apply-template');
+      if (btn) btn.disabled = !select.value;
+      showTemplatePreview(select.value);
+    });
+  } catch (e) {
+    // Templates unavailable
+  }
+}
+
+async function showTemplatePreview(templateName) {
+  const preview = document.getElementById('template-preview');
+  if (!preview) return;
+
+  if (!templateName) {
+    preview.style.display = 'none';
+    preview.innerHTML = '';
+    return;
+  }
+
+  try {
+    const templates = await apiFetch('/api/taxonomy/templates');
+    const info = templates[templateName];
+    if (!info) {
+      preview.style.display = 'none';
+      return;
+    }
+
+    let genreTags = '';
+    (info.genres || []).forEach(g => {
+      genreTags += '<span class="template-genre-tag">' + escapeHtml(g) + '</span>';
+    });
+
+    preview.innerHTML =
+      '<h5>' + escapeHtml(templateName) + '</h5>' +
+      '<p>This will add ' + info.genre_count + ' genre' + (info.genre_count !== 1 ? 's' : '') +
+      ' and ' + info.subgenre_count + ' subgenre' + (info.subgenre_count !== 1 ? 's' : '') +
+      ' to your current taxonomy (merge mode). Existing items will not be removed.</p>' +
+      '<div class="template-preview-genres">' + genreTags + '</div>' +
+      '<div class="template-preview-actions">' +
+      '<button class="btn btn-primary btn-sm" id="btn-confirm-template">Apply Template</button>' +
+      '<button class="btn btn-secondary btn-sm" id="btn-cancel-template">Cancel</button>' +
+      '</div>';
+
+    preview.style.display = 'block';
+
+    // Bind confirm
+    const confirmBtn = document.getElementById('btn-confirm-template');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', () => applyTemplate(templateName));
+    }
+
+    // Bind cancel
+    const cancelBtn = document.getElementById('btn-cancel-template');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        document.getElementById('taxonomy-template-select').value = '';
+        preview.style.display = 'none';
+        preview.innerHTML = '';
+        const btn = document.getElementById('btn-apply-template');
+        if (btn) btn.disabled = true;
+      });
+    }
+  } catch (e) {
+    preview.style.display = 'none';
+  }
+}
+
+async function applyTemplate(templateName) {
+  if (!templateName) return;
+
+  showSpinner('Applying template...');
+  try {
+    const result = await apiFetch('/api/taxonomy/templates/' + encodeURIComponent(templateName) + '/apply', {
+      method: 'POST',
+      body: JSON.stringify({ merge: true })
+    });
+    if (result && result.ok) {
+      window.taxonomy = result.taxonomy || {};
+      renderTaxonomy();
+      showToast('Applied template: ' + (result.added_genres || []).length + ' genres and ' + (result.added_subgenres || 0) + ' subgenres added', 'success');
+      // Reset preview
+      const preview = document.getElementById('template-preview');
+      if (preview) {
+        preview.style.display = 'none';
+        preview.innerHTML = '';
+      }
+      document.getElementById('taxonomy-template-select').value = '';
+      const btn = document.getElementById('btn-apply-template');
+      if (btn) btn.disabled = true;
+    }
+  } catch (e) {
+    showToast('Failed to apply template: ' + e.message, 'error');
+  } finally {
+    hideSpinner();
+  }
+}
+
+async function applySelectedTemplate() {
+  const select = document.getElementById('taxonomy-template-select');
+  if (select && select.value) {
+    await applyTemplate(select.value);
+  }
 }
 
 // ============================================================================
@@ -4135,6 +4548,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initSearchFeature();
   initSettingsTab();
   initKeyboardShortcuts();
+  initUpdateChecker();
   startStatsPolling();
   loadTaxonomy();
   loadSetlistFromStorage();
@@ -5210,4 +5624,359 @@ function exportCustomPlaylist() {
 
   window.location = `/api/export/m3u?${params.toString()}`;
   showToast('Downloading playlist...', 'info');
+}
+
+// ============================================================================
+// Update Checker
+// ============================================================================
+
+let updateCheckResult = null;
+let downloadPollInterval = null;
+
+async function checkForUpdates() {
+  const modal = document.getElementById('update-modal');
+  const titleEl = document.getElementById('update-modal-title');
+  const bodyEl = document.getElementById('update-modal-body');
+  const footerEl = document.getElementById('update-modal-footer');
+
+  if (!modal || !bodyEl || !footerEl) return;
+
+  // Show loading state
+  if (titleEl) titleEl.textContent = 'Checking for Updates...';
+  bodyEl.innerHTML = '<p style="text-align:center;color:var(--text-secondary);font-size:13px;">Contacting GitHub...</p>';
+  footerEl.innerHTML = '<button class="btn btn-secondary" id="update-cancel-check">Cancel</button>';
+  const cancelBtn = document.getElementById('update-cancel-check');
+  if (cancelBtn) cancelBtn.addEventListener('click', closeUpdateModal);
+
+  modal.style.display = 'flex';
+
+  try {
+    const data = await apiFetch('/api/version/check');
+    if (!data) {
+      bodyEl.innerHTML = '<p style="text-align:center;color:var(--red);font-size:13px;">Could not check for updates.</p>';
+      footerEl.innerHTML = '<button class="btn btn-primary" onclick="closeUpdateModal()">Close</button>';
+      return;
+    }
+
+    updateCheckResult = data;
+
+    if (data.error) {
+      // Error from API (rate limit, network, etc.)
+      bodyEl.innerHTML = '<p style="text-align:center;color:var(--red);font-size:13px;">' + escapeHtml(data.error) + '</p>';
+      footerEl.innerHTML = '<button class="btn btn-primary" onclick="closeUpdateModal()">Close</button>';
+      return;
+    }
+
+    if (!data.has_update) {
+      // Up to date
+      bodyEl.innerHTML =
+        '<div style="text-align:center;padding:20px 0;">' +
+        '<div style="font-size:48px;margin-bottom:12px;">&#9989;</div>' +
+        '<p style="font-size:15px;font-weight:600;color:var(--text-loud);margin-bottom:4px;">You\'re up to date!</p>' +
+        '<p style="font-size:13px;color:var(--text-secondary);">Running <strong>' + escapeHtml(data.current) + '</strong> — the latest version.</p>' +
+        '</div>';
+      footerEl.innerHTML = '<button class="btn btn-primary" onclick="closeUpdateModal()">Done</button>';
+      // Clear notification badge
+      clearUpdateBadge();
+      return;
+    }
+
+    // Update available
+    const publishedStr = data.published_at
+      ? '<p class="update-published-at">Published: ' + new Date(data.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) + '</p>'
+      : '';
+
+    const releaseNotesHtml = formatReleaseNotes(data.release_notes || 'No release notes available.');
+
+    let bodyHtml = '';
+    bodyHtml += '<div class="update-version-info">';
+    bodyHtml += '<div class="update-version-current"><span class="update-version-label">Current</span><span class="update-version-number">' + escapeHtml(data.current) + '</span></div>';
+    bodyHtml += '<span class="update-version-arrow">&#8594;</span>';
+    bodyHtml += '<div class="update-version-latest"><span class="update-version-label">Latest</span><span class="update-version-number">' + escapeHtml(data.latest) + '</span></div>';
+    bodyHtml += '</div>';
+
+    bodyHtml += publishedStr;
+    bodyHtml += '<h3 style="font-size:14px;font-weight:600;color:var(--text-loud);margin:0 0 4px;">What\'s New</h3>';
+    bodyHtml += '<div class="release-notes">' + releaseNotesHtml + '</div>';
+
+    // Git pull section for source installs
+    if (!data.is_macos || !data.download_url || data.download_url.includes('/releases/')) {
+      bodyHtml += '<div class="update-git-pull-section">';
+      bodyHtml += '<h4>Source Install</h4>';
+      bodyHtml += '<p style="font-size:12px;color:var(--text-secondary);margin:0 0 8px;">Update via git pull:</p>';
+      bodyHtml += '<button class="btn btn-secondary btn-sm" id="btn-git-pull" style="font-size:12px;padding:5px 12px;">Run git pull</button>';
+      bodyHtml += '<div id="git-pull-output" style="display:none;"></div>';
+      bodyHtml += '</div>';
+    }
+
+    bodyEl.innerHTML = bodyHtml;
+
+    // Footer buttons
+    let footerHtml = '';
+    footerHtml += '<button class="btn btn-secondary" onclick="closeUpdateModal()">Later</button>';
+    if (data.is_macos && data.download_url && !data.download_url.includes('/releases/tag')) {
+      footerHtml += '<button class="btn btn-primary" id="btn-download-update">Download Update</button>';
+    } else {
+      footerHtml += '<button class="btn btn-secondary" id="btn-open-release" style="font-size:12px;">View on GitHub</button>';
+    }
+    footerEl.innerHTML = footerHtml;
+
+    // Event listeners
+    const downloadBtn = document.getElementById('btn-download-update');
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', () => downloadUpdate(data.download_url));
+    }
+
+    const openReleaseBtn = document.getElementById('btn-open-release');
+    if (openReleaseBtn) {
+      openReleaseBtn.addEventListener('click', () => {
+        window.open(data.download_url || 'https://github.com/xonline/idjlm-pro/releases/latest', '_blank');
+        closeUpdateModal();
+      });
+    }
+
+    const gitPullBtn = document.getElementById('btn-git-pull');
+    if (gitPullBtn) {
+      gitPullBtn.addEventListener('click', runGitPull);
+    }
+
+    // Set notification badge if update available
+    setUpdateBadge();
+
+  } catch (e) {
+    bodyEl.innerHTML = '<p style="text-align:center;color:var(--red);font-size:13px;">Could not check for updates: ' + escapeHtml(e.message) + '</p>';
+    footerEl.innerHTML = '<button class="btn btn-primary" onclick="closeUpdateModal()">Close</button>';
+  }
+}
+
+function formatReleaseNotes(text) {
+  // Basic markdown-like formatting
+  let html = escapeHtml(text);
+  // Bold: **text**
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // Inline code: `text`
+  html = html.replace(/`(.*?)`/g, '<code>$1</code>');
+  // Links: [text](url)
+  html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  // Headings: ### text
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // Unordered lists: - text or * text
+  html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+  // Wrap consecutive <li> in <ul>
+  html = html.replace(/((?:<li>.*?<\/li>\n?)+)/g, '<ul>$1</ul>');
+  // Line breaks
+  html = html.replace(/\n/g, '<br>');
+  // Clean up extra <br> around block elements
+  html = html.replace(/<br>\s*(<h[1-3]>)/g, '$1');
+  html = html.replace(/(<\/h[1-3]>)\s*<br>/g, '$1');
+  html = html.replace(/<br>\s*(<ul>)/g, '$1');
+  html = html.replace(/(<\/ul>)\s*<br>/g, '$1');
+  return html;
+}
+
+async function downloadUpdate(url) {
+  const bodyEl = document.getElementById('update-modal-body');
+  const footerEl = document.getElementById('update-modal-footer');
+  const titleEl = document.getElementById('update-modal-title');
+
+  if (!bodyEl || !footerEl) return;
+
+  // Show download progress
+  if (titleEl) titleEl.textContent = 'Downloading Update';
+  bodyEl.innerHTML =
+    '<div class="download-progress">' +
+    '<div class="download-progress-label"><span>Downloading...</span><span id="download-pct">0%</span></div>' +
+    '<div class="download-progress-track"><div class="download-progress-fill" id="download-fill" style="width:0%"></div></div>' +
+    '<div class="download-progress-size" id="download-size">0 MB of —</div>' +
+    '</div>' +
+    '<p class="update-status-text" id="download-status">Starting download...</p>';
+  footerEl.innerHTML = '<button class="btn btn-secondary" id="btn-cancel-download" disabled>Cancel</button>';
+
+  try {
+    const result = await apiFetch('/api/version/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url })
+    });
+
+    if (result && result.downloading) {
+      // Poll for progress
+      pollDownloadProgress();
+    }
+  } catch (e) {
+    const statusEl = document.getElementById('download-status');
+    if (statusEl) {
+      statusEl.textContent = 'Download failed: ' + e.message;
+      statusEl.className = 'update-status-text error';
+    }
+    footerEl.innerHTML = '<button class="btn btn-primary" onclick="closeUpdateModal()">Close</button>';
+  }
+}
+
+function pollDownloadProgress() {
+  if (downloadPollInterval) clearInterval(downloadPollInterval);
+
+  downloadPollInterval = setInterval(async () => {
+    try {
+      const data = await apiFetch('/api/version/download/status');
+
+      const fillEl = document.getElementById('download-fill');
+      const pctEl = document.getElementById('download-pct');
+      const sizeEl = document.getElementById('download-size');
+      const statusEl = document.getElementById('download-status');
+      const footerEl = document.getElementById('update-modal-footer');
+
+      if (data.error) {
+        clearInterval(downloadPollInterval);
+        downloadPollInterval = null;
+        if (statusEl) {
+          statusEl.textContent = 'Download failed: ' + data.error;
+          statusEl.className = 'update-status-text error';
+        }
+        if (footerEl) {
+          footerEl.innerHTML = '<button class="btn btn-primary" onclick="closeUpdateModal()">Close</button>';
+        }
+        return;
+      }
+
+      if (data.downloaded && data.size) {
+        const pct = Math.round((data.downloaded / data.size) * 100);
+        const downloadedMB = (data.downloaded / (1024 * 1024)).toFixed(1);
+        const totalMB = (data.size / (1024 * 1024)).toFixed(1);
+
+        if (fillEl) fillEl.style.width = pct + '%';
+        if (pctEl) pctEl.textContent = pct + '%';
+        if (sizeEl) sizeEl.textContent = downloadedMB + ' MB of ' + totalMB + ' MB';
+      } else if (data.downloading) {
+        if (statusEl) statusEl.textContent = 'Connecting...';
+      }
+
+      if (data.done && data.path) {
+        clearInterval(downloadPollInterval);
+        downloadPollInterval = null;
+
+        const path = data.path;
+        if (fillEl) fillEl.style.width = '100%';
+        if (pctEl) pctEl.textContent = '100%';
+        if (sizeEl) sizeEl.textContent = (data.size / (1024 * 1024)).toFixed(1) + ' MB';
+
+        if (statusEl) {
+          statusEl.textContent = 'Download complete!';
+          statusEl.className = 'update-status-text success';
+        }
+
+        if (footerEl) {
+          footerEl.innerHTML =
+            '<button class="btn btn-secondary" onclick="closeUpdateModal()">Later</button>' +
+            '<button class="btn btn-primary" id="btn-open-dmg">Open DMG</button>';
+          const openBtn = document.getElementById('btn-open-dmg');
+          if (openBtn) {
+            openBtn.addEventListener('click', () => openDmg(path));
+          }
+        }
+      }
+
+      if (data.done && data.error) {
+        clearInterval(downloadPollInterval);
+        downloadPollInterval = null;
+      }
+    } catch (e) {
+      // Poll error — just retry next interval
+    }
+  }, 500);
+}
+
+async function openDmg(path) {
+  try {
+    const data = await apiFetch('/api/version/open-dmg', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: path })
+    });
+
+    if (data && data.opened) {
+      showToast('DMG opened — drag IDJLM Pro to Applications folder', 'success');
+      closeUpdateModal();
+    } else {
+      showToast('Failed to open DMG: ' + (data.error || 'unknown error'), 'error');
+    }
+  } catch (e) {
+    showToast('Failed to open DMG: ' + e.message, 'error');
+  }
+}
+
+async function runGitPull() {
+  const outputEl = document.getElementById('git-pull-output');
+  const btnEl = document.getElementById('btn-git-pull');
+
+  if (!outputEl || !btnEl) return;
+
+  btnEl.disabled = true;
+  btnEl.textContent = 'Running...';
+  outputEl.style.display = 'block';
+  outputEl.innerHTML = '<p style="color:var(--text-secondary);font-size:12px;">Running git pull...</p>';
+
+  try {
+    const data = await apiFetch('/api/version/git-pull');
+
+    if (data && data.success) {
+      outputEl.innerHTML = '<div class="update-git-output">' + escapeHtml(data.output || 'Already up to date.') + '</div>';
+    } else {
+      outputEl.innerHTML = '<div class="update-git-output" style="color:var(--red);">' + escapeHtml(data.error || data.output || 'git pull failed') + '</div>';
+    }
+  } catch (e) {
+    outputEl.innerHTML = '<div class="update-git-output" style="color:var(--red);">' + escapeHtml(e.message) + '</div>';
+  }
+
+  btnEl.disabled = false;
+  btnEl.textContent = 'Run git pull';
+}
+
+function closeUpdateModal() {
+  const modal = document.getElementById('update-modal');
+  if (modal) modal.style.display = 'none';
+  if (downloadPollInterval) {
+    clearInterval(downloadPollInterval);
+    downloadPollInterval = null;
+  }
+}
+
+function setUpdateBadge() {
+  const navBtn = document.getElementById('nav-btn-settings');
+  if (navBtn) navBtn.classList.add('update-available-badge');
+}
+
+function clearUpdateBadge() {
+  const navBtn = document.getElementById('nav-btn-settings');
+  if (navBtn) navBtn.classList.remove('update-available-badge');
+}
+
+function initUpdateChecker() {
+  // Header version badge click
+  const headerBadge = document.getElementById('header-version-badge');
+  if (headerBadge) {
+    headerBadge.addEventListener('click', checkForUpdates);
+  }
+
+  // Check for Updates button in Settings
+  const checkBtn = document.getElementById('btn-check-updates');
+  if (checkBtn) {
+    checkBtn.addEventListener('click', checkForUpdates);
+  }
+
+  // Update modal close
+  const closeBtn = document.getElementById('update-modal-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeUpdateModal);
+  }
+
+  // Close on background click
+  const modal = document.getElementById('update-modal');
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeUpdateModal();
+    });
+  }
 }

@@ -1,13 +1,21 @@
 import os
+import ssl
 import logging
 import json
 import urllib.request
 import urllib.error
+import certifi
 from flask import Blueprint, request, jsonify
 
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("settings", __name__, url_prefix="/api")
+
+
+def _ssl_context():
+    """Create SSL context using certifi CA bundle (fixes macOS Python cert errors)."""
+    ctx = ssl.create_default_context(cafile=certifi.where())
+    return ctx
 
 
 def get_env_path():
@@ -196,7 +204,7 @@ def _list_claude_models(api_key):
     req.add_header("X-Api-Key", api_key)
     req.add_header("Content-Type", "application/json")
 
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=15, context=_ssl_context()) as resp:
         result = json.loads(resp.read().decode())
 
     models = []
@@ -223,7 +231,7 @@ def _list_openrouter_models(api_key):
         headers["Authorization"] = f"Bearer {api_key}"
     req = urllib.request.Request(url, headers=headers)
 
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=15, context=_ssl_context()) as resp:
         result = json.loads(resp.read().decode())
 
     models = []
@@ -260,7 +268,7 @@ def _list_gemini_models(api_key):
     url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
     req = urllib.request.Request(url)
 
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=15, context=_ssl_context()) as resp:
         result = json.loads(resp.read().decode())
 
     models = []
@@ -288,7 +296,7 @@ def _list_ollama_models():
     url = "http://localhost:11434/api/tags"
     req = urllib.request.Request(url)
 
-    with urllib.request.urlopen(req, timeout=5) as resp:
+    with urllib.request.urlopen(req, timeout=5, context=_ssl_context()) as resp:
         result = json.loads(resp.read().decode())
 
     models = []

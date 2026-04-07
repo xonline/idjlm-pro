@@ -12,7 +12,7 @@
     <nav class="sidebar">
       <div class="logo">
         <div class="logo-icon"><img src="/static/icon_256.png" alt="IDJLM Pro" style="width:32px;height:32px;border-radius:6px;vertical-align:middle;"></div>
-        <div class="logo-text">IDJLM Pro{% if version %}<span style="font-size:0.6em;opacity:0.45;margin-left:5px;font-weight:400;vertical-align:middle;">v{{ version }}</span>{% endif %}</div>
+        <div class="logo-text">IDJLM Pro{% if version %}<span id="header-version-badge" class="version-badge" title="Check for updates">v{{ version }}</span>{% endif %}</div>
       </div>
       <div class="nav-menu">
         <button class="nav-btn active" data-tab="library">
@@ -24,7 +24,7 @@
         <button class="nav-btn" data-tab="setplan">
           <span class="nav-icon">🎛️</span> Set Planner
         </button>
-        <button class="nav-btn" data-tab="settings">
+        <button class="nav-btn" data-tab="settings" id="nav-btn-settings">
           <span class="nav-icon">⚙️</span> Settings
         </button>
       </div>
@@ -172,6 +172,48 @@
               <svg id="camelot-wheel-svg" width="300" height="300" style="max-width:100%;"></svg>
             </div>
             <div id="camelot-wheel-stats"></div>
+          </div>
+
+          <!-- Age Analysis -->
+          <div id="age-analysis-section" style="margin-top: 20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <h4 style="margin:0;">Collection Age Analysis</h4>
+              <button class="btn btn-secondary btn-sm" id="btn-refresh-age" style="font-size:12px;padding:4px 10px;">Refresh</button>
+            </div>
+
+            <!-- Age Summary Card -->
+            <div class="collection-summary-card" id="age-summary-card">
+              <div class="summary-grid" id="age-summary-grid">
+                <div class="summary-item"><span class="summary-label">Median Year</span><span class="summary-value" id="age-median-year">--</span></div>
+                <div class="summary-item"><span class="summary-label">Oldest Track</span><span class="summary-value" id="age-oldest-track" style="font-size:12px;">--</span></div>
+                <div class="summary-item"><span class="summary-label">Newest Track</span><span class="summary-value" id="age-newest-track" style="font-size:12px;">--</span></div>
+                <div class="summary-item"><span class="summary-label">Top Decade</span><span class="summary-value" id="age-top-decade" style="font-size:12px;">--</span></div>
+              </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="stats-charts-row">
+              <div class="chart-container">
+                <h4>Decade Distribution</h4>
+                <canvas id="chart-decade-dist" height="200"></canvas>
+              </div>
+              <div class="chart-container">
+                <h4>Genre-Era Breakdown</h4>
+                <canvas id="chart-genre-era" height="200"></canvas>
+              </div>
+            </div>
+
+            <!-- Era Labels -->
+            <div class="chart-container" style="margin-bottom:16px;">
+              <h4>Era Breakdown</h4>
+              <div id="era-labels-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-top:8px;"></div>
+            </div>
+
+            <!-- Genre-Decade Table -->
+            <div class="chart-container">
+              <h4>Genre by Decade</h4>
+              <div id="genre-decade-table-wrap" style="overflow-x:auto;margin-top:8px;"></div>
+            </div>
           </div>
         </div>
 
@@ -355,6 +397,9 @@
             <h1>Settings</h1>
             <p>Configure API keys, AI models, and enrichment services</p>
           </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-secondary btn-sm" id="btn-check-updates" title="Check for updates">Check for Updates</button>
+          </div>
         </div>
 
         <div class="settings-form">
@@ -492,7 +537,18 @@
         <div class="settings-section" id="settings-taxonomy-section">
           <h2 class="settings-section-title">Taxonomy</h2>
           <p class="settings-section-desc">Define genres and comments used by the AI classifier.</p>
-          <button class="btn btn-secondary" id="btn-add-genre">+ Add Genre</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+            <button class="btn btn-secondary btn-sm" id="btn-add-genre">+ Add Genre</button>
+            <button class="btn btn-secondary btn-sm" id="btn-export-taxonomy" title="Download current taxonomy as JSON">Export Taxonomy</button>
+            <button class="btn btn-secondary btn-sm" id="btn-import-taxonomy" title="Import taxonomy from JSON file">Import Taxonomy</button>
+            <input type="file" id="taxonomy-file-input" accept=".json" style="display:none;" />
+            <select id="taxonomy-template-select" class="input-select" style="width:auto;min-width:180px;height:32px;font-size:13px;" title="Apply a built-in taxonomy template">
+              <option value="">Apply Template...</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" id="btn-apply-template" disabled>Apply</button>
+          </div>
+          <!-- Template preview -->
+          <div id="template-preview" class="taxonomy-template-preview" style="display:none;margin-bottom:16px;"></div>
           <div id="taxonomy-list" class="taxonomy-list"></div>
           <button class="btn btn-secondary" id="btn-save-taxonomy" style="display:none;">Save Taxonomy</button>
         </div>
@@ -893,6 +949,22 @@
       <div class="modal-body" id="change-detail-body"></div>
       <div class="modal-footer">
         <button id="change-detail-done" class="btn btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Update Checker Modal -->
+  <div id="update-modal" class="modal" style="display: none;">
+    <div class="update-modal-content">
+      <div class="update-modal-header">
+        <h2 id="update-modal-title">Check for Updates</h2>
+        <button class="update-modal-close" id="update-modal-close">&times;</button>
+      </div>
+      <div class="update-modal-body" id="update-modal-body">
+        <!-- Populated dynamically -->
+      </div>
+      <div class="update-modal-footer" id="update-modal-footer">
+        <!-- Populated dynamically -->
       </div>
     </div>
   </div>

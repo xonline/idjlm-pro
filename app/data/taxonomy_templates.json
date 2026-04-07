@@ -1,0 +1,118 @@
+{
+  "Salsa Complete": {
+    "Salsa": {
+      "description": "Cuban-origin dance music, 4/4 time, typically 160-220 BPM. Clave rhythm is foundational.",
+      "subgenres": {
+        "Clasica": "Classic 1970s-1980s salsa. Raw, percussive, big band sound. Artists: Celia Cruz, Willie Colon, Ruben Blades.",
+        "Romantica": "Slow, melodic, romantic lyrics. 160-180 BPM. Smooth arrangements, love songs. Artists: Marc Anthony, Jerry Rivera, La India.",
+        "Dura": "Hard, aggressive, percussive. 180-220 BPM. Heavy brass, complex rhythms. On2 style. Artists: El Gran Combo, Richie Ray.",
+        "Mambo": "Big band era style, jazz-influenced. 180-210 BPM. Heavy brass sections. Artists: Tito Puente, Tito Rodriguez.",
+        "Jazz/Instrumental": "Instrumental tracks, jazz fusion elements. Complex chord changes. Artists: Eddie Palmieri, Chucho Valdes.",
+        "Son Cubano": "Traditional Cuban roots. Slower, more relaxed feel. Guitar-driven, tres guitar. Artists: Buena Vista Social Club.",
+        "Timba": "Cuban salsa, aggressive, funky. Complex rhythms, conga-heavy, funk bass lines. Artists: Los Van Van, NG La Banda.",
+        "Salsa Choke": "Colombian urban variant. Slower BPM 90-120. Modern urban beats mixed with salsa elements."
+      }
+    }
+  },
+  "Bachata Complete": {
+    "Bachata": {
+      "description": "Dominican music and dance. 4/4 time, typically 120-160 BPM. Guitar-driven with characteristic bass pattern.",
+      "subgenres": {
+        "Dominicana/Tradicional": "Traditional Dominican roots. Acoustic guitar, bongos. Raw, authentic sound. Artists: Luis Vargas, Antony Santos.",
+        "Moderna": "Modern polished production. Smooth vocals, cleaner sound. Mid-range BPM 130-150. Artists: Romeo Santos, Prince Royce.",
+        "Sensual": "Slow, sensual, dramatic. 120-135 BPM. Body wave movements. Deep bass, atmospheric. Artists: Bachata Heightz.",
+        "Remix/Urbana": "Urban/reggaeton crossover. Electronic beats mixed with bachata guitar. 130-160 BPM. Artists: Ozuna, Bad Bunny remixes."
+      }
+    }
+  },
+  "Latin Multi": {
+    "Salsa": {
+      "description": "Cuban-origin dance music, 4/4 time, typically 160-220 BPM. Clave rhythm is foundational.",
+      "subgenres": {
+        "Clasica": "Classic 1970s-1980s salsa. Raw, percussive, big band sound.",
+        "Romantica": "Slow, melodic, romantic lyrics. 160-180 BPM.",
+        "Dura": "Hard, aggressive, percussive. 180-220 BPM.",
+        "Mambo": "Big band era style, jazz-influenced. 180-210 BPM.",
+        "Timba": "Cuban salsa, aggressive, funky. Complex rhythms.",
+        "Son Cubano": "Traditional Cuban roots. Slower, more relaxed feel."
+      }
+    },
+    "Bachata": {
+      "description": "Dominican music and dance. 4/4 time, typically 120-160 BPM.",
+      "subgenres": {
+        "Dominicana/Tradicional": "Traditional Dominican roots.",
+        "Moderna": "Modern polished production. Mid-range BPM 130-150.",
+        "Sensual": "Slow, sensual, dramatic. 120-135 BPM.",
+        "Remix/Urbana": "Urban/reggaeton crossover."
+      }
+    },
+    "Kizomba": {
+      "description": "Angolan music genre. Slow, sensual, 4/4 time. Typically 55-90 BPM.",
+      "subgenres": {
+        "Classica": "Traditional kizomba. Slow, sensual, deep bass. 55-80 BPM.",
+        "Semba": "Older Angolan predecessor. More upbeat, playful. 85-100 BPM.",
+        "Ghetto Zouk": "Cape Verdean variant. Melodic, urban. 65-85 BPM.",
+        "Tarraxinha": "Ultra-slow, micro-movement style. 40-60 BPM.",
+        "Urban Kiz": "Modern fusion, electronic/R&B influence. 70-90 BPM."
+      }
+    },
+    "Merengue": {
+      "description": "Dominican dance music. Very fast 2/4 time. 130-200 BPM.",
+      "subgenres": {
+        "Clasico": "Traditional merengue. Accordion-led.",
+        "Urbano": "Modern urban merengue with electronic influences."
+      }
+    },
+    "Cha Cha": {
+      "description": "Cuban dance music, offshoot of mambo. 4/4 time, 110-130 BPM.",
+      "subgenres": {
+        "Clasico": "Traditional cha cha. Big band, classic arrangements.",
+        "Moderno": "Modern production, updated sound."
+      }
+    },
+    "Reggaeton": {
+      "description": "Puerto Rican urban genre. Dembow rhythm pattern. 80-100 BPM.",
+      "subgenres": {
+        "Clasico": "Classic reggaeton sound. Artists: Daddy Yankee, Don Omar.",
+        "Moderno": "Modern trap-influenced reggaeton.",
+        "Latin Trap": "Trap beats with Spanish lyrics."
+      }
+    },
+    "Zouk": {
+      "description": "Caribbean music from Guadeloupe/Martinique. Slow, romantic. 70-90 BPM.",
+      "subgenres": {
+        "Brazilian Zouk": "Brazilian adaptation, very fluid and sensual dance style.",
+        "Lambazouk": "Fusion of lambada and zouk."
+      }
+    }
+  },
+  "Social DJ Essentials": {
+    "Salsa": {
+      "description": "Cuban-origin dance music, 4/4 time, typically 160-220 BPM.",
+      "subgenres": {
+        "Romantica": "Slow, melodic, romantic lyrics. 160-180 BPM.",
+        "Dura": "Hard, aggressive, percussive. 180-220 BPM.",
+        "Timba": "Cuban salsa, aggressive, funky."
+      }
+    },
+    "Bachata": {
+      "description": "Dominican music and dance. 4/4 time, typically 120-160 BPM.",
+      "subgenres": {
+        "Moderna": "Modern polished production. Mid-range BPM 130-150.",
+        "Sensual": "Slow, sensual, dramatic. 120-135 BPM."
+      }
+    },
+    "Merengue": {
+      "description": "Dominican dance music. Very fast 2/4 time. 130-200 BPM.",
+      "subgenres": {
+        "Clasico": "Traditional merengue. Accordion-led."
+      }
+    },
+    "Cha Cha": {
+      "description": "Cuban dance music, offshoot of mambo. 4/4 time, 110-130 BPM.",
+      "subgenres": {
+        "Clasico": "Traditional cha cha. Big band, classic arrangements."
+      }
+    }
+  }
+}

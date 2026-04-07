@@ -3404,3 +3404,440 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
 .camelot-key-badge:hover {
   transform: scale(1.05);
 }
+
+/* ============================================================================
+   Age Analysis Section
+   ============================================================================ */
+
+#age-analysis-section h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+#age-summary-card {
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.era-label-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.era-label-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.era-label-count {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 14px;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Genre-Decade Table */
+.genre-decade-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.genre-decade-table th,
+.genre-decade-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.genre-decade-table th {
+  background-color: var(--bg-subtle);
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.genre-decade-table td {
+  color: var(--text-secondary);
+}
+
+.genre-decade-table .genre-col {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.genre-decade-table .count-cell {
+  text-align: right;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.genre-decade-table .total-col {
+  font-weight: 700;
+  color: var(--text-loud);
+  text-align: right;
+}
+
+/* ============================================================================
+   Taxonomy Template UI
+   ============================================================================ */
+
+.taxonomy-template-preview {
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  animation: fadeIn 0.2s ease;
+}
+
+.taxonomy-template-preview h5 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  margin: 0 0 8px 0;
+}
+
+.taxonomy-template-preview p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0 0 10px 0;
+}
+
+.template-preview-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.template-genre-tag {
+  padding: 3px 8px;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.template-preview-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ============================================================================
+   Version Badge & Update Checker
+   ============================================================================ */
+
+/* Version pill in header/logo area */
+.version-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.version-badge:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background-color: var(--accent-dim);
+}
+
+/* Red notification dot on Settings nav button */
+.update-available-badge {
+  position: relative;
+}
+
+.update-available-badge::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  background-color: var(--red);
+  border-radius: 50%;
+  border: 1.5px solid var(--bg-panel);
+  animation: pulseBadge 2s ease-in-out infinite;
+}
+
+@keyframes pulseBadge {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.2); }
+}
+
+/* Update modal */
+.update-modal-content {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  max-width: 520px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  animation: modalIn 0.2s ease;
+}
+
+.update-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.update-modal-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.update-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 24px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  line-height: 1;
+}
+
+.update-modal-close:hover {
+  color: var(--text-primary);
+}
+
+.update-modal-body {
+  padding: 20px;
+}
+
+.update-version-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.update-version-current,
+.update-version-latest {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.update-version-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.update-version-number {
+  font-size: 20px;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+}
+
+.update-version-current .update-version-number {
+  color: var(--text-secondary);
+}
+
+.update-version-latest .update-version-number {
+  color: var(--green);
+}
+
+.update-version-arrow {
+  font-size: 24px;
+  color: var(--text-secondary);
+}
+
+.release-notes {
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin: 16px 0;
+  max-height: 260px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.release-notes h1,
+.release-notes h2,
+.release-notes h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-loud);
+  margin: 12px 0 6px;
+}
+
+.release-notes h1:first-child,
+.release-notes h2:first-child,
+.release-notes h3:first-child {
+  margin-top: 0;
+}
+
+.release-notes ul,
+.release-notes ol {
+  padding-left: 20px;
+  margin: 6px 0;
+}
+
+.release-notes li {
+  margin-bottom: 4px;
+}
+
+.release-notes code {
+  background-color: var(--bg-deeper);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  color: var(--accent);
+}
+
+.release-notes pre {
+  background-color: var(--bg-deeper);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  font-size: 12px;
+  margin: 8px 0;
+}
+
+.release-notes p {
+  margin: 6px 0;
+}
+
+.release-notes a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.release-notes a:hover {
+  text-decoration: underline;
+}
+
+.release-notes strong {
+  color: var(--text-loud);
+}
+
+/* Download progress bar */
+.download-progress {
+  margin: 16px 0;
+}
+
+.download-progress-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.download-progress-track {
+  width: 100%;
+  height: 6px;
+  background-color: var(--bg-subtle);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.download-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+  border-radius: var(--radius-pill);
+  transition: width 0.3s ease;
+}
+
+.download-progress-size {
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+}
+
+.update-modal-footer {
+  display: flex;
+  gap: 8px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  justify-content: flex-end;
+}
+
+.update-status-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+  text-align: center;
+}
+
+.update-status-text.success {
+  color: var(--green);
+}
+
+.update-status-text.error {
+  color: var(--red);
+}
+
+.update-published-at {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.update-git-pull-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.update-git-pull-section h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.update-git-output {
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  color: var(--text-secondary);
+  max-height: 120px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  margin-top: 8px;
+}
