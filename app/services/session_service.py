@@ -77,10 +77,14 @@ def load_session() -> Tuple[Optional[dict], Optional[dict]]:
         track_store = {}
         tracks_data = session_data.get("tracks", {})
 
+        # Get the actual dataclass field names to filter out computed properties
+        _dataclass_fields = set(Track.__dataclass_fields__.keys())
+
         for file_path, track_dict in tracks_data.items():
             try:
-                # Reconstruct Track from dict
-                track = Track(**track_dict)
+                # Filter out non-dataclass keys (display_title, final_genre, etc.)
+                clean_dict = {k: v for k, v in track_dict.items() if k in _dataclass_fields}
+                track = Track(**clean_dict)
                 track_store[file_path] = track
             except Exception as e:
                 # Log issue but continue loading other tracks

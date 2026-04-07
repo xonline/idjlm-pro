@@ -2565,7 +2565,6 @@ body.light .taxonomy-subgenres {
 .sync-button-container:hover .sync-button-tooltip {
   opacity: 1;
 }
-}
 
 /* Waveform thumbnail */
 .wave-col {
@@ -3087,4 +3086,120 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
   display: block;
   width: 100%;
   text-align: center;
+}
+
+/* ── Missing utility classes ─────────────────────────────────────────────── */
+
+/* Data table — used in setplan results, filename parse results, validate keys */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.data-table th {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.data-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  color: var(--text-primary);
+}
+.data-table tr:hover td {
+  background: var(--bg-subtle);
+}
+
+/* Accent button variant — used for bulk analyze */
+.btn-accent {
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-weight: 600;
+}
+.btn-accent:hover {
+  opacity: 0.9;
+}
+
+/* Small button — alias for btn-small used in some places as btn-sm */
+.btn-sm {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  line-height: 1.4;
+}
+
+/* Nav badge counter — used on duplicates button */
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--danger);
+  border-radius: 9px;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+/* ── Setlist / Suggestion class name alignment ───────────────────────────── */
+
+.setlist-track-number {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  min-width: 24px;
+}
+.setlist-track-duration {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+.suggestion-title {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+.suggestion-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ── Track detail panel sub-classes ─────────────────────────────────────── */
+
+.track-detail-title-header {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-loud);
+  margin-bottom: 4px;
+}
+.track-detail-artist {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+.track-detail-album {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.track-detail-classification {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.classification-item {
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
 }

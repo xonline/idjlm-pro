@@ -71,12 +71,11 @@ def _detect_key_from_chroma(chroma: np.ndarray) -> str:
     return camelot_key
 
 
-def _normalize_energy(rms: np.ndarray, sr: int, hop_length: int) -> int:
+def _normalize_energy(rms: np.ndarray) -> int:
     """
     Normalize RMS energy to 1-10 scale.
     rms shape: (1, time_frames)
     """
-    # Flatten and compute mean RMS
     rms_mean = np.mean(rms)
 
     # Normalize to 0-1 range (empirical: typical audio RMS ranges 0.01-0.5)
@@ -152,7 +151,11 @@ def analyze_track(track: Track) -> Track:
         # BPM detection
         onset_env = librosa.onset.onset_strength(y=y, sr=sr)
         bpm, _ = librosa.beat.beat_track(y=y, sr=sr, onset_envelope=onset_env)
-        track.analyzed_bpm = float(bpm)
+        # librosa returns ndarray; handle empty, single, and multi-element arrays
+        bpm_arr = np.asarray(bpm)
+        if bpm_arr.size == 0:
+            raise ValueError("No BPM detected — audio may be silent or corrupt")
+        track.analyzed_bpm = float(bpm_arr.item() if bpm_arr.ndim > 0 else bpm_arr)
 
         # BPM half/double correction for Latin dance tempos
         if track.analyzed_bpm > 160:
@@ -191,9 +194,9 @@ def analyze_track(track: Track) -> Track:
         track.analyzed_key = _detect_key_from_chroma(chroma)
 
         # Energy score
-        S = librosa.feature.melspectrogram(y=y, sr=sr)
-        rms = librosa.feature.rms(S=S)
-        track.analyzed_energy = _normalize_energy(rms, sr, hop_length=512)
+        # Compute RMS directly from waveform (compatible with all librosa versions)
+        rms = librosa.feature.rms(y=y)
+        track.analyzed_energy = _normalize_energy(rms)
 
         # Vocal detection
         vocal_flag, vocal_confidence = detect_vocal_flag(y, sr)

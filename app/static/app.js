@@ -762,12 +762,7 @@ function initTracksTab() {
 
   filterGenre.addEventListener('change', renderTracks);
   filterStatus.addEventListener('change', renderTracks);
-  searchInput.addEventListener('input', (e) => {
-    clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(() => {
-      renderTracks();
-    }, 300);
-  });
+  // Search input — handled by initSearchFeature() to avoid duplicate listeners
 
   // Sortable headers
   document.querySelectorAll('.tracks-table th.sortable').forEach(header => {
@@ -793,6 +788,7 @@ function initTracksTab() {
 
 function populateGenreFilters() {
   const select = document.getElementById('filter-genre');
+  select.innerHTML = '<option value="">All Genres</option>';
   Object.keys(window.taxonomy).forEach(genre => {
     const option = document.createElement('option');
     option.value = genre;
@@ -885,7 +881,7 @@ function drawWaveformThumb(canvas, data) {
 
 function getConfidenceBadgeClass(confidence) {
   if (confidence >= 80) return 'confidence-high';
-  if (confidence >= 60) return 'confidence-medium';
+  if (confidence >= 60) return 'confidence-mid';
   return 'confidence-low';
 }
 
@@ -2119,7 +2115,11 @@ function openEditModal(filePath) {
 
   // Populate subgenre options based on selected genre
   updateSubgenreOptions();
-  genreSelect.addEventListener('change', updateSubgenreOptions);
+  // Replace the select element to remove any previously attached listeners (prevent leak)
+  const oldGenreSelect = document.getElementById('modal-genre');
+  const newGenreSelect = oldGenreSelect.cloneNode(true);
+  oldGenreSelect.parentNode.replaceChild(newGenreSelect, oldGenreSelect);
+  newGenreSelect.addEventListener('change', updateSubgenreOptions);
 
   // Populate analysis results
   document.getElementById('modal-analyzed-bpm').textContent = track.analyzed_bpm
@@ -2290,8 +2290,12 @@ async function loadSettings() {
     if (ollamaModelInput && response.ollama_model) ollamaModelInput.value = response.ollama_model;
     const batchSizeInput = document.getElementById('settings-batch-size');
     if (batchSizeInput && response.classify_batch_size) batchSizeInput.value = response.classify_batch_size;
-    const autoApproveInput = document.getElementById('settings-auto-approve-threshold');
-    if (autoApproveInput && response.auto_approve_threshold !== undefined) autoApproveInput.value = response.auto_approve_threshold;
+    const autoApproveInput = document.getElementById('settings-auto-approve');
+    if (autoApproveInput && response.auto_approve_threshold !== undefined) {
+      autoApproveInput.value = response.auto_approve_threshold;
+      const valDisplay = document.getElementById('settings-auto-approve-value');
+      if (valDisplay) valDisplay.textContent = response.auto_approve_threshold + '%';
+    }
 
   } catch (error) {
     // Error already shown in apiFetch
@@ -3225,14 +3229,14 @@ async function saveSettingsRound2() {
     const anthropicKey = document.getElementById('settings-anthropic-key')?.value.trim() || '';
     const ollamaModel = document.getElementById('settings-ollama-model')?.value.trim() || '';
     const batchSize = parseInt(document.getElementById('settings-batch-size')?.value) || 5;
-    const autoApproveThreshold = parseInt(document.getElementById('settings-auto-approve-threshold')?.value) || 80;
+    const autoApproveThreshold = parseInt(document.getElementById('settings-auto-approve')?.value) || 80;
     const geminiKey = document.getElementById('settings-gemini-key')?.value.trim() || '';
     const spotifyId = document.getElementById('settings-spotify-id')?.value.trim() || '';
     const spotifySecret = document.getElementById('settings-spotify-secret')?.value.trim() || '';
 
     const payload = {
       ai_model: aiModel,
-      batch_size: batchSize,
+      classify_batch_size: batchSize,
       auto_approve_threshold: autoApproveThreshold,
     };
 
@@ -3388,7 +3392,7 @@ async function handleBulkEdit() {
   }
 
   const payload = {
-    file_paths: Array.from(window.selectedTracks),
+    track_paths: Array.from(window.selectedTracks),
   };
 
   if (genreInput) payload.genre = genreInput;
@@ -4184,8 +4188,10 @@ async function previewOrganise() {
 }
 
 async function runOrganise() {
+  const previewData = document.getElementById('btn-organise-run')._previewData;
+  if (!previewData) { showToast('Run a preview first', 'warning'); return; }
   if (!confirm(`This will physically move files. Continue?`)) return;
-  const {dest, pattern} = document.getElementById('btn-organise-run')._previewData;
+  const {dest, pattern} = previewData;
   const btn = document.getElementById('btn-organise-run');
   btn.disabled = true; btn.textContent = 'Moving...';
   const res = await apiFetch('/api/organise/folders', {

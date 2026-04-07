@@ -4,6 +4,39 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.5.7] — 2026-04-07
+
+### Critical Bug Fixes
+- **Session resume broken — `load_session()` always failed** — `Track.to_dict()` serialised 8 computed properties (`display_title`, `final_genre`, `final_bpm`, etc.) that are not dataclass fields. `Track(**track_dict)` in `load_session()` raised `TypeError` for every track, causing a silent total data loss on resume. Now filters `track_dict` to only dataclass fields before reconstruction.
+- **Classification 10× slower than necessary** — `/api/classify` looped through tracks calling `classify_service([track])` individually, defeating the built-in batch optimisation. Now collects all tracks and passes them at once; the service batches them per `CLASSIFY_BATCH_SIZE` (default 10). 1 API call per 10 tracks instead of 1 per track.
+
+### Frontend Bug Fixes
+- **Bulk edit saved 0 tracks** — `handleBulkEdit()` sent `file_paths` but backend expected `track_paths`. Fixed to send `track_paths`.
+- **Double search listener** — `initTracksTab()` and `initSearchFeature()` both attached `input` listeners to `#search-tracks`, causing double-filtering and stale `_searchMatch` state. Removed the duplicate from `initTracksTab()`.
+- **Confidence badges unstyled** — JS returned `confidence-medium` but CSS defined `.confidence-mid`. Renamed JS to use `confidence-mid`.
+- **Settings threshold not loading** — `loadSettings()` read from `#settings-auto-approve-threshold` (non-existent); HTML has `#settings-auto-approve` (range slider). Fixed both `loadSettings()` and `saveSettingsRound2()` to use the correct ID. Also updates the displayed value text on load.
+- **Settings saved wrong key name** — `saveSettingsRound2()` sent `batch_size` but backend expects `classify_batch_size`. Fixed.
+- **Genre filter duplicated options** — `populateGenreFilters()` appended options without clearing, causing duplicates on every taxonomy reload. Now resets to `<option value="">All Genres</option>` first.
+- **Organise tab crash on first run** — `runOrganise()` accessed `_previewData` property without checking if preview was run first. Now shows a warning toast if no preview data exists.
+- **Genre select listener leak** — `openEditModal()` added a new `change` listener to the genre select on every open, accumulating handlers. Now clones and replaces the element to clear stale listeners.
+
+### CSS Fixes
+- **Stray closing brace** removed after `.sync-button-tooltip` rule
+- **Added missing classes**: `.data-table`, `.btn-accent`, `.btn-sm`, `.nav-badge`
+- **Added missing setlist/suggestion classes**: `.setlist-track-number`, `.setlist-track-duration`, `.suggestion-title`, `.suggestion-meta`
+- **Added missing track detail classes**: `.track-detail-title-header`, `.track-detail-artist`, `.track-detail-album`, `.track-detail-classification`, `.classification-item`
+
+### Backend Fixes
+- **Analyzer crash on silent/corrupt audio** — `librosa.beat.beat_track` can return an empty array; `.item()` raised `IndexError`. Now checks array size and raises a descriptive error.
+- **Album art content-type not validated** — Spotify URL could return HTML (redirect/error) and write it as image data to ID3. Now validates `Content-Type` starts with `image/` and derives correct MIME type.
+- **`_normalize_energy` unused parameters** removed (`sr`, `hop_length`).
+
+### Testing
+- **New test suite** (`tests/test_bugfixes.py`) — 11 new tests covering session round-trip, bulk edit payload, settings fields, taxonomy CRUD, analyzer edge cases, static file validation, and review response shapes.
+- **All 70 tests pass** (69 passed, 1 skipped).
+
+---
+
 ## [2.5.6] — 2026-04-06
 
 ### Bug Fixes

@@ -67,10 +67,22 @@ def write_tags(track: Track) -> Track:
             try:
                 response = requests.get(track.album_art_url, timeout=10)
                 if response.status_code == 200:
+                    content_type = response.headers.get("Content-Type", "")
+                    if not content_type.startswith("image/"):
+                        print(f"Warning: Album art URL returned non-image content type: {content_type}")
+                        return
+                    # Determine MIME type from content type
+                    mime = "image/jpeg"
+                    if "png" in content_type:
+                        mime = "image/png"
+                    elif "gif" in content_type:
+                        mime = "image/gif"
+                    elif "webp" in content_type:
+                        mime = "image/webp"
                     image_data = response.content
                     apic = APIC(
                         encoding=3,
-                        mime='image/jpeg',
+                        mime=mime,
                         type=3,  # Cover (front)
                         desc='Cover',
                         data=image_data

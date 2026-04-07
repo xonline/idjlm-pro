@@ -177,31 +177,41 @@ def classify_tracks():
 
         def run():
             total = len(track_paths)
-            classified = 0
             errors = []
+
+            # Filter to tracks that actually exist in the store
+            tracks_to_classify = []
+            valid_paths = []
+            for file_path in track_paths:
+                if file_path in track_store:
+                    tracks_to_classify.append(track_store[file_path])
+                    valid_paths.append(file_path)
+
+            # Classify all tracks at once (service handles batching internally)
+            try:
+                classify_service(tracks_to_classify, get_taxonomy(), force=force)
+            except Exception as e:
+                errors.append({'error': str(e)})
+
+            # Enrich all tracks
+            try:
+                enrich_service(tracks_to_classify)
+            except Exception as e:
+                errors.append({'error': str(e)})
+
+            classified = sum(1 for t in tracks_to_classify if t.classification_done)
+
+            # Report progress for each track
             for i, file_path in enumerate(track_paths):
-                if file_path not in track_store:
-                    continue
-                try:
+                if file_path in track_store:
                     track = track_store[file_path]
-                    # Classify (pass force parameter)
-                    classify_service([track], get_taxonomy(), force=force)
-                    # Enrich
-                    enrich_service([track])
-                    classified += 1
                     q.put({
                         'current': i + 1,
                         'total': total,
                         'track': track.display_title,
                         'classified': classified
                     })
-                except Exception as e:
-                    errors.append({'path': file_path, 'error': str(e)})
-                    q.put({
-                        'current': i + 1,
-                        'total': total,
-                        'error': str(e)
-                    })
+
             q.put({'done': True, 'classified': classified, 'errors': errors})
             try:
                 from app.services.session_service import save_session
