@@ -4,6 +4,15 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.5.9] — 2026-04-07
+
+### Bug Fixes
+- **Analysis results not showing in table** — SSE `onComplete` callbacks now refetch `GET /api/tracks` after every pipeline operation (analyze, classify, write tags).
+- **JS runtime errors breaking page** — `getFilteredTracks()` now guards against missing DOM elements. `renderStatsDashboard()` only calls Chart.js methods if `typeof Chart !== 'undefined'`.
+- **Stats dashboard crashing on empty library** — `renderStatsDashboard()` now exits early if `window.tracks` is empty.
+
+---
+
 ## [2.5.8] — 2026-04-07
 
 ### Critical Fixes
