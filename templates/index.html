@@ -24,6 +24,9 @@
         <button class="nav-btn" data-tab="setplan">
           <span class="nav-icon">🎛️</span> Set Planner
         </button>
+        <button class="nav-btn" data-tab="playlists">
+          <span class="nav-icon">🎵</span> Playlists
+        </button>
         <button class="nav-btn" data-tab="settings" id="nav-btn-settings">
           <span class="nav-icon">⚙️</span> Settings
         </button>
@@ -121,6 +124,7 @@
                 <th data-sort="clave_pattern">Clave</th>
                 <th data-sort="vocal_flag">Vocal</th>
                 <th data-sort="tempo_category">Tempo</th>
+                <th data-sort="analyzed_lufs">LUFS</th>
                 <th data-sort="final_year">Year</th>
                 <th data-sort="review_status">Status</th>
                 <th class="approve-col">Approve</th>
@@ -129,7 +133,7 @@
             </thead>
             <tbody id="tracks-tbody">
               <tr class="empty-state">
-                <td colspan="15">
+                <td colspan="16">
                   <div class="empty-state-content">
                     <div class="empty-icon">📁</div>
                     <div class="empty-msg">Pick a folder to get started</div>
@@ -152,6 +156,7 @@
               <div class="summary-item"><span class="summary-label">Analyzed</span><span class="summary-value" id="summary-analyzed-pct">0%</span></div>
               <div class="summary-item"><span class="summary-label">Classified</span><span class="summary-value" id="summary-classified-pct">0%</span></div>
               <div class="summary-item"><span class="summary-label">Approved</span><span class="summary-value" id="summary-approved-pct">0%</span></div>
+              <div class="summary-item"><span class="summary-label">Avg LUFS</span><span class="summary-value" id="summary-avg-lufs">—</span></div>
             </div>
           </div>
           <!-- Charts Row -->
@@ -172,6 +177,9 @@
               <svg id="camelot-wheel-svg" width="300" height="300" style="max-width:100%;"></svg>
             </div>
             <div id="camelot-wheel-stats"></div>
+            <div style="text-align:center;margin-top:12px;">
+              <button class="btn btn-secondary btn-sm" id="btn-show-key-graph">Show Key Graph</button>
+            </div>
           </div>
 
           <!-- Age Analysis -->
@@ -298,6 +306,15 @@
                 <p style="color: var(--text-secondary); font-size: 12px;">Select a track to see compatible suggestions</p>
               </div>
             </div>
+
+            <!-- Energy Timeline Panel -->
+            <div class="setlist-panel" id="energy-timeline-panel" style="display:none;">
+              <div class="setlist-panel-header">Energy Timeline</div>
+              <div id="energy-timeline-summary" style="padding:8px 16px;font-size:13px;color:var(--text-secondary);"></div>
+              <div class="energy-timeline">
+                <canvas id="chart-energy-timeline" height="200"></canvas>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -386,6 +403,170 @@
 
           <div id="duplicates-results" class="duplicates-list">
             <!-- Populated by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Playlists Tab -->
+      <section id="tab-playlists" class="tab">
+        <div class="tab-header">
+          <div class="tab-header-left">
+            <h1>Playlists</h1>
+            <p>Create, filter, and export playlists as M3U files.</p>
+          </div>
+        </div>
+
+        <div class="playlists-layout">
+          <!-- Left panel: Saved playlists -->
+          <div class="playlists-sidebar">
+            <div class="playlists-sidebar-header">
+              <h3>Saved Playlists</h3>
+              <button class="btn btn-primary btn-sm" id="btn-new-playlist">+ New</button>
+            </div>
+            <div id="playlists-list" class="playlists-list">
+              <div class="empty-state" style="padding: 24px 12px; text-align: center; color: var(--text-secondary); font-size: 13px;">
+                No playlists yet. Click "+ New" to create one.
+              </div>
+            </div>
+          </div>
+
+          <!-- Right panel: Filter builder + results -->
+          <div class="playlists-main">
+            <div id="playlist-editor" style="display:none;">
+              <div class="playlist-editor-header">
+                <input type="text" id="playlist-name-input" class="input-text" placeholder="Playlist name..." style="flex:1;max-width:320px;">
+                <button class="btn btn-primary btn-sm" id="btn-save-playlist">Save Playlist</button>
+                <button class="btn btn-secondary btn-sm" id="btn-run-playlist">Run</button>
+                <button class="btn btn-secondary btn-sm" id="btn-export-playlist">Export M3U</button>
+                <button class="btn btn-secondary btn-sm" id="btn-delete-playlist">Delete</button>
+              </div>
+
+              <!-- Filter Builder -->
+              <div class="card" style="margin-top: 16px;">
+                <div class="card-header">
+                  <h3>Filter Builder</h3>
+                </div>
+                <div class="playlist-filters">
+                  <div class="filter-row">
+                    <div class="form-group">
+                      <label>Genre</label>
+                      <select id="pl-filter-genre" class="input-select">
+                        <option value="">All genres</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label>Comments</label>
+                      <select id="pl-filter-subgenre" class="input-select">
+                        <option value="">All comments</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label>Status</label>
+                      <select id="pl-filter-status" class="input-select">
+                        <option value="">All statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="skipped">Skipped</option>
+                        <option value="written">Written</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="filter-row">
+                    <div class="form-group">
+                      <label>Key</label>
+                      <select id="pl-filter-key" class="input-select">
+                        <option value="">All keys</option>
+                        <option value="1A">1A</option><option value="1B">1B</option>
+                        <option value="2A">2A</option><option value="2B">2B</option>
+                        <option value="3A">3A</option><option value="3B">3B</option>
+                        <option value="4A">4A</option><option value="4B">4B</option>
+                        <option value="5A">5A</option><option value="5B">5B</option>
+                        <option value="6A">6A</option><option value="6B">6B</option>
+                        <option value="7A">7A</option><option value="7B">7B</option>
+                        <option value="8A">8A</option><option value="8B">8B</option>
+                        <option value="9A">9A</option><option value="9B">9B</option>
+                        <option value="10A">10A</option><option value="10B">10B</option>
+                        <option value="11A">11A</option><option value="11B">11B</option>
+                        <option value="12A">12A</option><option value="12B">12B</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label>BPM Range</label>
+                      <div style="display:flex;gap:6px;align-items:center;">
+                        <input type="number" id="pl-filter-bpm-min" class="input" placeholder="Min" style="width:70px;">
+                        <span style="color:var(--text-secondary);">–</span>
+                        <input type="number" id="pl-filter-bpm-max" class="input" placeholder="Max" style="width:70px;">
+                      </div>
+                    </div>
+                  </div>
+                  <div class="filter-row">
+                    <div class="form-group">
+                      <label>Energy</label>
+                      <div style="display:flex;gap:6px;align-items:center;">
+                        <input type="number" id="pl-filter-energy-min" class="input" placeholder="Min" style="width:70px;" min="1" max="10">
+                        <span style="color:var(--text-secondary);">–</span>
+                        <input type="number" id="pl-filter-energy-max" class="input" placeholder="Max" style="width:70px;" min="1" max="10">
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label>Year</label>
+                      <div style="display:flex;gap:6px;align-items:center;">
+                        <input type="number" id="pl-filter-year-min" class="input" placeholder="From" style="width:80px;">
+                        <span style="color:var(--text-secondary);">–</span>
+                        <input type="number" id="pl-filter-year-max" class="input" placeholder="To" style="width:80px;">
+                      </div>
+                    </div>
+                  </div>
+                  <div class="filter-actions">
+                    <button class="btn btn-primary btn-sm" id="btn-apply-filters">Apply Filters</button>
+                    <button class="btn btn-secondary btn-sm" id="btn-clear-filters">Clear</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Results -->
+              <div class="playlist-results" style="margin-top: 16px;">
+                <div class="playlist-results-header">
+                  <h3>Results: <span id="pl-results-count">0</span> tracks</h3>
+                  <button class="btn btn-secondary btn-sm" id="btn-add-all-to-playlist">Add All to Playlist</button>
+                </div>
+                <div class="table-wrap" style="max-height: 400px; overflow-y: auto;">
+                  <table class="tracks-table" id="pl-results-table">
+                    <thead>
+                      <tr>
+                        <th class="checkbox-col"><input type="checkbox" id="pl-select-all" /></th>
+                        <th>Title</th>
+                        <th>Artist</th>
+                        <th>Genre</th>
+                        <th>BPM</th>
+                        <th>Key</th>
+                        <th>Energy</th>
+                        <th>Year</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="pl-results-tbody">
+                      <tr class="empty-state">
+                        <td colspan="10">
+                          <div class="empty-state-content">
+                            <div class="empty-icon">🎵</div>
+                            <div class="empty-msg">Apply filters to find tracks</div>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- No playlist selected state -->
+            <div id="playlist-empty-state" class="empty-state" style="padding: 80px 20px; text-align: center;">
+              <div class="empty-icon" style="font-size: 48px; margin-bottom: 16px;">🎵</div>
+              <div class="empty-msg" style="font-size: 16px; margin-bottom: 16px;">Select a playlist or create a new one</div>
+              <button class="btn btn-primary" id="btn-new-playlist-empty">+ New Playlist</button>
+            </div>
           </div>
         </div>
       </section>
@@ -533,6 +714,24 @@
           </div>
         </div>
 
+        <!-- AI Learning Section -->
+        <div class="settings-section" id="settings-learning-section">
+          <div class="settings-section-label">AI Learning</div>
+          <p class="settings-hint">IDJLM learns from your approvals and edits to improve future classifications. Over time the AI adapts to your style.</p>
+          <div id="learning-stats" class="learning-stats">
+            <div class="learning-stat">
+              <span class="learning-stat-value" id="learning-total">0</span>
+              <span class="learning-stat-label">total corrections</span>
+            </div>
+            <div class="learning-stat">
+              <span class="learning-stat-value" id="learning-unique">0</span>
+              <span class="learning-stat-label">unique patterns</span>
+            </div>
+          </div>
+          <div id="learning-top-corrections" class="learning-corrections"></div>
+          <button id="btn-reset-learning" class="btn btn-secondary btn-sm" title="Clear all learning data">Reset Learning</button>
+        </div>
+
         <!-- Taxonomy Section -->
         <div class="settings-section" id="settings-taxonomy-section">
           <h2 class="settings-section-title">Taxonomy</h2>
@@ -599,6 +798,18 @@
           <div class="track-metadata-item">
             <div class="track-metadata-label">Size</div>
             <div class="track-metadata-value" id="track-detail-size">—</div>
+          </div>
+          <div class="track-metadata-item">
+            <div class="track-metadata-label">LUFS</div>
+            <div class="track-metadata-value" id="track-detail-lufs">—</div>
+          </div>
+          <div class="track-metadata-item">
+            <div class="track-metadata-label">LUFS Range</div>
+            <div class="track-metadata-value" id="track-detail-lufs-range">—</div>
+          </div>
+          <div class="track-metadata-item">
+            <div class="track-metadata-label">True Peak</div>
+            <div class="track-metadata-value" id="track-detail-true-peak">—</div>
           </div>
         </div>
       </div>
@@ -965,6 +1176,32 @@
       </div>
       <div class="update-modal-footer" id="update-modal-footer">
         <!-- Populated dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Key Compatibility Graph Modal -->
+  <div id="key-graph-modal" class="modal" style="display: none;">
+    <div class="modal-content modal-lg" style="width:95vw;max-width:95vw;height:90vh;max-height:90vh;">
+      <div class="modal-header">
+        <h3>Key Compatibility Graph</h3>
+        <button class="modal-close" id="key-graph-close">&times;</button>
+      </div>
+      <div class="modal-body" style="padding:12px;overflow:hidden;">
+        <div class="key-graph-toolbar" style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
+          <select id="key-graph-source" class="input-select" style="width:auto;min-width:160px;">
+            <option value="library">Full Library</option>
+            <option value="setlist">Current Setlist</option>
+          </select>
+          <span id="key-graph-info" style="font-size:12px;color:var(--text-secondary);margin-left:auto;"></span>
+        </div>
+        <div class="key-graph" id="key-graph-container">
+          <canvas id="key-graph-canvas"></canvas>
+        </div>
+        <div id="key-graph-tooltip" class="key-graph-tooltip" style="display:none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="key-graph-done" class="btn btn-primary">Close</button>
       </div>
     </div>
   </div>

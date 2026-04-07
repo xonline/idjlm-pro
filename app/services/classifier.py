@@ -38,8 +38,17 @@ def _build_classification_prompt(tracks: list[Track], taxonomy: dict) -> str:
     tracks_str = "\n".join(track_descriptions)
     taxonomy_str = json.dumps(taxonomy, indent=2)
 
-    prompt = f"""You are a Latin dance music expert. Classify each track into genre and sub-genre based on the provided taxonomy.
+    # Inject DJ correction hints if available
+    correction_hints = ""
+    try:
+        from app.services.learning import get_correction_hints
+        correction_hints = get_correction_hints()
+    except ImportError:
+        pass
 
+    hints_section = f"\n{correction_hints}\n" if correction_hints else ""
+
+    prompt = f"""You are a Latin dance music expert. Classify each track into genre and sub-genre based on the provided taxonomy.{hints_section}
 TAXONOMY (genres and subgenres):
 {taxonomy_str}
 

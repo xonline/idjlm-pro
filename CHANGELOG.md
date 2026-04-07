@@ -4,7 +4,68 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
-## [2.7.0] — 2026-04-08
+## [2.8.0] — 2026-04-08
+
+### AI That Learns From Your Corrections
+- Every approval or edit is saved as a correction pattern (artist, BPM range, energy)
+- Correction hints injected into future classification prompts — the AI gets *your* taste
+- Learning dashboard shows total corrections, unique patterns, and top corrections table
+- Reset Learning button in Settings tab
+
+### Energy Timeline of a Planned Set
+- Chart.js line chart in Setlist tab showing energy flow across your set
+- Color-coded points (blue=low, green=mid, amber=high, red=peak)
+- Auto-generated summary: "Classic warm-up → peak → cool-down arc" or "Flat energy — consider variety"
+- Hidden when fewer than 2 tracks have energy data
+
+### LUFS / Loudness Analysis
+- EBU R128-style integrated LUFS, LUFS Range (LRA), and True Peak analysis
+- K-weighted pre-filtering, 400ms windowed RMS, relative threshold gating
+- LUFS column in track table with color-coded badges (green/amber/red)
+- LUFS, LUFS Range, True Peak in track detail panel
+- Average LUFS in collection summary stats
+
+### Playlist Management
+- New "Playlists" tab in sidebar — create, save, run, export playlists
+- Filter builder: genre, subgenre, BPM range, energy range, key, status, year range
+- Export playlists as M3U for Djay import
+- Ad-hoc filter runs without saving
+
+### Key Compatibility Graph
+- Full-screen modal with Canvas-based network visualization
+- Nodes = tracks (colored by genre, grouped by key), edges = harmonic compatibility
+- Force-directed layout with 60 refinement iterations
+- Interactive: hover for details, click to highlight connections
+- Handles up to 200 nodes
+
+### Check for Updates
+- Click version badge in header or "Check for Updates" in Settings
+- Compares your version against GitHub latest release
+- Downloads .dmg to ~/Downloads with progress bar
+- Opens DMG when done — just drag to Applications
+- Git-pull option for source installs
+
+### SSL Certificate Auto-Fix
+- All HTTPS requests now use certifi CA bundle automatically
+- No manual "Install Certificates.command" needed on macOS
+- Graceful fallback if certifi not installed
+- Added certifi to requirements.txt
+
+### Collection Age Analysis (from v2.7.1)
+- Decade distribution bar chart, genre-era breakdown
+- Salsa Clasica/Romantica/Moderna, Bachata Tradicional/Moderna era labels
+- Median year, oldest/newest tracks
+
+### Shared Taxonomy Templates (from v2.7.1)
+- Export/import taxonomy as JSON
+- 4 built-in templates: Salsa Complete, Bachata Complete, Latin Multi, Social DJ Essentials
+
+### Tests
+- 80 tests passing (1 pre-existing numpy skip in system Python)
+
+---
+
+## [2.7.1] — 2026-04-08
 
 ### High Impact Features
 - **Tag backup & restore** — Before writing tags, current ID3 values are backed up. Restore from any backup point via the Organise tab. Auto-cleanup removes backups older than 7 days (max 20 kept).

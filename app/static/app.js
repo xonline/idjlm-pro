@@ -25,6 +25,7 @@ let chartInstances = {
   energyDist: null,
   decadeDist: null,
   genreEra: null,
+  energyTimeline: null,
 };
 
 // ============================================================================
@@ -113,6 +114,7 @@ function switchTab(tabName) {
 
   if (tabName === 'organise') initOrganiseTab();
   if (tabName === 'setplan') initSetPlanTab();
+  if (tabName === 'playlists') initPlaylistsTab();
   if (tabName === 'settings') initTaxonomyTab();
   if (tabName === 'library') renderTracks();
 }
@@ -796,6 +798,18 @@ function renderStatsDashboard() {
   document.getElementById('summary-classified-pct').textContent = total ? Math.round((classified / total) * 100) + '%' : '0%';
   document.getElementById('summary-approved-pct').textContent = total ? Math.round((approved / total) * 100) + '%' : '0%';
 
+  // Average LUFS
+  const lufsTracks = tracks.filter(t => t.analyzed_lufs != null);
+  const avgLufsEl = document.getElementById('summary-avg-lufs');
+  if (avgLufsEl) {
+    if (lufsTracks.length > 0) {
+      const avgLufs = lufsTracks.reduce((sum, t) => sum + t.analyzed_lufs, 0) / lufsTracks.length;
+      avgLufsEl.textContent = avgLufs.toFixed(1) + ' LUFS';
+    } else {
+      avgLufsEl.textContent = '\u2014';
+    }
+  }
+
   // Key distribution chart
   if (typeof Chart !== 'undefined') {
     renderKeyDistChart(tracks);
@@ -1454,7 +1468,7 @@ function renderTracks() {
     const row = document.createElement('tr');
     row.className = 'empty-state';
     const cell = document.createElement('td');
-    cell.colSpan = '15';
+    cell.colSpan = '16';
     cell.textContent = 'No tracks match filters';
     row.appendChild(cell);
     tbody.appendChild(row);
@@ -1562,6 +1576,20 @@ function renderTracks() {
       tdTempo.style.color = 'var(--text-muted)';
     }
     row.appendChild(tdTempo);
+
+    // LUFS
+    const tdLufs = document.createElement('td');
+    if (track.analyzed_lufs != null) {
+      const lufsVal = track.analyzed_lufs;
+      const lufsClass = (lufsVal >= -14 && lufsVal <= -8) ? 'lufs-good'
+                        : (lufsVal >= -18 && lufsVal < -14) || (lufsVal > -8 && lufsVal <= -6) ? 'lufs-quiet'
+                        : 'lufs-loud';
+      tdLufs.innerHTML = `<span class="${lufsClass}">${lufsVal}</span>`;
+    } else {
+      tdLufs.textContent = '—';
+      tdLufs.style.color = 'var(--text-muted)';
+    }
+    row.appendChild(tdLufs);
 
     // Year
     const tdYear = document.createElement('td');
@@ -2993,12 +3021,64 @@ function initSettingsTab() {
   // Load settings when tab is activated
   document.querySelectorAll('.nav-btn').forEach(btn => {
     if (btn.dataset.tab === 'settings') {
-      btn.addEventListener('click', loadSettings);
+      btn.addEventListener('click', () => {
+        loadSettings();
+        loadLearningStats();
+      });
     }
   });
 
   // Load settings on init
   loadSettings();
+  loadLearningStats();
+
+  // Reset learning button
+  const btnResetLearning = document.getElementById('btn-reset-learning');
+  if (btnResetLearning) {
+    btnResetLearning.addEventListener('click', async () => {
+      if (!confirm('Reset all AI learning data? This cannot be undone.')) return;
+      try {
+        await apiFetch('/api/learning/reset', { method: 'DELETE' });
+        showToast('Learning data reset', 'info');
+        loadLearningStats();
+      } catch (error) {
+        showToast('Failed to reset learning data', 'error');
+      }
+    });
+  }
+}
+
+/** Load AI learning stats */
+async function loadLearningStats() {
+  try {
+    const result = await apiFetch('/api/learning/stats');
+    const totalEl = document.getElementById('learning-total');
+    const uniqueEl = document.getElementById('learning-unique');
+    const correctionsEl = document.getElementById('learning-top-corrections');
+    if (totalEl) totalEl.textContent = result.total_corrections || 0;
+    if (uniqueEl) uniqueEl.textContent = result.unique_patterns || 0;
+
+    if (correctionsEl) {
+      const top = result.top_corrections || [];
+      if (top.length === 0) {
+        correctionsEl.innerHTML = '<p class="settings-hint" style="margin-top:8px;">No corrections yet. Approve or edit tracks to start teaching the AI.</p>';
+        return;
+      }
+      let html = '<table class="learning-table"><thead><tr><th>Pattern</th><th>Correction</th><th>Count</th></tr></thead><tbody>';
+      for (const c of top.slice(0, 10)) {
+        const parts = [];
+        if (c.pattern && c.pattern.artist_contains) parts.push(`artist: ${c.pattern.artist_contains}`);
+        if (c.pattern && c.pattern.bpm_range) parts.push(`BPM: ${c.pattern.bpm_range[0]}-${c.pattern.bpm_range[1]}`);
+        if (c.pattern && c.pattern.energy_range) parts.push(`energy: ${c.pattern.energy_range[0]}-${c.pattern.energy_range[1]}`);
+        const patternStr = parts.length ? parts.join(', ') : 'general';
+        html += `<tr><td>${escapeHtml(patternStr)}</td><td>${escapeHtml(c.corrected_genre)} / ${escapeHtml(c.corrected_subgenre || '')}</td><td>${c.count || 1}</td></tr>`;
+      }
+      html += '</tbody></table>';
+      correctionsEl.innerHTML = html;
+    }
+  } catch (error) {
+    // Silently fail — learning is optional
+  }
 }
 
 /** Show only the API key section matching the selected provider, hide others */
@@ -3284,6 +3364,9 @@ function openTrackDetail(track) {
   const duration = track.duration ? Math.round(track.duration) : 'N/A';
   const format = track.file_extension?.toUpperCase() || 'Unknown';
   const size = track.file_size ? (track.file_size / 1024 / 1024).toFixed(1) : 'N/A';
+  const lufs = track.analyzed_lufs != null ? track.analyzed_lufs + ' LUFS' : 'N/A';
+  const lufsRange = track.analyzed_lufs_range != null ? track.analyzed_lufs_range + ' LU' : 'N/A';
+  const truePeak = track.analyzed_true_peak != null ? track.analyzed_true_peak + ' dBTP' : 'N/A';
 
   // Build AI classification section
   let aiSection = '';
@@ -3335,6 +3418,9 @@ function openTrackDetail(track) {
         <div class="metadata-item"><span class="label">Duration:</span> <span class="value">${escapeHtml(String(duration))}s</span></div>
         <div class="metadata-item"><span class="label">Format:</span> <span class="value">${escapeHtml(format)}</span></div>
         <div class="metadata-item"><span class="label">Size:</span> <span class="value">${escapeHtml(String(size))} MB</span></div>
+        <div class="metadata-item"><span class="label">LUFS:</span> <span class="value">${escapeHtml(lufs)}</span></div>
+        <div class="metadata-item"><span class="label">LUFS Range:</span> <span class="value">${escapeHtml(lufsRange)}</span></div>
+        <div class="metadata-item"><span class="label">True Peak:</span> <span class="value">${escapeHtml(truePeak)}</span></div>
       </div>
     </div>
 
@@ -3650,6 +3736,121 @@ function renderSetlist() {
   if (countEl) countEl.textContent = `${window.setlist.length} track${window.setlist.length !== 1 ? 's' : ''}`;
   if (durEl) durEl.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
   if (exportBtn) exportBtn.disabled = window.setlist.length === 0;
+
+  // Render energy timeline
+  renderEnergyTimeline();
+}
+
+function renderEnergyTimeline() {
+  const panel = document.getElementById('energy-timeline-panel');
+  const summaryEl = document.getElementById('energy-timeline-summary');
+  const canvas = document.getElementById('chart-energy-timeline');
+
+  if (!panel || !canvas) return;
+
+  if (window.setlist.length < 2) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  panel.style.display = '';
+
+  const energies = window.setlist.map((t, idx) => {
+    const energy = parseFloat(t.analyzed_energy) || parseFloat(t.energy) || 0;
+    return { idx: idx + 1, energy: energy, title: t.display_title || 'Unknown' };
+  });
+
+  const validEnergies = energies.filter(e => e.energy > 0);
+  if (validEnergies.length === 0) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  const minE = Math.min(...validEnergies.map(e => e.energy));
+  const maxE = Math.max(...validEnergies.map(e => e.energy));
+  const range = maxE - minE;
+
+  if (summaryEl) {
+    if (range >= 4) {
+      const arcType = maxE > minE ? 'Classic warm-up to peak to cool-down arc' : 'Flat energy';
+      summaryEl.textContent = `Energy range: ${Math.round(minE)}-${Math.round(maxE)}. ${arcType}`;
+    } else if (range >= 2) {
+      summaryEl.textContent = `Energy range: ${Math.round(minE)}-${Math.round(maxE)}. Moderate variation — consider building more contrast.`;
+    } else {
+      summaryEl.textContent = `Energy range: ${Math.round(minE)}-${Math.round(maxE)}. Flat energy — consider adding variety.`;
+    }
+  }
+
+  if (typeof Chart === 'undefined') return;
+
+  if (chartInstances.energyTimeline) {
+    chartInstances.energyTimeline.destroy();
+  }
+
+  const labels = energies.map(e => `#${e.idx}`);
+  const data = energies.map(e => e.energy);
+
+  chartInstances.energyTimeline = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Energy',
+        data: data,
+        borderColor: '#8b5cf6',
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 5,
+        pointHoverRadius: 8,
+        pointBackgroundColor: data.map(e => {
+          if (e >= 8) return '#f87171';
+          if (e >= 6) return '#fbbf24';
+          if (e >= 4) return '#34d399';
+          return '#60a5fa';
+        }),
+        pointBorderColor: 'transparent',
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: function(items) {
+              if (items.length === 0) return '';
+              const idx = items[0].dataIndex;
+              return window.setlist[idx] ? (window.setlist[idx].display_title || 'Unknown') : '';
+            },
+            label: function(context) {
+              const val = context.parsed.y;
+              const track = window.setlist[context.dataIndex];
+              const bpm = track && track.final_bpm ? track.final_bpm + ' BPM' : '';
+              const key = track && track.final_key ? track.final_key : '';
+              return [`Energy: ${val}/10`, bpm, key].filter(Boolean).join(' | ');
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Track Position', color: '#6a6a94' },
+          ticks: { color: '#6a6a94', maxTicksLimit: 20 },
+          grid: { color: 'rgba(42, 42, 58, 0.5)' }
+        },
+        y: {
+          min: 0,
+          max: 10,
+          title: { display: true, text: 'Energy Level', color: '#6a6a94' },
+          ticks: { color: '#6a6a94', stepSize: 2 },
+          grid: { color: 'rgba(42, 42, 58, 0.5)' }
+        }
+      }
+    }
+  });
 }
 
 function findHarmonicCompatible(track) {
@@ -4549,6 +4750,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initSettingsTab();
   initKeyboardShortcuts();
   initUpdateChecker();
+  initKeyGraph();
   startStatsPolling();
   loadTaxonomy();
   loadSetlistFromStorage();
@@ -4869,6 +5071,407 @@ function renderCamelotWheel() {
 }
 
 // ============================================================================
+// Feature: Key Compatibility Graph
+// ============================================================================
+
+let keyGraphState = {
+  nodes: [],
+  edges: [],
+  hoveredNode: null,
+  selectedNode: null,
+  animFrame: null,
+};
+
+function initKeyGraph() {
+  const showBtn = document.getElementById('btn-show-key-graph');
+  const closeBtn = document.getElementById('key-graph-close');
+  const doneBtn = document.getElementById('key-graph-done');
+  const sourceSelect = document.getElementById('key-graph-source');
+
+  if (showBtn) {
+    showBtn.addEventListener('click', () => {
+      const modal = document.getElementById('key-graph-modal');
+      if (modal) {
+        modal.style.display = 'block';
+        renderKeyCompatibilityGraph();
+      }
+    });
+  }
+
+  if (closeBtn) closeBtn.addEventListener('click', closeKeyGraph);
+  if (doneBtn) doneBtn.addEventListener('click', closeKeyGraph);
+
+  if (sourceSelect) {
+    sourceSelect.addEventListener('change', () => renderKeyCompatibilityGraph());
+  }
+
+  const modal = document.getElementById('key-graph-modal');
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeKeyGraph();
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal && modal.style.display === 'block') {
+      closeKeyGraph();
+    }
+  });
+}
+
+function closeKeyGraph() {
+  const modal = document.getElementById('key-graph-modal');
+  if (modal) modal.style.display = 'none';
+  if (keyGraphState.animFrame) {
+    cancelAnimationFrame(keyGraphState.animFrame);
+    keyGraphState.animFrame = null;
+  }
+}
+
+function renderKeyCompatibilityGraph(tracks) {
+  const canvas = document.getElementById('key-graph-canvas');
+  const infoEl = document.getElementById('key-graph-info');
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const container = canvas.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = container.getBoundingClientRect();
+
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  ctx.scale(dpr, dpr);
+
+  const W = rect.width;
+  const H = rect.height;
+
+  // Determine track source
+  const sourceSelect = document.getElementById('key-graph-source');
+  const source = sourceSelect ? sourceSelect.value : 'library';
+  let sourceTracks = source === 'setlist' ? window.setlist : window.tracks;
+  if (tracks) sourceTracks = tracks;
+
+  // Filter to tracks with a valid key
+  const keyedTracks = sourceTracks.filter(t => t.final_key && /^[0-9]+[ABab]$/.test(t.final_key));
+
+  if (keyedTracks.length === 0) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#6a6a94';
+    ctx.font = '14px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('No tracks with Camelot keys to display', W / 2, H / 2);
+    if (infoEl) infoEl.textContent = '0 tracks';
+    return;
+  }
+
+  // Limit nodes for performance
+  const MAX_NODES = 200;
+  const displayTracks = keyedTracks.slice(0, MAX_NODES);
+
+  // Build nodes grouped by key
+  const keyGroups = {};
+  displayTracks.forEach((t, idx) => {
+    const key = t.final_key.toUpperCase();
+    if (!keyGroups[key]) keyGroups[key] = [];
+    keyGroups[key].push({ index: idx, track: t });
+  });
+
+  const keys = Object.keys(keyGroups).sort((a, b) => {
+    const numA = parseInt(a);
+    const numB = parseInt(b);
+    if (numA !== numB) return numA - numB;
+    return a.localeCompare(b);
+  });
+
+  // Genre color map
+  const genreColors = {};
+  const palette = ['#8b5cf6', '#34d399', '#f59e0b', '#60a5fa', '#f87171', '#a78bfa', '#fbbf24', '#22d3a0', '#fb923c', '#818cf8', '#38bdf8', '#a3e635'];
+  let colorIdx = 0;
+  displayTracks.forEach(t => {
+    const genre = t.final_genre || 'Unknown';
+    if (!genreColors[genre]) {
+      genreColors[genre] = palette[colorIdx % palette.length];
+      colorIdx++;
+    }
+  });
+
+  function getNodeColor(track) {
+    const genre = track.final_genre || 'Unknown';
+    return genreColors[genre] || '#888';
+  }
+
+  // Layout: position nodes by key, spread within key group
+  const nodes = [];
+  const keyCenters = {};
+  const padding = 60;
+  const usableW = W - padding * 2;
+  const usableH = H - padding * 2;
+
+  keys.forEach((key, ki) => {
+    const angle = (ki / keys.length) * Math.PI * 2 - Math.PI / 2;
+    const radius = Math.min(usableW, usableH) * 0.35;
+    const cx = W / 2 + Math.cos(angle) * radius;
+    const cy = H / 2 + Math.sin(angle) * radius;
+    keyCenters[key] = { x: cx, y: cy };
+  });
+
+  displayTracks.forEach((t, idx) => {
+    const key = t.final_key.toUpperCase();
+    const group = keyGroups[key];
+    const gi = group.findIndex(g => g.index === idx);
+    const center = keyCenters[key];
+    const spread = 30;
+
+    let x, y;
+    if (group.length === 1) {
+      x = center.x;
+      y = center.y;
+    } else {
+      const angle = (gi / group.length) * Math.PI * 2;
+      x = center.x + Math.cos(angle) * spread;
+      y = center.y + Math.sin(angle) * spread;
+    }
+
+    nodes.push({
+      x: x,
+      y: y,
+      vx: 0,
+      vy: 0,
+      track: t,
+      key: key,
+      color: getNodeColor(t),
+      radius: 8,
+    });
+  });
+
+  // Build edges using isCompatibleKey
+  const edges = [];
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      if (isCompatibleKey(nodes[i].key, nodes[j].key)) {
+        edges.push({ source: i, target: j });
+      }
+    }
+  }
+
+  keyGraphState.nodes = nodes;
+  keyGraphState.edges = edges;
+  keyGraphState.hoveredNode = null;
+  keyGraphState.selectedNode = null;
+
+  if (infoEl) {
+    infoEl.textContent = `${nodes.length} tracks, ${edges.length} connections`;
+  }
+
+  // Simple force-directed layout refinement
+  const iterations = 60;
+  const repulsion = 800;
+  const attraction = 0.005;
+  const damping = 0.85;
+  const idealLength = 50;
+
+  for (let iter = 0; iter < iterations; iter++) {
+    const temp = 1 - iter / iterations;
+
+    // Repulsion between all nodes
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[j].x - nodes[i].x;
+        const dy = nodes[j].y - nodes[i].y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const force = repulsion / (dist * dist) * temp;
+        const fx = (dx / dist) * force;
+        const fy = (dy / dist) * force;
+        nodes[i].vx -= fx;
+        nodes[i].vy -= fy;
+        nodes[j].vx += fx;
+        nodes[j].vy += fy;
+      }
+    }
+
+    // Attraction along edges
+    for (const edge of edges) {
+      const a = nodes[edge.source];
+      const b = nodes[edge.target];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const force = (dist - idealLength) * attraction * temp;
+      const fx = (dx / dist) * force;
+      const fy = (dy / dist) * force;
+      a.vx += fx;
+      a.vy += fy;
+      b.vx -= fx;
+      b.vy -= fy;
+    }
+
+    // Attract to key centers
+    for (let i = 0; i < nodes.length; i++) {
+      const center = keyCenters[nodes[i].key];
+      if (center) {
+        nodes[i].vx += (center.x - nodes[i].x) * 0.02 * temp;
+        nodes[i].vy += (center.y - nodes[i].y) * 0.02 * temp;
+      }
+    }
+
+    // Apply velocity with damping
+    for (let i = 0; i < nodes.length; i++) {
+      nodes[i].vx *= damping;
+      nodes[i].vy *= damping;
+      nodes[i].x += nodes[i].vx;
+      nodes[i].y += nodes[i].vy;
+      // Keep within bounds
+      nodes[i].x = Math.max(20, Math.min(W - 20, nodes[i].x));
+      nodes[i].y = Math.max(20, Math.min(H - 20, nodes[i].y));
+    }
+  }
+
+  // Draw
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Draw edges
+    for (const edge of edges) {
+      const a = nodes[edge.source];
+      const b = nodes[edge.target];
+      const isHighlighted = keyGraphState.selectedNode !== null &&
+        (keyGraphState.selectedNode === edge.source || keyGraphState.selectedNode === edge.target);
+
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      if (isHighlighted) {
+        ctx.strokeStyle = 'rgba(139, 92, 246, 0.8)';
+        ctx.lineWidth = 2.5;
+      } else {
+        ctx.strokeStyle = 'rgba(139, 92, 246, 0.12)';
+        ctx.lineWidth = 1;
+      }
+      ctx.stroke();
+    }
+
+    // Draw nodes
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      const isHovered = keyGraphState.hoveredNode === i;
+      const isSelected = keyGraphState.selectedNode === i;
+      const isConnected = keyGraphState.selectedNode !== null && edges.some(
+        e => (e.source === keyGraphState.selectedNode && e.target === i) ||
+             (e.target === keyGraphState.selectedNode && e.source === i)
+      );
+
+      const r = isHovered || isSelected ? 12 : node.radius;
+
+      // Glow
+      if (isHovered || isSelected) {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, r + 6, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(139, 92, 246, 0.2)';
+        ctx.fill();
+      }
+
+      // Node circle
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = isSelected ? '#8b5cf6' : node.color;
+      ctx.fill();
+      ctx.strokeStyle = isConnected ? '#fff' : 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = isSelected ? 3 : isConnected ? 2 : 1;
+      ctx.stroke();
+
+      // Label
+      const label = node.track.display_title || 'Unknown';
+      const shortLabel = label.length > 18 ? label.substring(0, 16) + '...' : label;
+      ctx.fillStyle = isHovered || isSelected ? '#fff' : 'rgba(200, 200, 228, 0.8)';
+      ctx.font = `${isHovered || isSelected ? '600' : '400'} 10px -apple-system, BlinkMacSystemFont, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(shortLabel, node.x, node.y + r + 14);
+
+      // Key label below
+      ctx.fillStyle = 'rgba(106, 106, 148, 0.9)';
+      ctx.font = '9px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(node.key, node.x, node.y + r + 25);
+    }
+  }
+
+  draw();
+
+  // Interaction: hover and click
+  canvas.onmousemove = (e) => {
+    const rect2 = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect2.left;
+    const my = e.clientY - rect2.top;
+
+    let found = null;
+    for (let i = 0; i < nodes.length; i++) {
+      const dx = mx - nodes[i].x;
+      const dy = my - nodes[i].y;
+      if (dx * dx + dy * dy < 225) { // 15px radius hit test
+        found = i;
+        break;
+      }
+    }
+
+    keyGraphState.hoveredNode = found;
+    draw();
+
+    // Tooltip
+    const tooltip = document.getElementById('key-graph-tooltip');
+    if (tooltip) {
+      if (found !== null) {
+        const t = nodes[found].track;
+        const connections = edges.filter(e => e.source === found || e.target === found).length;
+        tooltip.innerHTML = `<div class="tooltip-title">${escapeHtml(t.display_title || 'Unknown')}</div>` +
+          `<div>${escapeHtml(t.display_artist || 'Unknown')}</div>` +
+          `<div>Key: ${nodes[found].key} | BPM: ${t.final_bpm || '?'}</div>` +
+          `<div>Genre: ${escapeHtml(t.final_genre || 'Unknown')}</div>` +
+          `<div style="margin-top:4px;color:#a78bfa;">${connections} harmonic connections</div>`;
+        tooltip.style.display = 'block';
+        tooltip.style.left = (e.clientX - rect2.left + 15) + 'px';
+        tooltip.style.top = (e.clientY - rect2.top - 10) + 'px';
+      } else {
+        tooltip.style.display = 'none';
+      }
+    }
+
+    canvas.style.cursor = found !== null ? 'pointer' : 'default';
+  };
+
+  canvas.onmouseleave = () => {
+    keyGraphState.hoveredNode = null;
+    draw();
+    const tooltip = document.getElementById('key-graph-tooltip');
+    if (tooltip) tooltip.style.display = 'none';
+    canvas.style.cursor = 'default';
+  };
+
+  canvas.onclick = (e) => {
+    const rect2 = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect2.left;
+    const my = e.clientY - rect2.top;
+
+    let found = null;
+    for (let i = 0; i < nodes.length; i++) {
+      const dx = mx - nodes[i].x;
+      const dy = my - nodes[i].y;
+      if (dx * dx + dy * dy < 225) {
+        found = i;
+        break;
+      }
+    }
+
+    if (found !== null) {
+      keyGraphState.selectedNode = keyGraphState.selectedNode === found ? null : found;
+    } else {
+      keyGraphState.selectedNode = null;
+    }
+    draw();
+  };
+}
+
+// ============================================================================
 // Keyboard Shortcuts Reference Modal
 // ============================================================================
 
@@ -5052,6 +5655,298 @@ function initSetPlanTab() {
   }
 
   loadSetplanArcs();
+}
+
+// ============================================================================
+// Playlists Tab Init (called lazily from switchTab on first visit)
+// ============================================================================
+
+let playlistsTabInited = false;
+let currentPlaylistId = null;
+let currentPlaylistTracks = [];
+
+function initPlaylistsTab() {
+  if (playlistsTabInited) return;
+  playlistsTabInited = true;
+
+  document.getElementById('btn-new-playlist')?.addEventListener('click', () => createNewPlaylist());
+  document.getElementById('btn-new-playlist-empty')?.addEventListener('click', () => createNewPlaylist());
+  document.getElementById('btn-save-playlist')?.addEventListener('click', () => saveCurrentPlaylist());
+  document.getElementById('btn-run-playlist')?.addEventListener('click', () => runCurrentPlaylist());
+  document.getElementById('btn-export-playlist')?.addEventListener('click', () => exportCurrentPlaylist());
+  document.getElementById('btn-delete-playlist')?.addEventListener('click', () => deleteCurrentPlaylist());
+  document.getElementById('btn-apply-filters')?.addEventListener('click', () => applyPlaylistFilters());
+  document.getElementById('btn-clear-filters')?.addEventListener('click', () => clearPlaylistFilters());
+  document.getElementById('btn-add-all-to-playlist')?.addEventListener('click', () => addAllResultsToPlaylist());
+  document.getElementById('pl-select-all')?.addEventListener('change', (e) => toggleSelectAllPlaylistResults(e.target.checked));
+
+  // Populate genre filter from taxonomy
+  populatePlaylistGenreFilter();
+
+  loadPlaylists();
+}
+
+function populatePlaylistGenreFilter() {
+  const genreSelect = document.getElementById('pl-filter-genre');
+  const subgenreSelect = document.getElementById('pl-filter-subgenre');
+  if (genreSelect && window.taxonomy) {
+    Object.keys(window.taxonomy).forEach(genre => {
+      const opt = document.createElement('option');
+      opt.value = genre;
+      opt.textContent = genre;
+      genreSelect.appendChild(opt);
+    });
+  }
+}
+
+async function loadPlaylists() {
+  try {
+    const data = await apiFetch('/api/playlists');
+    renderPlaylistsList(data.playlists || []);
+  } catch (e) {
+    showToast('Failed to load playlists: ' + e.message, 'error');
+  }
+}
+
+function renderPlaylistsList(playlists) {
+  const container = document.getElementById('playlists-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!playlists.length) {
+    container.innerHTML = '<div class="empty-state" style="padding: 24px 12px; text-align: center; color: var(--text-secondary); font-size: 13px;">No playlists yet. Click "+ New" to create one.</div>';
+    return;
+  }
+
+  playlists.forEach(pl => {
+    const div = document.createElement('div');
+    div.className = 'playlist-item' + (currentPlaylistId === pl.id ? ' active' : '');
+    div.innerHTML = `
+      <div class="playlist-item-name">${escapeHtml(pl.name)}</div>
+      <div class="playlist-item-meta">${pl.track_count} tracks</div>
+    `;
+    div.addEventListener('click', () => selectPlaylist(pl.id));
+    container.appendChild(div);
+  });
+}
+
+async function selectPlaylist(playlistId) {
+  try {
+    const pl = await apiFetch('/api/playlists/' + encodeURIComponent(playlistId));
+    currentPlaylistId = pl.id;
+    currentPlaylistTracks = pl.tracks || [];
+
+    const nameInput = document.getElementById('playlist-name-input');
+    if (nameInput) nameInput.value = pl.name || '';
+
+    // Load filters
+    const filters = pl.filters || {};
+    if (document.getElementById('pl-filter-genre')) document.getElementById('pl-filter-genre').value = filters.genre || '';
+    if (document.getElementById('pl-filter-subgenre')) document.getElementById('pl-filter-subgenre').value = filters.subgenre || '';
+    if (document.getElementById('pl-filter-status')) document.getElementById('pl-filter-status').value = filters.status || '';
+    if (document.getElementById('pl-filter-key')) document.getElementById('pl-filter-key').value = filters.key || '';
+    if (document.getElementById('pl-filter-bpm-min')) document.getElementById('pl-filter-bpm-min').value = filters.bpm_min || '';
+    if (document.getElementById('pl-filter-bpm-max')) document.getElementById('pl-filter-bpm-max').value = filters.bpm_max || '';
+    if (document.getElementById('pl-filter-energy-min')) document.getElementById('pl-filter-energy-min').value = filters.energy_min || '';
+    if (document.getElementById('pl-filter-energy-max')) document.getElementById('pl-filter-energy-max').value = filters.energy_max || '';
+    if (document.getElementById('pl-filter-year-min')) document.getElementById('pl-filter-year-min').value = filters.year_min || '';
+    if (document.getElementById('pl-filter-year-max')) document.getElementById('pl-filter-year-max').value = filters.year_max || '';
+
+    // Show editor, hide empty state
+    const editor = document.getElementById('playlist-editor');
+    const emptyState = document.getElementById('playlist-empty-state');
+    if (editor) editor.style.display = 'block';
+    if (emptyState) emptyState.style.display = 'none';
+
+    // Refresh the list to highlight
+    await loadPlaylists();
+  } catch (e) {
+    showToast('Failed to load playlist: ' + e.message, 'error');
+  }
+}
+
+async function createNewPlaylist() {
+  const name = prompt('Playlist name:', 'My Playlist');
+  if (!name) return;
+
+  try {
+    const result = await apiFetch('/api/playlists', {
+      method: 'POST',
+      body: JSON.stringify({ name: name, tracks: [], filters: {} })
+    });
+    showToast('Playlist created', 'success');
+    await loadPlaylists();
+    await selectPlaylist(result.id);
+  } catch (e) {
+    showToast('Failed to create playlist: ' + e.message, 'error');
+  }
+}
+
+async function saveCurrentPlaylist() {
+  if (!currentPlaylistId) return;
+
+  const nameInput = document.getElementById('playlist-name-input');
+  const filters = getPlaylistFilters();
+
+  try {
+    await apiFetch('/api/playlists/' + encodeURIComponent(currentPlaylistId), {
+      method: 'PUT',
+      body: JSON.stringify({
+        name: nameInput ? nameInput.value : 'Untitled',
+        filters: filters,
+        tracks: currentPlaylistTracks
+      })
+    });
+    showToast('Playlist saved', 'success');
+    await loadPlaylists();
+  } catch (e) {
+    showToast('Failed to save playlist: ' + e.message, 'error');
+  }
+}
+
+function getPlaylistFilters() {
+  return {
+    genre: document.getElementById('pl-filter-genre')?.value || '',
+    subgenre: document.getElementById('pl-filter-subgenre')?.value || '',
+    status: document.getElementById('pl-filter-status')?.value || '',
+    key: document.getElementById('pl-filter-key')?.value || '',
+    bpm_min: document.getElementById('pl-filter-bpm-min')?.value || '',
+    bpm_max: document.getElementById('pl-filter-bpm-max')?.value || '',
+    energy_min: document.getElementById('pl-filter-energy-min')?.value || '',
+    energy_max: document.getElementById('pl-filter-energy-max')?.value || '',
+    year_min: document.getElementById('pl-filter-year-min')?.value || '',
+    year_max: document.getElementById('pl-filter-year-max')?.value || '',
+  };
+}
+
+async function runCurrentPlaylist() {
+  if (!currentPlaylistId) return;
+
+  showSpinner('Running playlist...');
+  try {
+    const result = await apiFetch('/api/playlists/' + encodeURIComponent(currentPlaylistId) + '/run', { method: 'POST' });
+    renderPlaylistResults(result.tracks || []);
+    showToast(result.count + ' tracks found', 'info');
+  } catch (e) {
+    showToast('Failed to run playlist: ' + e.message, 'error');
+  } finally {
+    hideSpinner();
+  }
+}
+
+async function applyPlaylistFilters() {
+  showSpinner('Applying filters...');
+  try {
+    const filters = getPlaylistFilters();
+    const result = await apiFetch('/api/playlists/run', {
+      method: 'POST',
+      body: JSON.stringify({ filters: filters })
+    });
+    renderPlaylistResults(result.tracks || []);
+    showToast(result.count + ' tracks found', 'info');
+  } catch (e) {
+    showToast('Failed to apply filters: ' + e.message, 'error');
+  } finally {
+    hideSpinner();
+  }
+}
+
+function clearPlaylistFilters() {
+  if (document.getElementById('pl-filter-genre')) document.getElementById('pl-filter-genre').value = '';
+  if (document.getElementById('pl-filter-subgenre')) document.getElementById('pl-filter-subgenre').value = '';
+  if (document.getElementById('pl-filter-status')) document.getElementById('pl-filter-status').value = '';
+  if (document.getElementById('pl-filter-key')) document.getElementById('pl-filter-key').value = '';
+  if (document.getElementById('pl-filter-bpm-min')) document.getElementById('pl-filter-bpm-min').value = '';
+  if (document.getElementById('pl-filter-bpm-max')) document.getElementById('pl-filter-bpm-max').value = '';
+  if (document.getElementById('pl-filter-energy-min')) document.getElementById('pl-filter-energy-min').value = '';
+  if (document.getElementById('pl-filter-energy-max')) document.getElementById('pl-filter-energy-max').value = '';
+  if (document.getElementById('pl-filter-year-min')) document.getElementById('pl-filter-year-min').value = '';
+  if (document.getElementById('pl-filter-year-max')) document.getElementById('pl-filter-year-max').value = '';
+  document.getElementById('pl-results-tbody').innerHTML = '<tr class="empty-state"><td colspan="10"><div class="empty-state-content"><div class="empty-icon">🎵</div><div class="empty-msg">Apply filters to find tracks</div></div></td></tr>';
+  document.getElementById('pl-results-count').textContent = '0';
+}
+
+function renderPlaylistResults(tracks) {
+  const tbody = document.getElementById('pl-results-tbody');
+  const countEl = document.getElementById('pl-results-count');
+  if (countEl) countEl.textContent = tracks.length;
+
+  if (!tracks.length) {
+    tbody.innerHTML = '<tr class="empty-state"><td colspan="10"><div class="empty-state-content"><div class="empty-icon">🎵</div><div class="empty-msg">No tracks match these filters</div></div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = '';
+  tracks.forEach((track, idx) => {
+    const tr = document.createElement('tr');
+    const inPlaylist = currentPlaylistTracks.includes(track.file_path);
+    tr.innerHTML = `
+      <td class="checkbox-col"><input type="checkbox" class="pl-result-checkbox" data-path="${escapeHtml(track.file_path)}" ${inPlaylist ? 'checked' : ''} /></td>
+      <td class="col-title">${escapeHtml(track.display_title || '')}</td>
+      <td class="col-artist">${escapeHtml(track.display_artist || '')}</td>
+      <td class="col-genre">${escapeHtml(track.final_genre || '')}</td>
+      <td class="col-bpm">${track.final_bpm || '—'}</td>
+      <td class="col-key">${escapeHtml(track.final_key || '—')}</td>
+      <td class="col-energy">${track.analyzed_energy || '—'}</td>
+      <td class="col-year">${track.final_year || '—'}</td>
+      <td class="col-status"><span class="badge badge-${track.review_status || 'pending'}">${escapeHtml(track.review_status || 'pending')}</span></td>
+      <td class="col-actions">
+        <button class="btn btn-secondary btn-sm pl-add-btn" data-path="${escapeHtml(track.file_path)}" ${inPlaylist ? 'disabled' : ''}>${inPlaylist ? 'Added' : '+ Add'}</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Attach event listeners
+  tbody.querySelectorAll('.pl-add-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const path = decodeURIComponent(e.target.dataset.path);
+      if (!currentPlaylistTracks.includes(path)) {
+        currentPlaylistTracks.push(path);
+        e.target.textContent = 'Added';
+        e.target.disabled = true;
+      }
+    });
+  });
+}
+
+function toggleSelectAllPlaylistResults(checked) {
+  document.querySelectorAll('.pl-result-checkbox').forEach(cb => cb.checked = checked);
+}
+
+async function addAllResultsToPlaylist() {
+  document.querySelectorAll('.pl-result-checkbox:checked').forEach(cb => {
+    const path = cb.dataset.path;
+    if (!currentPlaylistTracks.includes(path)) {
+      currentPlaylistTracks.push(path);
+    }
+  });
+  showToast('Tracks added to playlist', 'success');
+}
+
+async function exportCurrentPlaylist() {
+  if (!currentPlaylistId) return;
+  window.location.href = '/api/playlists/' + encodeURIComponent(currentPlaylistId) + '/export-m3u';
+  showToast('Downloading M3U...', 'info');
+}
+
+async function deleteCurrentPlaylist() {
+  if (!currentPlaylistId) return;
+  if (!confirm('Delete this playlist?')) return;
+
+  try {
+    await apiFetch('/api/playlists/' + encodeURIComponent(currentPlaylistId), { method: 'DELETE' });
+    currentPlaylistId = null;
+    currentPlaylistTracks = [];
+    const editor = document.getElementById('playlist-editor');
+    const emptyState = document.getElementById('playlist-empty-state');
+    if (editor) editor.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'block';
+    await loadPlaylists();
+    showToast('Playlist deleted', 'success');
+  } catch (e) {
+    showToast('Failed to delete playlist: ' + e.message, 'error');
+  }
 }
 
 async function scanForDuplicates() {

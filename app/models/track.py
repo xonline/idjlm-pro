@@ -81,6 +81,11 @@ class Track:
     # Tempo category (per dance style)
     tempo_category: Optional[str] = None      # "slow", "medium", "fast"
 
+    # LUFS / Loudness analysis
+    analyzed_lufs: Optional[float] = None          # Integrated LUFS
+    analyzed_lufs_range: Optional[float] = None    # LRA (10th-90th percentile)
+    analyzed_true_peak: Optional[float] = None     # True Peak in dBFS
+
     # Key accuracy
     key_mismatch: Optional[bool] = None       # True if analyzed_key differs significantly from final_key
     key_mismatch_detail: Optional[str] = None # e.g. "Stored: 8A, Detected: 7B"

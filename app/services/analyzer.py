@@ -138,10 +138,108 @@ def detect_vocal_flag(y: np.ndarray, sr: int) -> tuple:
         return "instrumental", min(100, 100 - vocal_score)
 
 
+def _compute_lufs(y: np.ndarray, sr: int) -> tuple:
+    """
+    Compute Integrated LUFS, LUFS Range (LRA), and True Peak approximation.
+    Uses only numpy/librosa — no pyloudnorm.
+
+    Returns: (integrated_lufs, lra, true_peak) or (None, None, None) on failure.
+    """
+    try:
+        # Ensure mono
+        if y.ndim > 1:
+            y = np.mean(y, axis=1)
+
+        # 1. K-weighted pre-filtering: high-pass below 100Hz, boost 1.5kHz-4kHz
+        # Simple FIR high-pass at 100 Hz
+        nyquist = sr / 2.0
+        cutoff = 100.0 / nyquist
+        # Use a simple difference-based high-pass approximation
+        # y_filtered = y - low_pass(y); approximate low-pass with rolling mean
+        hp_taps = max(3, int(sr / 100))  # ~100 Hz window
+        if hp_taps > len(y):
+            hp_taps = len(y)
+        kernel = np.ones(hp_taps) / hp_taps
+        low_freq = np.convolve(y, kernel, mode='same')
+        y_hp = y - low_freq
+
+        # Boost 1.5kHz-4kHz region with a simple band-pass energy boost
+        # Approximate: compute energy in mid-high freq band and amplify
+        bp_low = 1500.0 / nyquist
+        bp_high = 4000.0 / nyquist
+        bp_taps_low = max(3, int(sr / 1500))
+        bp_taps_high = max(3, int(sr / 4000))
+        if bp_taps_low > len(y_hp):
+            bp_taps_low = len(y_hp)
+        if bp_taps_high > len(y_hp):
+            bp_taps_high = len(y_hp)
+        bp_kernel_low = np.ones(bp_taps_low) / bp_taps_low
+        bp_kernel_high = np.ones(bp_taps_high) / bp_taps_high
+        band_low = np.convolve(y_hp, bp_kernel_low, mode='same')
+        band_high = np.convolve(y_hp, bp_kernel_high, mode='same')
+        band_mid = band_low - band_high
+        # Add 3dB boost to mid band
+        y_kweighted = y_hp + 0.4 * band_mid
+
+        # 2. Compute RMS in 400ms windows with 100ms hop
+        window_size = int(sr * 0.4)
+        hop_size = int(sr * 0.1)
+        if window_size > len(y_kweighted):
+            window_size = len(y_kweighted)
+            hop_size = max(1, window_size // 4)
+
+        rms_values = []
+        for start in range(0, len(y_kweighted) - window_size + 1, hop_size):
+            segment = y_kweighted[start:start + window_size]
+            rms = np.sqrt(np.mean(segment ** 2))
+            rms_values.append(rms)
+
+        if not rms_values:
+            return None, None, None
+
+        rms_values = np.array(rms_values)
+
+        # 3. Convert to dBFS: 20 * log10(rms / 1.0), clamped to -70 LUFS floor
+        with np.errstate(divide='ignore', invalid='ignore'):
+            dbfs = np.where(rms_values > 0, 20 * np.log10(rms_values), -70.0)
+        dbfs = np.maximum(dbfs, -70.0)
+
+        # 4. Relative threshold gating: exclude windows below -10 LUFS of mean
+        mean_dbfs = float(np.mean(dbfs))
+        threshold = mean_dbfs - 10.0
+        gated = dbfs[dbfs >= threshold]
+
+        if len(gated) == 0:
+            # Fallback: use all windows
+            gated = dbfs
+
+        # 5. Integrated LUFS = mean of gated windows
+        integrated_lufs = round(float(np.mean(gated)), 1)
+
+        # 6. LUFS Range (LRA) — difference between 10th and 90th percentile
+        p10 = float(np.percentile(gated, 10))
+        p90 = float(np.percentile(gated, 90))
+        lra = round(p90 - p10, 1)
+
+        # 7. True Peak — max absolute sample value converted to dBFS
+        true_peak_linear = float(np.max(np.abs(y_kweighted)))
+        if true_peak_linear > 0:
+            true_peak = round(20 * np.log10(true_peak_linear), 1)
+            true_peak = max(true_peak, -70.0)
+        else:
+            true_peak = -70.0
+
+        return integrated_lufs, lra, true_peak
+
+    except Exception:
+        return None, None, None
+
+
 def analyze_track(track: Track) -> Track:
     """
-    Analyze audio features: BPM, key (Camelot), energy (1-10).
-    Populates: analyzed_bpm, analyzed_key, analyzed_energy, analysis_done=True
+    Analyze audio features: BPM, key (Camelot), energy (1-10), LUFS loudness.
+    Populates: analyzed_bpm, analyzed_key, analyzed_energy, analyzed_lufs,
+               analyzed_lufs_range, analyzed_true_peak, analysis_done=True
     Applies BPM correction: if > 160, halve it; if < 70, double it.
     Sets bpm_corrected=True if a correction was applied.
     Sets track.error on exception.
@@ -211,6 +309,17 @@ def analyze_track(track: Track) -> Track:
         vocal_flag, vocal_confidence = detect_vocal_flag(y, sr)
         track.vocal_flag = vocal_flag
         track.vocal_confidence = vocal_confidence
+
+        # LUFS loudness analysis (non-blocking — sets to None on failure)
+        try:
+            lufs, lra, true_peak = _compute_lufs(y, sr)
+            track.analyzed_lufs = lufs
+            track.analyzed_lufs_range = lra
+            track.analyzed_true_peak = true_peak
+        except Exception:
+            track.analyzed_lufs = None
+            track.analyzed_lufs_range = None
+            track.analyzed_true_peak = None
 
         # Waveform thumbnail: 60 amplitude points across full track
         num_points = 60

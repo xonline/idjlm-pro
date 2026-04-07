@@ -470,3 +470,29 @@ def save_settings():
     except Exception as e:
         logger.exception("Error in /api/settings POST")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
+
+
+# ---------------------------------------------------------------------------
+# AI Learning
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/learning/stats", methods=["GET"])
+def learning_stats():
+    """Return AI learning statistics."""
+    try:
+        from app.services.learning import get_learning_stats
+        return jsonify(get_learning_stats()), 200
+    except ImportError:
+        return jsonify({"total_corrections": 0, "unique_patterns": 0, "top_corrections": []}), 200
+
+
+@bp.route("/learning/reset", methods=["DELETE"])
+def learning_reset():
+    """Reset all AI learning data."""
+    try:
+        from app.services.learning import reset_corrections
+        reset_corrections()
+        return jsonify({"reset": True}), 200
+    except ImportError:
+        return jsonify({"error": "Learning module not available"}), 500

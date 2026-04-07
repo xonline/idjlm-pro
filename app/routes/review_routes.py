@@ -28,8 +28,15 @@ def approve_tracks():
         approved = 0
         for file_path in track_paths:
             if file_path in track_store:
-                track_store[file_path].review_status = "approved"
+                track = track_store[file_path]
+                track.review_status = "approved"
                 approved += 1
+                # Learn from this correction for future classifications
+                try:
+                    from app.services.learning import save_correction
+                    save_correction(track)
+                except ImportError:
+                    pass
 
         return jsonify({"approved": approved}), 200
 
@@ -323,6 +330,13 @@ def bulk_edit():
             elif track.review_status == "edited":
                 # Revert to pending if no overrides are set and status was edited
                 track.review_status = "pending"
+
+            # Learn from this correction
+            try:
+                from app.services.learning import save_correction
+                save_correction(track)
+            except ImportError:
+                pass
 
             updated += 1
 
