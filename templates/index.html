@@ -7,7 +7,30 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <div class="app">
+  <!-- Splash Screen -->
+  <div id="splash-screen" class="splash-screen">
+    <div class="splash-content">
+      <div class="splash-logo-wrap">
+        <img src="/static/icon_256.png" alt="IDJLM Pro" class="splash-logo">
+        <div class="splash-ring-1"></div>
+        <div class="splash-ring-2"></div>
+      </div>
+      <div class="splash-bars">
+        <div class="splash-bar" style="--h:20px;--d:0ms"></div>
+        <div class="splash-bar" style="--h:35px;--d:100ms"></div>
+        <div class="splash-bar" style="--h:50px;--d:200ms"></div>
+        <div class="splash-bar" style="--h:30px;--d:300ms"></div>
+        <div class="splash-bar" style="--h:55px;--d:150ms"></div>
+        <div class="splash-bar" style="--h:25px;--d:250ms"></div>
+        <div class="splash-bar" style="--h:45px;--d:50ms"></div>
+        <div class="splash-bar" style="--h:20px;--d:350ms"></div>
+      </div>
+      <div class="splash-title">IDJLM Pro</div>
+      <div class="splash-subtitle">Intelligent DJ Library Manager</div>
+    </div>
+  </div>
+
+  <div class="app" id="app-content" style="opacity:0; transition: opacity 0.4s ease 0.3s;">
     <!-- SIDEBAR -->
     <nav class="sidebar">
       <div class="logo">

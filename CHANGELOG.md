@@ -4,6 +4,18 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.8.3] — 2026-04-08
+
+### Splash Screen Animation
+- **Animated loading screen** replaces the blank white flash on app launch
+- Logo scales in with purple glow, pulsing ring ripples expand outward
+- Equaliser bars bounce in sync beneath the logo
+- "IDJLM Pro" fades in with gradient text, subtitle appears underneath
+- Smooth 1.5s animation then fades out to reveal the main app
+- No more disorienting white flash — professional first impression
+
+---
+
 ## [2.8.2] — 2026-04-08
 
 ### Status Bar Visibility

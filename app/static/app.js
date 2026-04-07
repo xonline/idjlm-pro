@@ -4807,6 +4807,23 @@ function loadSetlistFromStorage() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Splash screen fade-out after 1.5s animation
+  const splash = document.getElementById('splash-screen');
+  if (splash) {
+    setTimeout(() => {
+      splash.classList.add('fade-out');
+      // Remove from DOM after transition
+      setTimeout(() => splash.remove(), 600);
+    }, 1500);
+  }
+  // Fade in main app content
+  const appContent = document.getElementById('app-content');
+  if (appContent) {
+    setTimeout(() => {
+      appContent.style.opacity = '1';
+    }, 200);
+  }
+
   initLibraryToolbar();
   initTheme();
   initThemeSwatches();
