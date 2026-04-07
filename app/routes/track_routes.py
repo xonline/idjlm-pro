@@ -69,6 +69,52 @@ def list_tracks():
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
+@bp.route("/tracks/search", methods=["GET"])
+def search_tracks():
+    """
+    Search tracks across all text fields.
+    GET /api/tracks/search?q=query
+    Returns tracks matching the query (case-insensitive substring match),
+    plus count and query string.
+    """
+    try:
+        from app import get_track_store
+
+        track_store = get_track_store()
+        tracks = list(track_store.values())
+
+        q = request.args.get("q", "").strip()
+
+        if q:
+            search_fields = [
+                "display_title", "display_artist", "existing_genre",
+                "proposed_genre", "final_genre", "existing_comment",
+                "proposed_subgenre", "final_subgenre", "existing_album",
+                "spotify_artist", "spotify_title", "analyzed_key",
+                "final_key", "clave_pattern", "filename", "file_path",
+                "reasoning"
+            ]
+
+            matched = []
+            for track in tracks:
+                for field in search_fields:
+                    value = getattr(track, field, None)
+                    if value and q.lower() in str(value).lower():
+                        matched.append(track)
+                        break
+            tracks = matched
+
+        return jsonify({
+            "tracks": [t.to_dict() for t in tracks],
+            "count": len(tracks),
+            "query": q
+        }), 200
+
+    except Exception as e:
+        logger.exception("Error in /api/tracks/search GET")
+        return jsonify({"error": "Operation failed. Check server logs."}), 500
+
+
 @bp.route("/tracks/<path:file_path>", methods=["GET"])
 def get_track(file_path):
     """

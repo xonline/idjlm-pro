@@ -4,6 +4,33 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.7.0] — 2026-04-08
+
+### High Impact Features
+- **Tag backup & restore** — Before writing tags, current ID3 values are backed up. Restore from any backup point via the Organise tab. Auto-cleanup removes backups older than 7 days (max 20 kept).
+- **Re-classify workflow** — Select tracks, pick an AI provider (Claude/Gemini/OpenRouter/Ollama), force re-classify with a specific model. New modal in the bulk actions bar.
+- **Parallel analysis** — ThreadPoolExecutor (4 workers) for audio analysis. ~4x speedup on large libraries. SSE progress shows "(parallel)" indicator.
+- **Import filters** — Filter by file type (checkboxes), date range (modified after/before), and exclude subfolders (comma-separated strings). Collapsible filter panel below folder picker.
+
+### Medium Impact Features
+- **Drag-and-drop setlist reordering** — Native HTML5 DnD on setlist items. Visual drop indicator, saves order immediately on drop.
+- **Smart Playlist builder** — New "Playlists" tab with saved filter queries. Filter by genre, sub-genre, BPM range, energy, key, status. Run anytime against current library.
+- **Latin features UI integration** — "Analyze Latin" button in pipeline. Cue points shown in track detail panel. Mix score badges in setlist. "Mix Well With" suggestions in track detail.
+- **Duplicate merge workflow** — Radio buttons to select which duplicate to keep, merge best fields from others. Shows summary of merged fields.
+- **Library-wide search** — Server-side search across 17 fields (title, artist, genre, key, album, comments, reasoning, file path, clave...). Debounced at 300ms. Existing genre/status filters still work on top.
+- **Export filtering UI** — Modal with genre, sub-genre, status, BPM, key, energy filters before export. "Export All" bypasses filters. Works for M3U, CSV, JSON, Rekordbox XML.
+
+### Nice to Have
+- **Keyboard shortcut reference** — Press `?` or `Cmd+/` to open shortcut cheat sheet. `1-4` for tabs, `/` for search, `Ctrl+S` save session, `Enter`/`Delete` for approve/skip.
+- **Progress bar visualization** — Colored progress bar in stats bar (blue=analyze, green=classify, amber=write). Shows percentage during all SSE operations.
+- **Post-write change summary** — After writing tags, toast shows "X written, Y changed" with expandable detail of actual field changes.
+- **Mobile-responsive CSS** — 3 breakpoints (1024/768/480px). Sidebar collapses to icons, table scrolls horizontally, modals go full-width, touch-friendly 44px tap targets.
+
+### Tests
+- **80 tests passing** (1 pre-existing numpy skip in system Python)
+
+---
+
 ## [2.6.0] — 2026-04-08
 
 ### New Features

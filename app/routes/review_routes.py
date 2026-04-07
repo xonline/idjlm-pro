@@ -135,6 +135,7 @@ def write_tags():
             total = len(track_paths)
             written = 0
             errors = []
+            change_summary = []
             log_path = os.path.join(os.path.dirname(__file__), '..', '..', 'approval_log.jsonl')
 
             for i, file_path in enumerate(track_paths):
@@ -143,9 +144,52 @@ def write_tags():
 
                 try:
                     track = track_store[file_path]
+
+                    # Capture existing values before write
+                    existing = {
+                        'genre': track.existing_genre,
+                        'comment': track.existing_comment,
+                        'bpm': track.existing_bpm,
+                        'key': track.existing_key,
+                        'year': track.existing_year,
+                    }
+
                     write_service(track)
                     track.tags_written = True
                     written += 1
+
+                    # Build change summary by comparing existing vs final
+                    changes = []
+                    genre_before = existing['genre'] or ''
+                    genre_after = track.final_genre or ''
+                    if genre_before != genre_after:
+                        changes.append(f"genre: {genre_before} -> {genre_after}")
+
+                    comment_before = existing['comment'] or ''
+                    comment_after = track.final_subgenre or ''
+                    if comment_before != comment_after:
+                        changes.append(f"comment: {comment_before} -> {comment_after}")
+
+                    bpm_before = existing['bpm'] or ''
+                    bpm_after = track.final_bpm or ''
+                    if bpm_before != bpm_after:
+                        changes.append(f"bpm: {bpm_before} -> {bpm_after}")
+
+                    key_before = existing['key'] or ''
+                    key_after = track.final_key or ''
+                    if key_before != key_after:
+                        changes.append(f"key: {key_before} -> {key_after}")
+
+                    year_before = existing['year'] or ''
+                    year_after = track.final_year or ''
+                    if year_before != year_after:
+                        changes.append(f"year: {year_before} -> {year_after}")
+
+                    if changes:
+                        change_summary.append({
+                            'filename': track.filename,
+                            'changes': changes,
+                        })
 
                     # Log approval if there are overrides (thread-safe)
                     if track.override_genre or track.override_subgenre or track.override_bpm or track.override_key or track.override_year:
@@ -183,7 +227,7 @@ def write_tags():
                         'error': str(e)
                     })
 
-            q.put({'done': True, 'written': written, 'errors': errors, 'refetch': True})
+            q.put({'done': True, 'written': written, 'errors': errors, 'change_summary': change_summary, 'refetch': True})
             try:
                 from app.services.session_service import save_session
                 from app import get_track_store, get_current_folder_path

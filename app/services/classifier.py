@@ -247,7 +247,7 @@ def _classify_with_openrouter(prompt: str, batch: list[Track]) -> tuple[bool, st
         return False, str(e)
 
 
-def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False) -> list[Track]:
+def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False, model_override: str | None = None) -> list[Track]:
     """
     Classify tracks using Claude Sonnet (primary) with Gemini and Ollama fallbacks.
     Sends up to batch_size tracks per API call.
@@ -256,16 +256,20 @@ def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False) ->
 
     If force=False, skips tracks that already have proposed_genre set (already classified).
     If force=True, reclassifies all tracks regardless of prior classification status.
+
+    If model_override is set, use ONLY that model (no fallback chain).
     """
     ai_model = os.getenv("AI_MODEL", "claude").lower()
     batch_size = int(os.getenv("CLASSIFY_BATCH_SIZE", "10"))
-    
+
     # Debug logging
     print(f"[classifier] Starting classification: ai_model={ai_model}, batch_size={batch_size}")
     print(f"[classifier] GEMINI_API_KEY set: {bool(os.getenv('GEMINI_API_KEY'))}")
     print(f"[classifier] ANTHROPIC_API_KEY set: {bool(os.getenv('ANTHROPIC_API_KEY'))}")
     print(f"[classifier] OPENROUTER_API_KEY set: {bool(os.getenv('OPENROUTER_API_KEY'))}")
     print(f"[classifier] Tracks to classify: {len(tracks)}")
+    if model_override:
+        print(f"[classifier] Model override: {model_override} (no fallback)")
 
     # Skip already-classified tracks unless forced
     if not force:
@@ -273,12 +277,14 @@ def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False) ->
             t for t in tracks
             if t.review_status == 'pending' and t.proposed_genre is None
         ]
-    
+
     print(f"[classifier] After filtering (excluding already classified): {len(tracks)} tracks")
 
     # Define model chain in order
-    model_chain = []
-    if ai_model == "claude" or ai_model == "":
+    if model_override:
+        # Use ONLY the specified model, no fallback
+        model_chain = [model_override.lower()]
+    elif ai_model == "claude" or ai_model == "":
         model_chain = ["claude", "gemini", "openrouter", "ollama"]
     elif ai_model == "gemini":
         model_chain = ["gemini", "claude", "openrouter", "ollama"]

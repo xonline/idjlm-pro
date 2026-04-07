@@ -166,7 +166,14 @@ def classify_tracks():
     """
     Classify tracks by genre and enrich metadata (async).
     POST /api/classify
-    body: { "track_paths": ["/path1", "/path2"], "force": false }  # or empty = all analyzed tracks; force=true reclassifies already-classified
+    body: {
+        "track_paths": ["/path1", "/path2"],
+        "force": false,
+        "model_override": "claude" | "gemini" | "openrouter" | "ollama" | null,
+        "reclassify": false
+    }
+    - model_override: use ONLY this model (no fallback chain)
+    - reclassify: force reclassification even on already-classified tracks
     Returns: { "op_id": "...", "total": N }  (202 Accepted)
     Stream progress via EventSource('/api/progress/<op_id>')
     """
@@ -180,7 +187,8 @@ def classify_tracks():
 
         data = request.get_json(silent=True) or {}
         track_paths = data.get("track_paths", [])
-        force = data.get("force", False)
+        force = data.get("force", False) or data.get("reclassify", False)
+        model_override = data.get("model_override")
         track_store = get_track_store()
 
         # If empty, classify all analyzed tracks
@@ -202,12 +210,25 @@ def classify_tracks():
             valid_paths = []
             for file_path in track_paths:
                 if file_path in track_store:
-                    tracks_to_classify.append(track_store[file_path])
+                    track = track_store[file_path]
+                    tracks_to_classify.append(track)
                     valid_paths.append(file_path)
+
+            # When reclassifying, reset approved tracks to pending so they get fresh classification
+            if force:
+                for track in tracks_to_classify:
+                    if track.review_status == 'approved':
+                        track.review_status = 'pending'
+                    # Clear previous classification so it gets re-done
+                    track.proposed_genre = None
+                    track.proposed_subgenre = None
+                    track.confidence = None
+                    track.reasoning = None
+                    track.classification_done = False
 
             # Classify all tracks at once (service handles batching internally)
             try:
-                classify_service(tracks_to_classify, get_taxonomy(), force=force)
+                classify_service(tracks_to_classify, get_taxonomy(), force=force, model_override=model_override)
             except Exception as e:
                 errors.append({'error': str(e)})
 

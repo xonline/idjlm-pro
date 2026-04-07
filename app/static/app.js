@@ -4,6 +4,7 @@
 
 // Global state
 window.tracks = [];
+window.searchResults = null; // null = no active search; array = server-side search results
 window.taxonomy = {};
 window.currentSort = { field: 'display_title', direction: 'asc' };
 window.setlist = [];
@@ -206,6 +207,7 @@ function initLibraryToolbar() {
       });
       if (result && result.tracks) {
         window.tracks = result.tracks;
+        window.searchResults = null;
         renderTracks();
         updateStats();
         showToast((result.count || result.tracks.length) + ' tracks imported — click Analyze All to extract BPM & key', 'success');
@@ -221,7 +223,7 @@ function initLibraryToolbar() {
   if (btnAnalyze) {
     btnAnalyze.addEventListener('click', async () => {
       btnAnalyze.disabled = true;
-      showProgressInStatsBar('Analyzing audio...');
+      showProgressInStatsBar('Analyzing audio...', 'analyze');
       try {
         const result = await apiFetch('/api/analyze', { method: 'POST' });
         if (result && result.op_id) {
@@ -231,18 +233,17 @@ function initLibraryToolbar() {
             result.total,
             (current, total, message) => {
               const pct = Math.round((current / total) * 100);
-              showProgressInStatsBar(`${current} / ${total} analyzing...`);
+              showProgressInStatsBar(`${current} / ${total} analyzing...`, 'analyze');
               const fill = document.getElementById('stat-progress-fill');
               if (fill) fill.style.width = pct + '%';
             },
             (data) => {
               // SSE complete event
               hideProgressInStatsBar();
-              const fill = document.getElementById('stat-progress-fill');
-              if (fill) fill.style.width = '0%';
               // Refetch fresh track data from server
               apiFetch('/api/tracks').then(d => {
                 window.tracks = d.tracks || [];
+                window.searchResults = null;
                 renderTracks();
                 updateStats();
               });
@@ -268,7 +269,7 @@ function initLibraryToolbar() {
   if (btnClassify) {
     btnClassify.addEventListener('click', async () => {
       btnClassify.disabled = true;
-      showProgressInStatsBar('Classifying genres...');
+      showProgressInStatsBar('Classifying genres...', 'classify');
       try {
         const result = await apiFetch('/api/classify', { method: 'POST' });
         if (result && result.op_id) {
@@ -278,18 +279,17 @@ function initLibraryToolbar() {
             result.total,
             (current, total, message) => {
               const pct = Math.round((current / total) * 100);
-              showProgressInStatsBar(`${current} / ${total} classifying...`);
+              showProgressInStatsBar(`${current} / ${total} classifying...`, 'classify');
               const fill = document.getElementById('stat-progress-fill');
               if (fill) fill.style.width = pct + '%';
             },
             (data) => {
               // SSE complete event
               hideProgressInStatsBar();
-              const fill = document.getElementById('stat-progress-fill');
-              if (fill) fill.style.width = '0%';
               // Refetch fresh track data from server
               apiFetch('/api/tracks').then(d => {
                 window.tracks = d.tracks || [];
+                window.searchResults = null;
                 renderTracks();
                 updateStats();
               });
@@ -340,7 +340,7 @@ function initLibraryToolbar() {
   if (btnWriteTags) {
     btnWriteTags.addEventListener('click', async () => {
       btnWriteTags.disabled = true;
-      showProgressInStatsBar('Writing tags...');
+      showProgressInStatsBar('Writing tags...', 'write');
       try {
         const result = await apiFetch('/api/review/write', { method: 'POST' });
         if (result && result.op_id) {
@@ -350,23 +350,53 @@ function initLibraryToolbar() {
             result.total,
             (current, total, message) => {
               const pct = Math.round((current / total) * 100);
-              showProgressInStatsBar(`${current} / ${total} writing...`);
+              showProgressInStatsBar(`${current} / ${total} writing...`, 'write');
               const fill = document.getElementById('stat-progress-fill');
               if (fill) fill.style.width = pct + '%';
             },
             (data) => {
               // SSE complete event
               hideProgressInStatsBar();
-              const fill = document.getElementById('stat-progress-fill');
-              if (fill) fill.style.width = '0%';
               // Refetch fresh track data from server
               apiFetch('/api/tracks').then(d => {
                 window.tracks = d.tracks || [];
+                window.searchResults = null;
                 renderTracks();
                 updateStats();
               });
               updateToolbarButtonStates();
-              showToast('Tags written successfully', 'success');
+
+              const written = data.written || 0;
+              const changes = data.change_summary || [];
+              const changedCount = changes.length;
+
+              if (changedCount > 0) {
+                showToast(written + ' tracks written, ' + changedCount + ' changed', 'success');
+                // Show first 3 changes in detail
+                let detailHtml = '<div style="max-height:300px;overflow-y:auto;font-size:13px;line-height:1.5;">';
+                changes.slice(0, 3).forEach(entry => {
+                  detailHtml += '<div style="margin-bottom:8px;padding:6px 8px;border-left:3px solid #8b5cf6;background:rgba(139,92,246,0.08);border-radius:4px;">';
+                  detailHtml += '<strong style="color:#c4b5fd;">' + escapeHtml(entry.filename) + '</strong><br>';
+                  entry.changes.forEach(ch => {
+                    detailHtml += '<span style="color:#a5b4fc;">' + escapeHtml(ch) + '</span><br>';
+                  });
+                  detailHtml += '</div>';
+                });
+                if (changes.length > 3) {
+                  detailHtml += '<div style="color:#888;font-size:12px;text-align:center;">+' + (changes.length - 3) + ' more changes</div>';
+                }
+                detailHtml += '</div>';
+
+                const modal = document.getElementById('change-detail-modal');
+                const modalBody = document.getElementById('change-detail-body');
+                if (modal && modalBody) {
+                  modalBody.innerHTML = detailHtml;
+                  modal.style.display = 'block';
+                }
+              } else {
+                showToast(written + ' tracks written', 'success');
+              }
+
               btnWriteTags.disabled = false;
             },
             (err) => {
@@ -383,6 +413,9 @@ function initLibraryToolbar() {
       }
     });
   }
+
+  const btnShortcuts = document.getElementById('btn-shortcuts');
+  if (btnShortcuts) btnShortcuts.addEventListener('click', showKeyboardShortcuts);
 }
 
 function updateToolbarButtonStates(stats) {
@@ -403,20 +436,33 @@ function updateToolbarButtonStates(stats) {
   if (btnWriteTags)   btnWriteTags.disabled     = approved   === 0;
 }
 
-function showProgressInStatsBar(text) {
+function showProgressInStatsBar(text, opType) {
   const sep  = document.getElementById('stat-progress-sep');
   const wrap = document.getElementById('stat-progress-wrap');
   const txt  = document.getElementById('stat-progress-text');
+  const fill = document.getElementById('stat-progress-fill');
   if (sep)  sep.style.display  = 'inline';
   if (wrap) wrap.style.display = 'flex';
   if (txt)  txt.textContent    = text;
+  // Apply color class based on operation type
+  if (fill) {
+    fill.classList.remove('progress-analyze', 'progress-classify', 'progress-write');
+    if (opType === 'analyze')      fill.classList.add('progress-analyze');
+    else if (opType === 'classify') fill.classList.add('progress-classify');
+    else if (opType === 'write')    fill.classList.add('progress-write');
+  }
 }
 
 function hideProgressInStatsBar() {
   const sep  = document.getElementById('stat-progress-sep');
   const wrap = document.getElementById('stat-progress-wrap');
+  const fill = document.getElementById('stat-progress-fill');
   if (sep)  sep.style.display  = 'none';
   if (wrap) wrap.style.display = 'none';
+  if (fill) {
+    fill.style.width = '0%';
+    fill.classList.remove('progress-analyze', 'progress-classify', 'progress-write');
+  }
 }
 
 function checkResumeSession() {
@@ -437,6 +483,7 @@ function checkResumeSession() {
           const result = await apiFetch('/api/session/load', { method: 'POST' });
           if (result) {
             window.tracks = result.tracks || [];
+            window.searchResults = null;
             renderTracks();
             updateStats();
             if (banner) banner.style.display = 'none';
@@ -1014,6 +1061,7 @@ async function pollFolderWatch() {
     if (result.tracks && result.tracks.length > 0) {
       // Add new tracks to window.tracks
       window.tracks = window.tracks.concat(result.tracks);
+      window.searchResults = null;
       renderTracks();
       renderReview();
       updateStats();
@@ -1078,7 +1126,10 @@ function populateGenreFilters() {
 }
 
 function getFilteredTracks() {
-  let filtered = [...(window.tracks || [])];
+  // Use server-side search results if a search is active
+  let filtered = window.searchResults !== null
+    ? [...window.searchResults]
+    : [...(window.tracks || [])];
 
   // Genre filter
   const genreEl = document.getElementById('filter-genre');
@@ -1092,16 +1143,6 @@ function getFilteredTracks() {
   const statusFilter = statusEl ? statusEl.value : '';
   if (statusFilter) {
     filtered = filtered.filter(t => t.review_status === statusFilter);
-  }
-
-  // Search
-  const searchEl = document.getElementById('search-tracks');
-  const search = searchEl ? searchEl.value.toLowerCase() : '';
-  if (search) {
-    filtered = filtered.filter(t =>
-      (t.display_title || '').toLowerCase().includes(search) ||
-      (t.display_artist || '').toLowerCase().includes(search)
-    );
   }
 
   return filtered;
@@ -3407,7 +3448,7 @@ function populateSetplanGenres() {
   });
 }
 
-// Text search with debounce
+// Text search with debounce — server-side
 function initSearchFeature() {
   const searchInput = document.getElementById('search-tracks');
   const searchClearBtn = document.getElementById('search-clear');
@@ -3416,29 +3457,44 @@ function initSearchFeature() {
 
   searchInput.addEventListener('input', (e) => {
     clearTimeout(searchDebounceTimer);
-    const query = e.target.value.toLowerCase();
-
-    searchDebounceTimer = setTimeout(() => {
-      window.tracks = window.tracks.map(t => ({
-        ...t,
-        _searchMatch: !query ||
-          (t.display_title?.toLowerCase().includes(query)) ||
-          (t.display_artist?.toLowerCase().includes(query)) ||
-          (t.album?.toLowerCase().includes(query))
-      }));
-      renderTracks();
-    }, 300);
+    const query = e.target.value;
 
     // Show/hide clear button
     if (searchClearBtn) {
       searchClearBtn.style.display = query ? 'block' : 'none';
     }
+
+    searchDebounceTimer = setTimeout(async () => {
+      const trimmed = query.trim();
+      if (!trimmed) {
+        // Empty query: clear search results, fall back to all tracks
+        window.searchResults = null;
+        renderTracks();
+        return;
+      }
+
+      // Show searching indicator
+      const searchLabel = searchInput.placeholder;
+      searchInput.placeholder = 'Searching...';
+
+      try {
+        const data = await apiFetch('/api/tracks/search?q=' + encodeURIComponent(trimmed));
+        window.searchResults = data.tracks || [];
+        renderTracks();
+      } catch (err) {
+        // On error, fall back to all tracks
+        window.searchResults = null;
+        renderTracks();
+      } finally {
+        searchInput.placeholder = searchLabel || 'Search tracks...';
+      }
+    }, 300);
   });
 
   if (searchClearBtn) {
     searchClearBtn.addEventListener('click', () => {
       searchInput.value = '';
-      window.tracks = window.tracks.map(t => ({ ...t, _searchMatch: true }));
+      window.searchResults = null;
       renderTracks();
       if (searchClearBtn) searchClearBtn.style.display = 'none';
     });
@@ -3509,6 +3565,13 @@ function initBulkSelectFeature() {
   document.getElementById('btn-export-csv')?.addEventListener('click', () => { exportTracks('csv'); closeExportFn(); });
   document.getElementById('btn-export-json')?.addEventListener('click', () => { exportTracks('json'); closeExportFn(); });
   document.getElementById('btn-export-rekordbox')?.addEventListener('click', () => { exportTracks('rekordbox'); closeExportFn(); });
+
+  // Wire change detail modal close button
+  const changeDetailModal = document.getElementById('change-detail-modal');
+  const closeChangeDetailFn = () => { if (changeDetailModal) changeDetailModal.style.display = 'none'; };
+  document.getElementById('change-detail-close')?.addEventListener('click', closeChangeDetailFn);
+  document.getElementById('change-detail-done')?.addEventListener('click', closeChangeDetailFn);
+  changeDetailModal?.addEventListener('click', e => { if (e.target === changeDetailModal) closeChangeDetailFn(); });
 }
 
 function updateBulkActionsBar() {
@@ -3523,6 +3586,7 @@ function updateBulkActionsBar() {
       <button class="btn btn-primary btn-small" id="bulk-edit-btn">Bulk Edit</button>
       <button class="btn btn-secondary btn-small" id="bulk-export-btn">Export</button>
       <button class="btn btn-secondary btn-small" id="bulk-add-setlist-btn">Add to Setlist</button>
+      <button class="btn btn-warning btn-small" id="bulk-reclassify-btn">Re-classify</button>
     `;
 
     const bulkAnalyzeBtn = document.getElementById('bulk-analyze-btn');
@@ -3530,7 +3594,7 @@ function updateBulkActionsBar() {
       bulkAnalyzeBtn.addEventListener('click', async () => {
         const paths = Array.from(window.selectedTracks);
         bulkAnalyzeBtn.disabled = true;
-        showProgressInStatsBar(`Analysing ${paths.length} track${paths.length !== 1 ? 's' : ''}...`);
+        showProgressInStatsBar(`Analysing ${paths.length} track${paths.length !== 1 ? 's' : ''}...`, 'analyze');
         try {
           const result = await apiFetch('/api/analyze', {
             method: 'POST',
@@ -3542,17 +3606,16 @@ function updateBulkActionsBar() {
               result.total,
               (current, total) => {
                 const pct = Math.round((current / total) * 100);
-                showProgressInStatsBar(`${current} / ${total} analysing...`);
+                showProgressInStatsBar(`${current} / ${total} analysing...`, 'analyze');
                 const fill = document.getElementById('stat-progress-fill');
                 if (fill) fill.style.width = pct + '%';
               },
               (data) => {
                 hideProgressInStatsBar();
-                const fill = document.getElementById('stat-progress-fill');
-                if (fill) fill.style.width = '0%';
                 // Refetch fresh track data from server
                 apiFetch('/api/tracks').then(d => {
                   window.tracks = d.tracks || [];
+                  window.searchResults = null;
                   renderTracks();
                   updateStats();
                 });
@@ -3569,6 +3632,13 @@ function updateBulkActionsBar() {
           hideProgressInStatsBar();
           showToast('Analyse failed: ' + e.message, 'error');
         }
+      });
+    }
+
+    const bulkReclassifyBtn = document.getElementById('bulk-reclassify-btn');
+    if (bulkReclassifyBtn) {
+      bulkReclassifyBtn.addEventListener('click', () => {
+        showReclassifyModal();
       });
     }
   } else {
@@ -3600,6 +3670,123 @@ function showBulkEditModal() {
   if (countEl) countEl.textContent = `${window.selectedTracks.size} track${window.selectedTracks.size !== 1 ? 's' : ''} selected`;
 
   modal.style.display = 'flex';
+}
+
+// ============================================================================
+// Reclassify Modal
+// ============================================================================
+
+function showReclassifyModal() {
+  if (window.selectedTracks.size === 0) {
+    showToast('Select tracks to re-classify', 'error');
+    return;
+  }
+
+  const modal = document.getElementById('reclassify-modal');
+  if (!modal) return;
+
+  const countEl = document.getElementById('reclassify-count');
+  if (countEl) countEl.textContent = `${window.selectedTracks.size} track${window.selectedTracks.size !== 1 ? 's' : ''} selected`;
+
+  // Set default provider from settings
+  const providerSelect = document.getElementById('reclassify-provider');
+  if (providerSelect) {
+    const currentProvider = document.getElementById('settings-provider');
+    if (currentProvider && currentProvider.value) {
+      providerSelect.value = currentProvider.value;
+    }
+  }
+
+  modal.style.display = 'flex';
+}
+
+function initReclassifyModal() {
+  const modal = document.getElementById('reclassify-modal');
+  if (!modal) return;
+
+  const closeBtn = document.getElementById('reclassify-close');
+  const cancelBtn = document.getElementById('reclassify-cancel');
+  const runBtn = document.getElementById('reclassify-run');
+
+  const closeModal = () => { modal.style.display = 'none'; };
+
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+
+  // Close on background click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  if (runBtn) {
+    runBtn.addEventListener('click', async () => {
+      const provider = document.getElementById('reclassify-provider').value;
+      const force = document.getElementById('reclassify-force').checked;
+      const paths = Array.from(window.selectedTracks);
+
+      if (!paths.length) {
+        showToast('No tracks selected', 'error');
+        return;
+      }
+
+      closeModal();
+      runBtn.disabled = true;
+      showProgressInStatsBar(`Re-classifying ${paths.length} tracks with ${provider}...`, 'classify');
+
+      try {
+        const result = await apiFetch('/api/classify', {
+          method: 'POST',
+          body: JSON.stringify({
+            track_paths: paths,
+            model_override: provider,
+            reclassify: force
+          })
+        });
+
+        if (result && result.op_id) {
+          connectToProgress(
+            result.op_id,
+            result.total,
+            (current, total) => {
+              const pct = Math.round((current / total) * 100);
+              showProgressInStatsBar(`${current} / ${total} re-classifying...`, 'classify');
+              const fill = document.getElementById('stat-progress-fill');
+              if (fill) fill.style.width = pct + '%';
+            },
+            (data) => {
+              hideProgressInStatsBar();
+              // Refetch fresh track data from server
+              apiFetch('/api/tracks').then(d => {
+                window.tracks = d.tracks || [];
+                window.searchResults = null;
+                renderTracks();
+                updateStats();
+              });
+              updateToolbarButtonStates();
+              showToast(`Re-classified ${paths.length} track${paths.length !== 1 ? 's' : ''} with ${provider}`, 'success');
+              runBtn.disabled = false;
+            },
+            (err) => {
+              hideProgressInStatsBar();
+              showToast('Re-classify error: ' + err.message, 'error');
+              runBtn.disabled = false;
+            }
+          );
+        }
+      } catch (e) {
+        hideProgressInStatsBar();
+        showToast('Re-classify failed: ' + e.message, 'error');
+        runBtn.disabled = false;
+      }
+    });
+  }
+
+  // Close reclassify modal with Escape key (extend existing handler)
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.style.display !== 'none') {
+      closeModal();
+    }
+  });
 }
 
 // Apple Music sync button
@@ -3828,6 +4015,7 @@ async function handleBulkEdit() {
       // Reload tracks to reflect changes
       apiFetch('/api/tracks').then(data => {
         window.tracks = data.tracks || [];
+        window.searchResults = null;
         renderTracks();
       });
     }
@@ -3940,11 +4128,13 @@ document.addEventListener('DOMContentLoaded', () => {
   initThemeSwatches();
   initNavigation();
   initEditModal();
+  initReclassifyModal();
   initAudioPlayer();
   initColumnToggle();
   initBulkSelectFeature();
   initSearchFeature();
   initSettingsTab();
+  initKeyboardShortcuts();
   startStatsPolling();
   loadTaxonomy();
   loadSetlistFromStorage();
@@ -4265,10 +4455,33 @@ function renderCamelotWheel() {
 }
 
 // ============================================================================
-// Feature 7: Keyboard Shortcuts (Review Tab)
+// Keyboard Shortcuts Reference Modal
+// ============================================================================
+
+function showKeyboardShortcuts() {
+  const modal = document.getElementById('shortcuts-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+// ============================================================================
+// Keyboard Shortcuts
 // ============================================================================
 
 function initKeyboardShortcuts() {
+  // Shortcuts modal: close handlers
+  const shortcutsModal = document.getElementById('shortcuts-modal');
+  const shortcutsCloseBtn = document.getElementById('shortcuts-close');
+  const shortcutsDoneBtn = document.getElementById('shortcuts-done');
+
+  const hideShortcutsModal = () => { if (shortcutsModal) shortcutsModal.style.display = 'none'; };
+  if (shortcutsCloseBtn) shortcutsCloseBtn.addEventListener('click', hideShortcutsModal);
+  if (shortcutsDoneBtn) shortcutsDoneBtn.addEventListener('click', hideShortcutsModal);
+  if (shortcutsModal) {
+    shortcutsModal.addEventListener('click', (e) => {
+      if (e.target === shortcutsModal) hideShortcutsModal();
+    });
+  }
+
   // Show hints in review tab
   const reviewTab = document.getElementById('tab-review');
   let hintsAdded = false;
@@ -4308,17 +4521,67 @@ function initKeyboardShortcuts() {
     } else if (e.code === 'ArrowUp' || e.key === 'k') {
       e.preventDefault();
       // Previous track
-    } else if (e.key === 'a') {
+    } else if (e.key === 'a' || e.code === 'Enter') {
       e.preventDefault();
       const btn = document.querySelector('.review-item:first-child [data-approve-btn]');
       if (btn) btn.click();
-    } else if (e.key === 's') {
+    } else if (e.key === 's' || e.code === 'Delete' || e.code === 'Backspace') {
       e.preventDefault();
       const btn = document.querySelector('.review-item:first-child [data-skip-btn]');
       if (btn) btn.click();
     } else if (e.code === 'Space') {
       e.preventDefault();
       document.getElementById('audio-play-pause').click();
+    }
+  });
+
+  // Global shortcut: ? or Cmd+/ to open keyboard shortcuts reference
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const shortcutsModal = document.getElementById('shortcuts-modal');
+      if (shortcutsModal && shortcutsModal.style.display !== 'none') {
+        shortcutsModal.style.display = 'none';
+        return;
+      }
+    }
+    if ((e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) ||
+        (e.key === '/' && (e.ctrlKey || e.metaKey))) {
+      // Don't trigger when typing in an input/textarea
+      const tag = (e.target.tagName || '').toLowerCase();
+      if (tag !== 'input' && tag !== 'textarea' && !e.target.isContentEditable) {
+        e.preventDefault();
+        showKeyboardShortcuts();
+      }
+    }
+    // Single / to focus search (when not in an input)
+    if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const tag = (e.target.tagName || '').toLowerCase();
+      if (tag !== 'input' && tag !== 'textarea' && !e.target.isContentEditable) {
+        const searchInput = document.getElementById('search-tracks');
+        if (searchInput) {
+          e.preventDefault();
+          searchInput.focus();
+        }
+      }
+    }
+    // Number keys 1-4 for tab switching
+    const tabMap = { '1': 'library', '2': 'organise', '3': 'setplan', '4': 'settings' };
+    if (tabMap[e.key] && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const tag = (e.target.tagName || '').toLowerCase();
+      if (tag !== 'input' && tag !== 'textarea' && !e.target.isContentEditable) {
+        e.preventDefault();
+        switchTab(tabMap[e.key]);
+      }
+    }
+    // Ctrl+S to save session
+    if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
+      const tag = (e.target.tagName || '').toLowerCase();
+      if (tag !== 'input' && tag !== 'textarea' && !e.target.isContentEditable) {
+        e.preventDefault();
+        apiFetch('/api/session/save', { method: 'POST' }).then(() => {
+          showToast('Session saved', 'success');
+        }).catch(() => {});
+      }
     }
   });
 }
@@ -4415,20 +4678,27 @@ function renderDuplicates(duplicates) {
     return;
   }
 
-  duplicates.forEach((pair, idx) => {
+  duplicates.forEach((group, idx) => {
     const div = document.createElement('div');
     div.className = 'duplicate-pair';
-    div.innerHTML = `<h3>Duplicate Pair ${idx + 1}</h3>`;
+    const tracks = group.tracks || [group.track1, group.track2].filter(Boolean);
+    div.innerHTML = `<h3>Duplicate Group ${idx + 1} (${tracks.length} tracks)</h3>`;
 
-    [pair.track1, pair.track2].forEach(track => {
+    // Radio group for selecting which track to keep
+    const radioName = `dup-keep-group-${idx}`;
+
+    tracks.forEach((track, tIdx) => {
       const trackDiv = document.createElement('div');
       trackDiv.className = 'duplicate-track';
       trackDiv.innerHTML = `
         <div class="duplicate-track-info">
-          <div>
-            <div class="duplicate-track-title">${escapeHtml(track.display_title || 'Unknown')}</div>
-            <div class="duplicate-track-meta">${escapeHtml(track.display_artist || 'Unknown')} — ${escapeHtml(track.file_path)}</div>
-          </div>
+          <label class="duplicate-track-label">
+            <input type="radio" name="${radioName}" value="${tIdx}" class="duplicate-keep-radio" data-group-idx="${idx}" data-track-idx="${tIdx}">
+            <div>
+              <div class="duplicate-track-title">${escapeHtml(track.display_title || 'Unknown')}</div>
+              <div class="duplicate-track-meta">${escapeHtml(track.display_artist || 'Unknown')} — ${escapeHtml(track.file_path)}</div>
+            </div>
+          </label>
           <button class="btn btn-secondary duplicate-remove-btn" data-path="${encodeURIComponent(track.file_path)}">Remove</button>
         </div>
       `;
@@ -4441,8 +4711,117 @@ function renderDuplicates(duplicates) {
       div.appendChild(trackDiv);
     });
 
+    // Merge button (hidden until a radio is selected)
+    const mergeBtn = document.createElement('button');
+    mergeBtn.className = 'btn btn-primary duplicate-merge-btn';
+    mergeBtn.textContent = 'Merge into Selected';
+    mergeBtn.style.display = 'none';
+    mergeBtn.style.marginTop = '8px';
+    mergeBtn.dataset.groupIdx = idx;
+    div.appendChild(mergeBtn);
+
+    // Summary div
+    const summaryDiv = document.createElement('div');
+    summaryDiv.className = 'duplicate-merge-summary';
+    summaryDiv.style.display = 'none';
+    div.appendChild(summaryDiv);
+
+    // Show merge button when a radio is selected
+    div.querySelectorAll('.duplicate-keep-radio').forEach(radio => {
+      radio.addEventListener('change', () => {
+        div.querySelectorAll('.duplicate-merge-btn').forEach(btn => btn.style.display = 'none');
+        mergeBtn.style.display = 'inline-block';
+      });
+    });
+
+    // Merge button click handler
+    mergeBtn.addEventListener('click', async () => {
+      const selectedRadio = div.querySelector(`input[name="${radioName}"]:checked`);
+      if (!selectedRadio) {
+        showToast('Please select a track to keep', 'warning');
+        return;
+      }
+      const keepTrackIdx = parseInt(selectedRadio.dataset.trackIdx);
+      const groupIdx = parseInt(selectedRadio.dataset.groupIdx);
+      await mergeDuplicateGroup(groupIdx, keepTrackIdx, duplicates[groupIdx]);
+    });
+
     container.appendChild(div);
   });
+}
+
+async function mergeDuplicateGroup(groupIdx, keepTrackIdx, group) {
+  const tracks = group.tracks || [group.track1, group.track2].filter(Boolean);
+  const keepTrack = tracks[keepTrackIdx];
+  const mergeTracks = tracks.filter((_, i) => i !== keepTrackIdx);
+
+  if (!keepTrack || mergeTracks.length === 0) {
+    showToast('Nothing to merge', 'warning');
+    return;
+  }
+
+  showSpinner('Merging duplicates...');
+  try {
+    const result = await apiFetch('/api/duplicates/merge', {
+      method: 'POST',
+      body: JSON.stringify({
+        keep_path: keepTrack.file_path,
+        merge_paths: mergeTracks.map(t => t.file_path),
+        field_strategy: 'best'
+      })
+    });
+
+    // Update local track store
+    if (result.result) {
+      const idx = window.tracks.findIndex(t => t.file_path === result.kept);
+      if (idx >= 0) {
+        window.tracks[idx] = result.result;
+      }
+    }
+    window.tracks = window.tracks.filter(t => t.file_path !== result.kept || t.file_path === result.kept);
+    // Remove merged tracks
+    const mergedPaths = new Set(mergeTracks.map(t => t.file_path));
+    window.tracks = window.tracks.filter(t => !mergedPaths.has(t.file_path));
+    window.searchResults = null;
+
+    renderTracks();
+
+    // Show summary
+    const container = document.getElementById('duplicates-results');
+    const mergeSummary = container.querySelectorAll('.duplicate-merge-summary')[groupIdx];
+    if (mergeSummary) {
+      const fieldNames = (result.updated_fields || []).map(f => {
+        const names = {
+          final_genre: 'genre',
+          final_subgenre: 'subgenre',
+          final_bpm: 'BPM',
+          final_key: 'key',
+          final_year: 'year',
+          analyzed_energy: 'energy',
+          clave_pattern: 'clave',
+          vocal_flag: 'vocal'
+        };
+        return names[f] || f;
+      });
+      const fieldsText = fieldNames.length > 0 ? ` Fields updated: ${fieldNames.join(', ')}` : '';
+      mergeSummary.textContent = `Merged ${result.merged} duplicates into "${result.result.display_title}".${fieldsText}`;
+      mergeSummary.style.display = 'block';
+    }
+
+    // Hide merge button and radios
+    const dupGroup = container.querySelectorAll('.duplicate-pair')[groupIdx];
+    if (dupGroup) {
+      dupGroup.querySelectorAll('.duplicate-keep-radio').forEach(r => r.disabled = true);
+      dupGroup.querySelectorAll('.duplicate-merge-btn').forEach(b => b.style.display = 'none');
+      dupGroup.querySelectorAll('.duplicate-remove-btn').forEach(b => b.style.display = 'none');
+    }
+
+    showToast(`Merged ${result.merged} duplicates`, 'success');
+  } catch (error) {
+    showToast('Error merging duplicates: ' + (error.message || 'Unknown error'), 'error');
+  } finally {
+    hideSpinner();
+  }
 }
 
 async function removeDuplicate(filePath) {
@@ -4454,6 +4833,7 @@ async function removeDuplicate(filePath) {
     });
 
     window.tracks = window.tracks.filter(t => t.file_path !== filePath);
+    window.searchResults = null;
     renderTracks();
     showToast('Track removed from library', 'success');
 

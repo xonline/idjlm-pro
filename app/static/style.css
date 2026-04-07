@@ -1999,6 +1999,64 @@ body.light .taxonomy-subgenres {
 }
 
 /* ============================================================================
+   Keyboard Shortcuts Modal
+   ============================================================================ */
+
+.shortcut-group {
+  margin-bottom: 16px;
+}
+
+.shortcut-group:last-child {
+  margin-bottom: 0;
+}
+
+.shortcut-group-heading {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.shortcut-row + .shortcut-row {
+  border-top: 1px solid var(--border);
+}
+
+.shortcut-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.shortcut-desc {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-left: 2px;
+}
+
+/* ============================================================================
    Duplicates UI
    ============================================================================ */
 
@@ -2028,6 +2086,25 @@ body.light .taxonomy-subgenres {
 .duplicate-track-info {
   display: flex; justify-content: space-between;
   align-items: center; margin-bottom: 8px;
+}
+
+.duplicate-track-label {
+  display: flex; align-items: flex-start; gap: 8px; flex: 1;
+  cursor: pointer;
+}
+
+.duplicate-keep-radio {
+  margin-top: 4px; accent-color: var(--accent);
+}
+
+.duplicate-merge-btn {
+  font-size: 13px;
+}
+
+.duplicate-merge-summary {
+  margin-top: 12px; padding: 10px 14px;
+  background: var(--accent-dim); border-radius: var(--radius-sm);
+  font-size: 13px; color: var(--accent); font-weight: 500;
 }
 
 .duplicate-track-title {
@@ -2964,6 +3041,15 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
   transition: width 0.3s ease;
   width: 0%;
 }
+.stat-progress-fill.progress-analyze {
+  background: var(--blue);
+}
+.stat-progress-fill.progress-classify {
+  background: var(--green);
+}
+.stat-progress-fill.progress-write {
+  background: var(--amber);
+}
 
 /* ─── Resume Banner ────────────────────────────────────────── */
 .resume-banner {
@@ -3123,6 +3209,16 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
 }
 .btn-accent:hover {
   opacity: 0.9;
+}
+
+/* Warning button variant — used for re-classify */
+.btn-warning {
+  background: #f59e0b;
+  color: var(--bg-primary);
+  font-weight: 600;
+}
+.btn-warning:hover:not(:disabled) {
+  background: #d97706;
 }
 
 /* Small button — alias for btn-small used in some places as btn-sm */
