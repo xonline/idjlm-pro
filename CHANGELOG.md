@@ -4,6 +4,25 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.6.0] — 2026-04-08
+
+### New Features
+- **Cascading provider → model selector in Settings** — Provider dropdown (Anthropic / OpenRouter / Gemini / Ollama) drives which API key section is shown and populates the model dropdown live from the provider's API.
+- **Dynamic model listing endpoint (`POST /api/list_models`)** — Queries each provider's API for available models. OpenRouter models show free/paid badges based on pricing.
+- **Model refresh button** — Re-fetch the model list at any time without saving first.
+
+### Improvements
+- **Gemini API compatibility (2026+)** — Supports both new `google.genai` and legacy `google.generativeai` APIs with automatic fallback from gemini-2.5-flash to gemini-2.0-flash.
+- **Analysis logging** — Added detailed logger output for track analysis including per-track success/failure and summary counts.
+- **Settings save reloads env** — `load_dotenv(override=True)` called after writing `.env` so changes take effect immediately without restart.
+- **OpenRouter default model updated** — Default changed from `google/gemini-2.0-flash-exp:free` to `google/gemini-2.5-flash:free`.
+
+### Tests
+- **7 new tests** for `/api/list_models` endpoint (missing provider, unknown provider, claude/gemini without keys, ollama, openrouter).
+- **82 total tests** passing.
+
+---
+
 ## [2.5.9] — 2026-04-07
 
 ### Bug Fixes

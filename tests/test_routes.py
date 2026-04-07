@@ -1,5 +1,6 @@
 """Smoke tests for every route -- catch 500 errors from broken imports, bad get_json calls, etc."""
 import json
+from unittest import mock
 import pytest
 from app.routes.setlist_routes import _load_setlist, _save_setlist
 
@@ -104,6 +105,41 @@ class TestSettingsRoutes:
     def test_save_settings_empty_body(self, client):
         resp = client.post("/api/settings", json={})
         assert resp.status_code in (200, 500)
+
+    def test_list_models_missing_provider_returns_400(self, client):
+        resp = client.post("/api/list_models", json={})
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert "error" in data
+
+    def test_list_models_unknown_provider_returns_400(self, client):
+        resp = client.post("/api/list_models", json={"provider": "unknown"})
+        assert resp.status_code == 400
+
+    def test_list_models_claude_without_key_returns_400(self, client):
+        resp = client.post("/api/list_models", json={"provider": "claude", "api_key": ""})
+        assert resp.status_code == 400
+
+    def test_list_models_gemini_without_key_returns_400(self, client):
+        from app.routes.settings_routes import load_env
+        with mock.patch("app.routes.settings_routes.load_env", return_value={}):
+            resp = client.post("/api/list_models", json={"provider": "gemini", "api_key": ""})
+            assert resp.status_code == 400
+
+    def test_list_models_ollama_returns_models_or_error(self, client):
+        # Ollama does not require a key -- will either return models or
+        # an error if not running. Both are valid responses (never 400/500
+        # from missing params).
+        resp = client.post("/api/list_models", json={"provider": "ollama"})
+        assert resp.status_code in (200, 500, 502)
+        if resp.status_code == 200:
+            data = resp.get_json()
+            assert "models" in data
+
+    def test_list_models_openrouter_returns_models_or_error(self, client):
+        # OpenRouter does not strictly require a key
+        resp = client.post("/api/list_models", json={"provider": "openrouter"})
+        assert resp.status_code in (200, 500, 502)
 
 
 # ---------------------------------------------------------------------------

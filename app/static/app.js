@@ -2509,15 +2509,32 @@ function addNewGenre() {
 }
 
 // ============================================================================
-// Settings Tab
+// Settings Tab -- Cascading provider to model selector
 // ============================================================================
 
 function initSettingsTab() {
   const btnSaveSettings = document.getElementById('btn-save-settings');
+  const providerSelect = document.getElementById('settings-provider');
+  const refreshBtn = document.getElementById('btn-refresh-models');
 
   btnSaveSettings.addEventListener('click', async () => {
-    await saveSettings();
+    await saveSettingsRound2();
   });
+
+  // Provider change -> show matching API key section + fetch models
+  if (providerSelect) {
+    providerSelect.addEventListener('change', () => {
+      showProviderSection(providerSelect.value);
+      fetchModels(providerSelect.value);
+    });
+  }
+
+  // Refresh model list button
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      if (providerSelect) fetchModels(providerSelect.value);
+    });
+  }
 
   // Load settings when tab is activated
   document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -2528,6 +2545,82 @@ function initSettingsTab() {
 
   // Load settings on init
   loadSettings();
+}
+
+/** Show only the API key section matching the selected provider, hide others */
+function showProviderSection(provider) {
+  const sections = ['claude', 'openrouter', 'gemini'];
+  for (const sec of sections) {
+    const el = document.getElementById('api-key-section-' + sec);
+    if (el) el.style.display = sec === provider ? '' : 'none';
+  }
+}
+
+/** Set options on the model select dropdown safely */
+function setModelOptions(modelSelect, options) {
+  modelSelect.textContent = '';
+  for (const opt of options) {
+    const el = document.createElement('option');
+    el.value = opt.value;
+    el.textContent = opt.text;
+    modelSelect.appendChild(el);
+  }
+}
+
+/**
+ * Fetch models from the backend for the given provider.
+ * Includes a saved API key from the input (if any) so the backend can use it.
+ */
+async function fetchModels(provider) {
+  const modelSelect = document.getElementById('settings-model');
+  if (!modelSelect) return;
+  if (!provider) {
+    setModelOptions(modelSelect, [{ value: '', text: 'Select a provider first' }]);
+    return;
+  }
+
+  setModelOptions(modelSelect, [{ value: '', text: 'Loading models...' }]);
+
+  // Grab a key from the input field if the user typed one, otherwise let
+  // the backend use the saved key from .env
+  let apiKey = '';
+  if (provider === 'claude') {
+    apiKey = document.getElementById('settings-anthropic-key')?.value.trim() || '';
+  } else if (provider === 'openrouter') {
+    apiKey = document.getElementById('settings-openrouter-key')?.value.trim() || '';
+  } else if (provider === 'gemini') {
+    apiKey = document.getElementById('settings-gemini-key')?.value.trim() || '';
+  }
+
+  try {
+    const body = { provider };
+    if (apiKey) body.api_key = apiKey;
+
+    const result = await apiFetch('/api/list_models', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+
+    if (result.error) {
+      setModelOptions(modelSelect, [{ value: '', text: result.error }]);
+      return;
+    }
+
+    const models = result.models || [];
+    if (models.length === 0) {
+      setModelOptions(modelSelect, [{ value: '', text: 'No models available' }]);
+      return;
+    }
+
+    const options = [];
+    for (const m of models) {
+      const label = m.free ? m.name + ' (free)' : m.name;
+      options.push({ value: m.id, text: label });
+    }
+    setModelOptions(modelSelect, options);
+  } catch (error) {
+    setModelOptions(modelSelect, [{ value: '', text: 'Error loading models' }]);
+  }
 }
 
 async function loadSettings() {
@@ -2541,8 +2634,8 @@ async function loadSettings() {
     const anthropicInput = document.getElementById('settings-anthropic-key');
     const openrouterInput = document.getElementById('settings-openrouter-key');
 
-    // Show placeholder text for existing keys — format: "sk-a...xyz1 — saved ✓"
-    const keyLabel = (masked) => masked ? `${masked}  —  saved ✓` : 'saved ✓';
+    // Show placeholder text for existing keys -- format: "sk-a...xyz1 -- saved"
+    const keyLabel = (masked) => masked ? masked + '  --  saved' : 'saved';
     if (response.has_gemini_key) {
       geminiInput.placeholder = keyLabel(response.gemini_api_key);
     } else {
@@ -2573,11 +2666,32 @@ async function loadSettings() {
     if (anthropicInput) anthropicInput.value = '';
     if (openrouterInput) openrouterInput.value = '';
 
-    // Sync Round 2 fields if present
-    const aiModelSelect = document.getElementById('settings-ai-model');
-    if (aiModelSelect && response.ai_model) aiModelSelect.value = response.ai_model;
-    const ollamaModelInput = document.getElementById('settings-ollama-model');
-    if (ollamaModelInput && response.ollama_model) ollamaModelInput.value = response.ollama_model;
+    // Sync provider selector
+    const providerSelect = document.getElementById('settings-provider');
+    const aiModel = response.ai_model || 'claude';
+    if (providerSelect) {
+      providerSelect.value = aiModel;
+      showProviderSection(aiModel);
+    }
+
+    // Fetch models for the current provider
+    await fetchModels(aiModel);
+
+    // Select the saved model from populated dropdown
+    const modelSelect = document.getElementById('settings-model');
+    if (modelSelect) {
+      let savedModel = '';
+      if (aiModel === 'openrouter') {
+        savedModel = response.openrouter_model || '';
+      } else if (aiModel === 'ollama') {
+        savedModel = response.ollama_model || '';
+      }
+      if (savedModel && modelSelect.querySelector('option[value="' + savedModel + '"]')) {
+        modelSelect.value = savedModel;
+      }
+    }
+
+    // Other Round 2 fields
     const batchSizeInput = document.getElementById('settings-batch-size');
     if (batchSizeInput && response.classify_batch_size) batchSizeInput.value = response.classify_batch_size;
     const autoApproveInput = document.getElementById('settings-auto-approve');
@@ -2592,6 +2706,7 @@ async function loadSettings() {
   }
 }
 
+// Deprecated -- kept for backward compat but round2 handler takes over
 async function saveSettings() {
   try {
     const geminiKey = document.getElementById('settings-gemini-key').value.trim();
@@ -2600,7 +2715,7 @@ async function saveSettings() {
     const spotifySecret = document.getElementById('settings-spotify-secret').value.trim();
     const threshold = parseInt(document.getElementById('settings-auto-approve')?.value) || 80;
 
-    // Always include threshold so there's always something to save
+    // Always include threshold so there is always something to save
     const payload = { auto_approve_threshold: threshold };
     if (geminiKey) payload.gemini_api_key = geminiKey;
     if (openrouterKey) payload.openrouter_api_key = openrouterKey;
@@ -3521,9 +3636,9 @@ function updateSettingsSaveHandler() {
 
 async function saveSettingsRound2() {
   try {
-    const aiModel = document.getElementById('settings-ai-model')?.value || 'claude';
+    const aiModel = document.getElementById('settings-provider')?.value || 'claude';
+    const modelId = document.getElementById('settings-model')?.value || '';
     const anthropicKey = document.getElementById('settings-anthropic-key')?.value.trim() || '';
-    const ollamaModel = document.getElementById('settings-ollama-model')?.value.trim() || '';
     const batchSize = parseInt(document.getElementById('settings-batch-size')?.value) || 5;
     const autoApproveThreshold = parseInt(document.getElementById('settings-auto-approve')?.value) || 80;
     const geminiKey = document.getElementById('settings-gemini-key')?.value.trim() || '';
@@ -3533,12 +3648,12 @@ async function saveSettingsRound2() {
 
     const payload = {
       ai_model: aiModel,
+      model_id: modelId,
       classify_batch_size: batchSize,
       auto_approve_threshold: autoApproveThreshold,
     };
 
     if (anthropicKey) payload.anthropic_api_key = anthropicKey;
-    if (ollamaModel) payload.ollama_model = ollamaModel;
     if (geminiKey) payload.gemini_api_key = geminiKey;
     if (openrouterKey) payload.openrouter_api_key = openrouterKey;
     if (spotifyId) payload.spotify_client_id = spotifyId;

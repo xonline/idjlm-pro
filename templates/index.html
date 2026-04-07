@@ -361,16 +361,17 @@
           <div class="settings-section-label">AI Classification</div>
 
           <div class="form-group">
-            <label for="settings-ai-model">AI Model</label>
-            <select id="settings-ai-model" class="input-select">
-              <option value="claude">Claude (Anthropic)</option>
-              <option value="gemini">Gemini (Google)</option>
+            <label for="settings-provider">AI Provider</label>
+            <select id="settings-provider" class="input-select">
+              <option value="claude">Anthropic (Claude)</option>
               <option value="openrouter">OpenRouter</option>
+              <option value="gemini">Google (Gemini)</option>
               <option value="ollama">Ollama (Local)</option>
             </select>
           </div>
 
-          <div class="form-group">
+          <!-- API Key sections — shown conditionally by provider -->
+          <div class="form-group" id="api-key-section-claude">
             <label for="settings-anthropic-key">Anthropic API Key</label>
             <input
               type="password"
@@ -381,36 +382,37 @@
             <div class="settings-hint">Get free key at <a href="https://console.anthropic.com/account/keys" target="_blank">console.anthropic.com</a></div>
           </div>
 
-          <div class="form-group">
-            <label for="settings-gemini-key">Gemini API Key</label>
-            <input
-              type="password"
-              id="settings-gemini-key"
-              placeholder="Enter your Gemini API key (optional)"
-              class="input-text"
-            >
-            <div class="settings-hint">Get free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></div>
-          </div>
-
-          <div class="form-group">
+          <div class="form-group" id="api-key-section-openrouter">
             <label for="settings-openrouter-key">OpenRouter API Key</label>
             <input
               type="password"
               id="settings-openrouter-key"
-              placeholder="Enter your OpenRouter API key (optional)"
+              placeholder="Enter your OpenRouter API key"
               class="input-text"
             >
             <div class="settings-hint">Get key at <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a></div>
           </div>
 
-          <div class="form-group">
-            <label for="settings-ollama-model">Ollama Model</label>
+          <div class="form-group" id="api-key-section-gemini">
+            <label for="settings-gemini-key">Gemini API Key</label>
             <input
-              type="text"
-              id="settings-ollama-model"
-              placeholder="e.g., mistral, neural-chat"
+              type="password"
+              id="settings-gemini-key"
+              placeholder="Enter your Gemini API key"
               class="input-text"
             >
+            <div class="settings-hint">Get free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></div>
+          </div>
+
+          <!-- Dynamic model selector -->
+          <div class="form-group">
+            <label for="settings-model">Model</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <select id="settings-model" class="input-select" style="flex:1;">
+                <option value="">Loading models...</option>
+              </select>
+              <button type="button" id="btn-refresh-models" class="btn btn-sm btn-secondary" title="Refresh model list" style="padding:6px 12px;font-size:0.85em;">↻</button>
+            </div>
           </div>
 
           <div class="form-row">

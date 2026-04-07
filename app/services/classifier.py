@@ -2,7 +2,12 @@ import json
 import os
 import time
 
-import google.generativeai as genai
+try:
+    import google.genai as genai  # New API (2026+)
+    USES_NEW_API = True
+except ImportError:
+    import google.generativeai as genai  # Legacy API (deprecated but still works)
+    USES_NEW_API = False
 
 from app.models.track import Track
 
@@ -152,10 +157,33 @@ def _classify_with_gemini(prompt: str, batch: list[Track]) -> tuple[bool, str]:
             return False, "GEMINI_API_KEY not set"
 
         def call_gemini():
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-2.0-flash")
-            response = model.generate_content(prompt)
-            return response.text
+            if USES_NEW_API:
+                # New google.genai API (2026+)
+                client = genai.Client(api_key=api_key)
+                # Try gemini-2.5-flash first, fallback to 2.0-flash
+                try:
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=prompt
+                    )
+                except Exception as e:
+                    print(f"[classifier] gemini-2.5-flash failed: {e}, trying gemini-2.0-flash")
+                    response = client.models.generate_content(
+                        model="gemini-2.0-flash",
+                        contents=prompt
+                    )
+                return response.text
+            else:
+                # Legacy google.generativeai API (deprecated but still works)
+                genai.configure(api_key=api_key)
+                try:
+                    model = genai.GenerativeModel("gemini-2.5-flash")
+                    response = model.generate_content(prompt)
+                except Exception as e:
+                    print(f"[classifier] gemini-2.5-flash failed: {e}, trying gemini-2.0-flash")
+                    model = genai.GenerativeModel("gemini-2.0-flash")
+                    response = model.generate_content(prompt)
+                return response.text
 
         response_text = _call_with_backoff(call_gemini, max_retries=3)
         return True, response_text
@@ -231,6 +259,13 @@ def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False) ->
     """
     ai_model = os.getenv("AI_MODEL", "claude").lower()
     batch_size = int(os.getenv("CLASSIFY_BATCH_SIZE", "10"))
+    
+    # Debug logging
+    print(f"[classifier] Starting classification: ai_model={ai_model}, batch_size={batch_size}")
+    print(f"[classifier] GEMINI_API_KEY set: {bool(os.getenv('GEMINI_API_KEY'))}")
+    print(f"[classifier] ANTHROPIC_API_KEY set: {bool(os.getenv('ANTHROPIC_API_KEY'))}")
+    print(f"[classifier] OPENROUTER_API_KEY set: {bool(os.getenv('OPENROUTER_API_KEY'))}")
+    print(f"[classifier] Tracks to classify: {len(tracks)}")
 
     # Skip already-classified tracks unless forced
     if not force:
@@ -238,6 +273,8 @@ def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False) ->
             t for t in tracks
             if t.review_status == 'pending' and t.proposed_genre is None
         ]
+    
+    print(f"[classifier] After filtering (excluding already classified): {len(tracks)} tracks")
 
     # Define model chain in order
     model_chain = []

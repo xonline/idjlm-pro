@@ -109,6 +109,8 @@ def analyze_tracks():
         # If empty, analyze all tracks
         if not track_paths:
             track_paths = list(track_store.keys())
+        
+        logger.info(f"Analyze request: {len(track_paths)} tracks, store has {len(track_store)} tracks")
 
         op_id = str(uuid.uuid4())[:8]
         q = _queue.Queue()
@@ -118,11 +120,14 @@ def analyze_tracks():
             total = len(track_paths)
             analyzed = 0
             errors = []
+            logger.info(f"Starting analysis thread for {total} tracks")
             for i, file_path in enumerate(track_paths):
                 if file_path not in track_store:
+                    logger.warning(f"Track {file_path} not found in store, skipping")
                     continue
                 try:
                     track = track_store[file_path]
+                    logger.info(f"Analyzing track {i+1}/{total}: {track.display_title}")
                     analyze_track(track)
                     analyzed += 1
                     q.put({
@@ -131,13 +136,21 @@ def analyze_tracks():
                         'track': track.display_title,
                         'analyzed': analyzed
                     })
+                    logger.info(f"Successfully analyzed {track.display_title}, analysis_done={track.analysis_done}")
+                    if track.error:
+                        logger.warning(f"Track {track.display_title} has error after analysis: {track.error}")
+                    if not track.analysis_done:
+                        logger.warning(f"Track {track.display_title} analysis_done is still False!")
                 except Exception as e:
-                    errors.append({'path': file_path, 'error': str(e)})
+                    error_msg = str(e)
+                    logger.error(f"Error analyzing {file_path}: {error_msg}")
+                    errors.append({'path': file_path, 'error': error_msg})
                     q.put({
                         'current': i + 1,
                         'total': total,
-                        'error': str(e)
+                        'error': error_msg
                     })
+            logger.info(f"Analysis complete: {analyzed}/{total} succeeded, {len(errors)} errors")
             q.put({'done': True, 'analyzed': analyzed, 'errors': errors, 'refetch': True})
 
         threading.Thread(target=run, daemon=True).start()
