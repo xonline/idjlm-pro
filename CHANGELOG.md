@@ -4,6 +4,24 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [2.8.2] — 2026-04-08
+
+### Status Bar Visibility
+- **Brighter stats bar** — increased font size (12→13px), changed text colour from dimmed secondary to bright primary. Numbers now bold (700 weight). Progress bar thicker (4→6px, wider).
+- **API key placeholder text brighter** — masked keys like "sk-ant...xyz1 — saved" now visible instead of ghost text.
+
+### Operation Started Toasts
+- **"Analysis started — 41 tracks to go"** — toast popup when you click Analyse All, Classify, or Write Tags. No more wondering if the button worked.
+- **"Classification started — this may take a few minutes"**
+- **"Writing tags to X files — do not close the app"**
+
+### Cancel Button
+- **Red "✕ Cancel" button** appears next to the progress bar during analysis, classification, and tag writing.
+- Click it to stop the operation midway. Shows "Operation cancelled" toast.
+- Calls the existing `/api/progress/<op_id>/cancel` endpoint.
+
+---
+
 ## [2.8.1] — 2026-04-08
 
 ### Critical Hotfix

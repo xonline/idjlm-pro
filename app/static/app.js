@@ -225,25 +225,46 @@ function initLibraryToolbar() {
   }
 
   if (btnAnalyze) {
+    let currentAnalyzeOpId = null;
     btnAnalyze.addEventListener('click', async () => {
       btnAnalyze.disabled = true;
-      showProgressInStatsBar('Analysing audio...', 'analyze');
       try {
         const result = await apiFetch('/api/analyze', { method: 'POST' });
         if (result && result.op_id) {
+          currentAnalyzeOpId = result.op_id;
+          const total = result.total || 0;
+          // Show started toast
+          showToast('Analysis started — ' + total + ' tracks to go', 'info');
+          showProgressInStatsBar('Analysing audio...', 'analyze');
+          // Show cancel button
+          const cancelBtn = document.getElementById('stat-cancel-btn');
+          if (cancelBtn) cancelBtn.style.display = 'inline-block';
+          cancelBtn.onclick = async () => {
+            await apiFetch('/api/progress/' + currentAnalyzeOpId + '/cancel', { method: 'POST' });
+            hideProgressInStatsBar();
+            showToast('Analysis cancelled', 'info');
+            btnAnalyze.disabled = false;
+            if (cancelBtn) cancelBtn.style.display = 'none';
+          };
           // Stream progress via SSE
           connectToProgress(
             result.op_id,
             result.total,
             (current, total, message) => {
               const pct = Math.round((current / total) * 100);
-              showProgressInStatsBar(`${current} / ${total} analyzing...`, 'analyze');
+              showProgressInStatsBar(current + ' / ' + total + ' analysing...', 'analyze');
               const fill = document.getElementById('stat-progress-fill');
               if (fill) fill.style.width = pct + '%';
             },
             (data) => {
               // SSE complete event
               hideProgressInStatsBar();
+              if (cancelBtn) cancelBtn.style.display = 'none';
+              if (data.cancelled) {
+                showToast('Analysis cancelled', 'info');
+                btnAnalyze.disabled = false;
+                return;
+              }
               // Refetch fresh track data from server
               apiFetch('/api/tracks').then(d => {
                 window.tracks = d.tracks || [];
@@ -254,16 +275,21 @@ function initLibraryToolbar() {
               updateToolbarButtonStates();
               showToast('Analysis complete', 'success');
               btnAnalyze.disabled = false;
+              currentAnalyzeOpId = null;
             },
             (err) => {
               hideProgressInStatsBar();
+              if (cancelBtn) cancelBtn.style.display = 'none';
               showToast('Analysis stream error: ' + err.message, 'error');
               btnAnalyze.disabled = false;
+              currentAnalyzeOpId = null;
             }
           );
         }
       } catch (e) {
         hideProgressInStatsBar();
+        const cancelBtn = document.getElementById('stat-cancel-btn');
+        if (cancelBtn) cancelBtn.style.display = 'none';
         showToast('Analysis failed: ' + e.message, 'error');
         btnAnalyze.disabled = false;
       }
@@ -271,26 +297,42 @@ function initLibraryToolbar() {
   }
 
   if (btnClassify) {
+    let currentClassifyOpId = null;
     btnClassify.addEventListener('click', async () => {
       btnClassify.disabled = true;
-      showProgressInStatsBar('Classifying genres...', 'classify');
       try {
         const result = await apiFetch('/api/classify', { method: 'POST' });
         if (result && result.op_id) {
+          currentClassifyOpId = result.op_id;
+          showToast('Classification started — this may take a few minutes', 'info');
+          showProgressInStatsBar('Classifying genres...', 'classify');
+          const cancelBtn = document.getElementById('stat-cancel-btn');
+          if (cancelBtn) cancelBtn.style.display = 'inline-block';
+          cancelBtn.onclick = async () => {
+            await apiFetch('/api/progress/' + currentClassifyOpId + '/cancel', { method: 'POST' });
+            hideProgressInStatsBar();
+            showToast('Classification cancelled', 'info');
+            btnClassify.disabled = false;
+            if (cancelBtn) cancelBtn.style.display = 'none';
+          };
           // Stream progress via SSE
           connectToProgress(
             result.op_id,
             result.total,
             (current, total, message) => {
               const pct = Math.round((current / total) * 100);
-              showProgressInStatsBar(`${current} / ${total} classifying...`, 'classify');
+              showProgressInStatsBar(current + ' / ' + total + ' classifying...', 'classify');
               const fill = document.getElementById('stat-progress-fill');
               if (fill) fill.style.width = pct + '%';
             },
             (data) => {
-              // SSE complete event
               hideProgressInStatsBar();
-              // Refetch fresh track data from server
+              if (cancelBtn) cancelBtn.style.display = 'none';
+              if (data.cancelled) {
+                showToast('Classification cancelled', 'info');
+                btnClassify.disabled = false;
+                return;
+              }
               apiFetch('/api/tracks').then(d => {
                 window.tracks = d.tracks || [];
                 window.searchResults = null;
@@ -300,16 +342,21 @@ function initLibraryToolbar() {
               updateToolbarButtonStates();
               showToast('Classification complete', 'success');
               btnClassify.disabled = false;
+              currentClassifyOpId = null;
             },
             (err) => {
               hideProgressInStatsBar();
+              if (cancelBtn) cancelBtn.style.display = 'none';
               showToast('Classification stream error: ' + err.message, 'error');
               btnClassify.disabled = false;
+              currentClassifyOpId = null;
             }
           );
         }
       } catch (e) {
         hideProgressInStatsBar();
+        const cancelBtn = document.getElementById('stat-cancel-btn');
+        if (cancelBtn) cancelBtn.style.display = 'none';
         showToast('Classification failed: ' + e.message, 'error');
         btnClassify.disabled = false;
       }
@@ -342,25 +389,43 @@ function initLibraryToolbar() {
   }
 
   if (btnWriteTags) {
+    let currentWriteOpId = null;
     btnWriteTags.addEventListener('click', async () => {
       btnWriteTags.disabled = true;
-      showProgressInStatsBar('Writing tags...', 'write');
       try {
         const result = await apiFetch('/api/review/write', { method: 'POST' });
         if (result && result.op_id) {
+          currentWriteOpId = result.op_id;
+          const total = result.total || 0;
+          showToast('Writing tags to ' + total + ' files — do not close the app', 'info');
+          showProgressInStatsBar('Writing tags...', 'write');
+          const cancelBtn = document.getElementById('stat-cancel-btn');
+          if (cancelBtn) cancelBtn.style.display = 'inline-block';
+          cancelBtn.onclick = async () => {
+            await apiFetch('/api/progress/' + currentWriteOpId + '/cancel', { method: 'POST' });
+            hideProgressInStatsBar();
+            showToast('Write cancelled', 'info');
+            btnWriteTags.disabled = false;
+            if (cancelBtn) cancelBtn.style.display = 'none';
+          };
           // Stream progress via SSE
           connectToProgress(
             result.op_id,
             result.total,
             (current, total, message) => {
               const pct = Math.round((current / total) * 100);
-              showProgressInStatsBar(`${current} / ${total} writing...`, 'write');
+              showProgressInStatsBar(current + ' / ' + total + ' writing...', 'write');
               const fill = document.getElementById('stat-progress-fill');
               if (fill) fill.style.width = pct + '%';
             },
             (data) => {
-              // SSE complete event
               hideProgressInStatsBar();
+              if (cancelBtn) cancelBtn.style.display = 'none';
+              if (data.cancelled) {
+                showToast('Write cancelled', 'info');
+                btnWriteTags.disabled = false;
+                return;
+              }
               // Refetch fresh track data from server
               apiFetch('/api/tracks').then(d => {
                 window.tracks = d.tracks || [];
@@ -402,16 +467,21 @@ function initLibraryToolbar() {
               }
 
               btnWriteTags.disabled = false;
+              currentWriteOpId = null;
             },
             (err) => {
               hideProgressInStatsBar();
+              if (cancelBtn) cancelBtn.style.display = 'none';
               showToast('Write stream error: ' + err.message, 'error');
               btnWriteTags.disabled = false;
+              currentWriteOpId = null;
             }
           );
         }
       } catch (e) {
         hideProgressInStatsBar();
+        const cancelBtn = document.getElementById('stat-cancel-btn');
+        if (cancelBtn) cancelBtn.style.display = 'none';
         showToast('Write failed: ' + e.message, 'error');
         btnWriteTags.disabled = false;
       }
