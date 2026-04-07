@@ -748,13 +748,11 @@ function renderStatsDashboard() {
   document.getElementById('summary-approved-pct').textContent = total ? Math.round((approved / total) * 100) + '%' : '0%';
 
   // Key distribution chart
-  renderKeyDistChart(tracks);
-
-  // Energy distribution chart
-  renderEnergyDistChart(tracks);
-
-  // Camelot wheel
-  renderCamelotWheel(tracks);
+  if (typeof Chart !== 'undefined') {
+    renderKeyDistChart(tracks);
+    renderEnergyDistChart(tracks);
+    renderCamelotWheel(tracks);
+  }
 }
 
 function renderKeyDistChart(tracks) {
@@ -1080,22 +1078,25 @@ function populateGenreFilters() {
 }
 
 function getFilteredTracks() {
-  let filtered = [...window.tracks];
+  let filtered = [...(window.tracks || [])];
 
   // Genre filter
-  const genreFilter = document.getElementById('filter-genre').value;
+  const genreEl = document.getElementById('filter-genre');
+  const genreFilter = genreEl ? genreEl.value : '';
   if (genreFilter) {
     filtered = filtered.filter(t => t.final_genre === genreFilter);
   }
 
   // Status filter
-  const statusFilter = document.getElementById('filter-status').value;
+  const statusEl = document.getElementById('filter-status');
+  const statusFilter = statusEl ? statusEl.value : '';
   if (statusFilter) {
     filtered = filtered.filter(t => t.review_status === statusFilter);
   }
 
   // Search
-  const search = document.getElementById('search-tracks').value.toLowerCase();
+  const searchEl = document.getElementById('search-tracks');
+  const search = searchEl ? searchEl.value.toLowerCase() : '';
   if (search) {
     filtered = filtered.filter(t =>
       (t.display_title || '').toLowerCase().includes(search) ||
