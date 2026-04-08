@@ -265,27 +265,29 @@ def analyze_track(track: Track) -> Track:
         track.bpm_confidence = min(100, int(onset_ratio * 15))
 
         # Genre-aware BPM half/double correction for Latin dance tempos
+        # librosa detects the raw beat frequency, which for salsa is typically
+        # double what DJs think of as the BPM (e.g. 189 detected → 95 dance BPM)
         bpm_raw = track.analyzed_bpm
         genre = (track.proposed_genre or track.existing_genre or "").lower()
 
-        # Determine expected BPM range for this genre
+        # Expected DJ dance BPM ranges (what the final result should be)
         if "bachata" in genre:
-            expected_min, expected_max = 110, 145
+            dance_min, dance_max = 110, 145
         elif "kizomba" in genre or "zouk" in genre:
-            expected_min, expected_max = 80, 110
+            dance_min, dance_max = 80, 110
         elif "reggaeton" in genre:
-            expected_min, expected_max = 90, 110
+            dance_min, dance_max = 90, 110
         elif "merengue" in genre:
-            expected_min, expected_max = 150, 170
-        else:  # Salsa, Cha Cha, default
-            expected_min, expected_max = 145, 185
+            dance_min, dance_max = 150, 170
+        else:  # Salsa, Cha Cha, default — librosa detects double for salsa
+            dance_min, dance_max = 75, 110
 
-        # If raw BPM is roughly double the expected range, halve it
-        if bpm_raw > expected_max * 1.3:
+        # If raw BPM is roughly double the dance range, halve it
+        if bpm_raw > dance_max * 1.5:
             track.analyzed_bpm = bpm_raw / 2
             track.bpm_corrected = True
-        # If raw BPM is roughly half the expected range, double it
-        elif bpm_raw < expected_min * 0.6:
+        # If raw BPM is roughly half the dance range, double it
+        elif bpm_raw < dance_min * 0.7:
             track.analyzed_bpm = bpm_raw * 2
             track.bpm_corrected = True
 
