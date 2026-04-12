@@ -30,6 +30,7 @@ def write_tags(track: Track) -> Track:
     Uses: track.final_genre, track.final_subgenre, track.final_bpm, track.final_key, track.final_year
     Also writes album art if track.album_art_url is set.
     Sets track.tags_written=True on success, track.error on failure.
+    Before writing, creates a backup of current tag values.
     """
     if track.error:
         return track
@@ -38,6 +39,23 @@ def write_tags(track: Track) -> Track:
         mp3 = MP3(track.file_path, ID3=ID3)
         _ensure_id3_tags(mp3)
         tags = mp3.tags
+
+        # --- Backup: capture current tag state before writing ---
+        try:
+            from app.services.tag_backup import create_backup
+            track_backup = {
+                "file_path": track.file_path,
+                "title": str(tags.get("TIT2", "")) if tags.get("TIT2") else "",
+                "artist": str(tags.get("TPE1", "")) if tags.get("TPE1") else "",
+                "album": str(tags.get("TALB", "")) if tags.get("TALB") else "",
+                "genre": str(tags.get("TCON", "")) if tags.get("TCON") else "",
+                "date": str(tags.get("TDRC", "")) if tags.get("TDRC") else "",
+            }
+            create_backup([track_backup])
+        except Exception as backup_err:
+            # Don't let backup failure block tag writing
+            logger.warning("Backup before tag write failed (non-blocking): %s", backup_err)
+        # --- End backup ---
 
         # Genre: final_genre vs existing_genre
         if track.final_genre and track.final_genre != track.existing_genre:

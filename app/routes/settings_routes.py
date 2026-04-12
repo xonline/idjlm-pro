@@ -572,6 +572,80 @@ def save_settings():
 
 
 # ---------------------------------------------------------------------------
+# AI Key Validation
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/test_key", methods=["POST"])
+def test_key():
+    """
+    POST /api/test_key { "provider": "claude"|"openai"|"gemini"|"qwen"|"openrouter", "api_key": "..." }
+    Tests the API key by making a minimal request to the provider.
+    Returns: { "ok": true, "model": "...", "latency_ms": 123 } or { "ok": false, "error": "..." }
+    """
+    import time
+    data = request.get_json(silent=True) or {}
+    provider = data.get("provider", "").strip().lower()
+    api_key = data.get("api_key", "").strip()
+
+    if not provider:
+        return jsonify({"error": "provider is required"}), 400
+
+    if not api_key:
+        env = load_env()
+        if provider == "claude":
+            api_key = env.get("ANTHROPIC_API_KEY", "")
+        elif provider == "openai":
+            api_key = env.get("OPENAI_API_KEY", "")
+        elif provider == "gemini":
+            api_key = env.get("GEMINI_API_KEY", "")
+        elif provider == "qwen":
+            api_key = env.get("DASHSCOPE_API_KEY", "")
+        elif provider == "openrouter":
+            api_key = env.get("OPENROUTER_API_KEY", "")
+
+    if not api_key:
+        return jsonify({"ok": False, "error": "No API key found for this provider"}), 200
+
+    try:
+        start = time.time()
+        if provider == "claude":
+            import anthropic
+            client = anthropic.Anthropic(api_key=api_key)
+            resp = client.messages.create(model="claude-sonnet-4-6", max_tokens=10, messages=[{"role": "user", "content": "Hi"}])
+            latency = round((time.time() - start) * 1000)
+            return jsonify({"ok": True, "latency_ms": latency}), 200
+        elif provider == "openai":
+            import requests as req
+            r = req.post("https://api.openai.com/v1/chat/completions", json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Hi"}], "max_tokens": 5}, headers={"Authorization": f"Bearer {api_key}"}, timeout=15)
+            if r.status_code != 200:
+                return jsonify({"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}), 200
+            return jsonify({"ok": True, "latency_ms": round((time.time() - start) * 1000)}), 200
+        elif provider == "gemini":
+            import requests as req
+            r = req.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}", timeout=15)
+            if r.status_code != 200:
+                return jsonify({"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}), 200
+            return jsonify({"ok": True, "latency_ms": round((time.time() - start) * 1000)}), 200
+        elif provider == "qwen":
+            import requests as req
+            r = req.get("https://dashscope.aliyuncs.com/compatible-mode/v1/models", headers={"Authorization": f"Bearer {api_key}"}, timeout=15)
+            if r.status_code != 200:
+                return jsonify({"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}), 200
+            return jsonify({"ok": True, "latency_ms": round((time.time() - start) * 1000)}), 200
+        elif provider == "openrouter":
+            import requests as req
+            r = req.get("https://openrouter.ai/api/v1/models", headers={"Authorization": f"Bearer {api_key}"}, timeout=15)
+            if r.status_code != 200:
+                return jsonify({"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}), 200
+            return jsonify({"ok": True, "latency_ms": round((time.time() - start) * 1000)}), 200
+        else:
+            return jsonify({"error": f"Unknown provider: {provider}"}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 200
+
+
+# ---------------------------------------------------------------------------
 # AI Learning
 # ---------------------------------------------------------------------------
 

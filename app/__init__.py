@@ -104,6 +104,7 @@ def create_app() -> Flask:
     from app.routes.health_routes import bp as health_bp
     from app.routes.advisor_routes import bp as advisor_bp
     from app.routes.rekordbox_routes import bp as rekordbox_bp
+    from app.routes.backup_routes import bp as backup_bp
 
     app.register_blueprint(import_bp)
     app.register_blueprint(track_bp)
@@ -127,6 +128,7 @@ def create_app() -> Flask:
     app.register_blueprint(health_bp)
     app.register_blueprint(advisor_bp)
     app.register_blueprint(rekordbox_bp)
+    app.register_blueprint(backup_bp)
 
     @app.route("/")
     def index():

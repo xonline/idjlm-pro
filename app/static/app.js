@@ -4215,6 +4215,31 @@ function renderSetplanResults(d) {
     <span>BPM ${s.bpm_range?.[0]}–${s.bpm_range?.[1]}</span>
     <span>Energy ${s.energy_range?.[0]}–${s.energy_range?.[1]}</span>
   </div>`;
+
+  // BPM transition analysis
+  if (d.transitions && d.transitions.length > 0) {
+    const smooth = s.smooth_transitions || 0;
+    const challenging = s.challenging_transitions || 0;
+    const total = d.transitions.length;
+    const transitionColor = challenging > 0 ? 'var(--danger)' : smooth === total ? '#22c55e' : '#f0a500';
+    html += `<div class="transitions-summary" style="padding:10px 14px;background:var(--bg-secondary);border-radius:8px;margin-bottom:12px;font-size:13px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-weight:600;">🎵 BPM Transitions</span>
+        <span style="color:${transitionColor};font-weight:700;">${smooth}/${total} smooth</span>
+      </div>
+      <div class="transitions-list" style="max-height:120px;overflow-y:auto;">`;
+    d.transitions.forEach(tr => {
+      const emoji = tr.rating === 'smooth' ? '🟢' : tr.rating === 'moderate' ? '🟡' : tr.rating === 'challenging' ? '🟠' : '🔴';
+      const deltaStr = tr.bpm_delta > 0 ? `+${tr.bpm_delta}` : tr.bpm_delta;
+      html += `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border-color);">
+        <span>${escapeHtml(tr.from)} → ${escapeHtml(tr.to)}</span>
+        <span style="color:var(--text-muted);">${deltaStr} BPM (${tr.bpm_pct_change}%)</span>
+        <span>${emoji} ${tr.rating}</span>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
   html += `<table class="data-table" style="font-size:0.82rem;">
     <thead><tr><th>#</th><th>Title</th><th>Artist</th><th>Genre</th><th>BPM</th><th>Key</th><th>Energy</th><th>Tempo</th></tr></thead>
     <tbody>`;
@@ -7241,4 +7266,29 @@ function initOnboarding() {
   }
 
   showOnboardingIfNeeded();
+}
+
+/* ============================================================
+   API Key Test Button
+   ============================================================ */
+async function testApiKey(provider) {
+  const statusEl = document.getElementById('key-test-status-' + provider);
+  if (!statusEl) return;
+  statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:12px;">Testing...</span>';
+
+  try {
+    const res = await apiFetch('/api/test_key', {
+      method: 'POST',
+      body: JSON.stringify({ provider: provider })
+    });
+
+    if (res.ok) {
+      statusEl.innerHTML = '<span style="color:#22c55e;font-size:12px;">✓ Connected (' + res.latency_ms + 'ms)</span>';
+      setTimeout(() => { statusEl.innerHTML = ''; }, 5000);
+    } else {
+      statusEl.innerHTML = '<span style="color:var(--danger);font-size:12px;">✗ ' + escapeHtml(res.error || 'Test failed') + '</span>';
+    }
+  } catch (e) {
+    statusEl.innerHTML = '<span style="color:var(--danger);font-size:12px;">✗ ' + escapeHtml(e.message) + '</span>';
+  }
 }

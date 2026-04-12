@@ -9,6 +9,7 @@ import logging
 import urllib.request
 import urllib.parse
 import ssl
+from html.parser import HTMLParser
 from typing import Optional
 
 from app.models.track import Track
@@ -19,6 +20,31 @@ _USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
+
+
+class ScriptExtractor(HTMLParser):
+    """Extract script tag contents from HTML."""
+    def __init__(self):
+        super().__init__()
+        self.scripts = []
+        self._in_script = False
+        self._script_content = ""
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "script":
+            attrs_dict = dict(attrs)
+            if attrs_dict.get("id") == "__NEXT_DATA__":
+                self._in_script = True
+                self._script_content = ""
+
+    def handle_endtag(self, tag):
+        if tag == "script" and self._in_script:
+            self._in_script = False
+            self.scripts.append(self._script_content)
+
+    def handle_data(self, data):
+        if self._in_script:
+            self._script_content += data
 
 
 def _search_beatport(query: str) -> Optional[dict]:
@@ -37,13 +63,11 @@ def _search_beatport(query: str) -> Optional[dict]:
             html = resp.read().decode("utf-8", errors="replace")
 
         # Try Next.js __NEXT_DATA__ first (most reliable source for Beatport data)
-        next_data_match = re.search(
-            r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
-            html,
-        )
-        if next_data_match:
+        extractor = ScriptExtractor()
+        extractor.feed(html)
+        if extractor.scripts:
             try:
-                data = json.loads(next_data_match.group(1))
+                data = json.loads(extractor.scripts[0])
                 props = data.get("props", {}).get("pageProps", {})
                 results = props.get("results", [])
                 if results:
@@ -115,6 +139,9 @@ def enrich_with_beatport(track: Track) -> Track:
     else:
         track.beatport_enriched = True
         return track
+
+    # Limit query length to prevent abuse
+    query = query[:200]
 
     try:
         result = _search_beatport(query)

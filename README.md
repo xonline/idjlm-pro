@@ -159,16 +159,20 @@ Get credentials at [developer.spotify.com/dashboard](https://developer.spotify.c
 
 ## AI Model Options
 
-Choose your preferred AI in the **Settings** tab. The model dropdown populates live from the provider's API — no hardcoding. OpenRouter models show free/paid badges.
+Choose your preferred AI in the **Settings** tab. The model dropdown populates live from the provider's API — no hardcoding. Each provider has a **Test** button that validates your key instantly.
 
 | AI | Provider | API Key env var | Notes |
 |----|----------|-----------------|-------|
 | **Claude** | Anthropic | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/) |
+| **GPT** | OpenAI | `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/api-keys) |
 | **Gemini** | Google | `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com/) — free tier available |
-| **OpenRouter** | OpenRouter | `OPENROUTER_API_KEY` | [openrouter.ai](https://openrouter.ai/) — 100+ models, free models available |
+| **Qwen** | Alibaba | `DASHSCOPE_API_KEY` | [dashscope.console.aliyun.com](https://dashscope.console.aliyun.com/) |
+| **OpenRouter** | OpenRouter | `OPENROUTER_API_KEY` | [openrouter.ai](https://openrouter.ai/) — 100+ models, free tier available |
 | **Ollama** | Local (free) | — | No key needed. [ollama.com](https://ollama.com) |
 
-You only need one. Set your preference in the **Settings** tab or via `AI_MODEL=claude` / `AI_MODEL=gemini` / `AI_MODEL=openrouter` / `AI_MODEL=ollama` in `.env`.
+You only need one. Set your preference in the **Settings** tab or via `AI_MODEL=claude` / `AI_MODEL=gemini` / `AI_MODEL=openai` / `AI_MODEL=qwen` / `AI_MODEL=openrouter` / `AI_MODEL=ollama` in `.env`.
+
+The fallback chain tries your primary provider first, then cascades through all others — so if one API is down, classification still works.
 
 ## Settings Persistence
 
@@ -230,5 +234,28 @@ Press `?` or `Cmd+/` anytime to see the full shortcut reference. Key shortcuts:
 MP3, FLAC, WAV, M4A, AAC, OGG, AIFF, AIF
 
 ## Changelog
+
+### v3.1.1
+- **Undo after Write Tags** — success toast includes Undo button that restores from backup
+- **BPM Transition Analysis** — set plans now show smooth/challenging/hard transitions with BPM delta
+- **API Key Test button** — one-click validation for all 6 providers with latency display
+- **JS module loader** — infrastructure for splitting 7K-line app.js
+- **Zero print() in production** — all remaining debug prints replaced with logging
+
+### v3.1.0
+- **Security fixes** — file read restriction, DMG validation, CORS lockdown, rate limiting
+- **CI/CD pipeline** — GitHub Actions with ruff lint + pytest on every push/PR
+- **Visual pipeline stepper** — 5-step workflow bar (Import→Analyse→Classify→Review→Write)
+- **Onboarding wizard** — 3-step modal for first-time users
+- **Next Track Advisor** — harmonic + BPM + energy + genre scoring (40/30/20/10 points)
+- **rekordbox integration** — reads master.db, cross-references by file path
+- **/api/health endpoint** — operational monitoring
+- **20 new service-level tests** — 93 tests passing total
+
+### v3.0.0
+- **6 AI providers** — added OpenAI (GPT) + Qwen (DashScope) to existing Claude/Gemini/OpenRouter/Ollama
+- **4 enrichment providers** — added Deezer (free BPM + cover), Last.fm (genre tags), Beatport (BPM + key + genre)
+- **Multi-source enrichment chain** — Spotify → Deezer → Last.fm → Beatport
+- **13 new Track model fields** for enrichment data
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
