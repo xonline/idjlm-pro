@@ -615,8 +615,10 @@
             <label for="settings-provider">AI Provider</label>
             <select id="settings-provider" class="input-select">
               <option value="claude">Anthropic (Claude)</option>
+              <option value="openai">OpenAI (GPT)</option>
               <option value="openrouter">OpenRouter</option>
               <option value="gemini">Google (Gemini)</option>
+              <option value="qwen">Qwen (Alibaba)</option>
               <option value="ollama">Ollama (Local)</option>
             </select>
           </div>
@@ -653,6 +655,28 @@
               class="input-text"
             >
             <div class="settings-hint">Get free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></div>
+          </div>
+
+          <div class="form-group" id="api-key-section-openai">
+            <label for="settings-openai-key">OpenAI API Key</label>
+            <input
+              type="password"
+              id="settings-openai-key"
+              placeholder="Enter your OpenAI API key"
+              class="input-text"
+            >
+            <div class="settings-hint">Get key at <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a></div>
+          </div>
+
+          <div class="form-group" id="api-key-section-qwen">
+            <label for="settings-qwen-key">Qwen (DashScope) API Key</label>
+            <input
+              type="password"
+              id="settings-qwen-key"
+              placeholder="Enter your DashScope API key"
+              class="input-text"
+            >
+            <div class="settings-hint">Get key at <a href="https://dashscope.console.aliyun.com/" target="_blank">dashscope.console.aliyun.com</a></div>
           </div>
 
           <!-- Dynamic model selector -->
@@ -728,6 +752,44 @@
                 style="width: auto; margin-right: 8px;"
               >
               Enable Spotify Enrichment
+            </label>
+          </div>
+
+          <!-- Additional Enrichment Providers -->
+          <div class="settings-section-label">
+            Additional Metadata Providers <span class="settings-section-optional">(optional)</span>
+          </div>
+
+          <div class="form-group">
+            <label for="settings-deezer-enabled">
+              <input
+                type="checkbox"
+                id="settings-deezer-enabled"
+                style="width: auto; margin-right: 8px;"
+              >
+              Enable Deezer <span class="settings-section-optional">(free, no key — returns BPM + cover art)</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label for="settings-lastfm-key">Last.fm API Key</label>
+            <input
+              type="password"
+              id="settings-lastfm-key"
+              placeholder="Enter your Last.fm API key (free)"
+              class="input-text"
+            >
+            <div class="settings-hint">Get free key at <a href="https://www.last.fm/api/account/create" target="_blank">last.fm/api</a> — returns genre tags + cover art</div>
+          </div>
+
+          <div class="form-group">
+            <label for="settings-beatport-enabled">
+              <input
+                type="checkbox"
+                id="settings-beatport-enabled"
+                style="width: auto; margin-right: 8px;"
+              >
+              Enable Beatport <span class="settings-section-optional">(web scraping — returns BPM + key + genre for electronic music)</span>
             </label>
           </div>
 

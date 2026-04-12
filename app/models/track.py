@@ -35,13 +35,34 @@ class Track:
     reasoning: Optional[str] = None
     classification_done: bool = False
 
-    # Spotify enrichment
+    # Metadata enrichment (Spotify + Deezer + Last.fm + Beatport)
     spotify_title: Optional[str] = None
     spotify_artist: Optional[str] = None
     spotify_year: Optional[str] = None
     spotify_genres: list = field(default_factory=list)
     album_art_url: Optional[str] = None      # Album art URL from Spotify
     enrichment_done: bool = False
+
+    # Deezer enrichment
+    deezer_title: Optional[str] = None
+    deezer_artist: Optional[str] = None
+    deezer_year: Optional[str] = None
+    deezer_bpm: Optional[float] = None
+    deezer_gain: Optional[float] = None
+    deezer_cover_art: Optional[str] = None
+    deezer_enriched: bool = False
+
+    # Last.fm enrichment
+    lastfm_genres: list = field(default_factory=list)
+    lastfm_cover: Optional[str] = None
+    lastfm_enriched: bool = False
+
+    # Beatport enrichment
+    beatport_bpm: Optional[float] = None
+    beatport_key: Optional[str] = None
+    beatport_genre: Optional[str] = None
+    beatport_cover_art: Optional[str] = None
+    beatport_enriched: bool = False
 
     # Review state: "pending" | "approved" | "skipped" | "edited"
     review_status: str = "pending"

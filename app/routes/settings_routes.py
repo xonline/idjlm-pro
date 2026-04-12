@@ -130,7 +130,7 @@ def write_env(env_dict):
 # Model listing — cascading provider → model selection
 # ---------------------------------------------------------------------------
 
-VALID_PROVIDERS = {"claude", "openrouter", "gemini", "ollama"}
+VALID_PROVIDERS = {"claude", "openrouter", "gemini", "ollama", "qwen", "openai"}
 
 
 @bp.route("/list_models", methods=["POST"])
@@ -160,6 +160,10 @@ def list_models():
             api_key = env.get("OPENROUTER_API_KEY", "")
         elif provider == "gemini":
             api_key = env.get("GEMINI_API_KEY", "")
+        elif provider == "openai":
+            api_key = env.get("OPENAI_API_KEY", "")
+        elif provider == "qwen":
+            api_key = env.get("DASHSCOPE_API_KEY", "")
 
     try:
         if provider == "claude":
@@ -174,6 +178,14 @@ def list_models():
             models = _list_gemini_models(api_key)
         elif provider == "ollama":
             models = _list_ollama_models()
+        elif provider == "openai":
+            if not api_key:
+                return jsonify({"error": "API key required for openai -- paste your key in settings first"}), 400
+            models = _list_openai_models(api_key)
+        elif provider == "qwen":
+            if not api_key:
+                return jsonify({"error": "API key required for qwen -- paste your key in settings first"}), 400
+            models = _list_qwen_models(api_key)
         else:
             return jsonify({"error": f"Unknown provider: {provider}"}), 400
 
@@ -316,6 +328,58 @@ def _list_ollama_models():
     return models
 
 
+def _list_openai_models(api_key):
+    """Fetch available GPT models from OpenAI API."""
+    url = "https://api.openai.com/v1/models"
+    req = urllib.request.Request(url)
+    req.add_header("Authorization", f"Bearer {api_key}")
+
+    with urllib.request.urlopen(req, timeout=15, context=_ssl_context()) as resp:
+        result = json.loads(resp.read().decode())
+
+    models = []
+    for item in result.get("data", []):
+        model_id = item.get("id", "")
+        if not model_id.startswith("gpt"):
+            continue
+        display_name = item.get("id", model_id)
+        models.append({
+            "id": model_id,
+            "name": display_name,
+            "free": False,
+            "context": 0,
+        })
+
+    models.sort(key=lambda m: m["id"].lower())
+    return models
+
+
+def _list_qwen_models(api_key):
+    """Fetch available Qwen models from DashScope API."""
+    url = "https://dashscope.aliyuncs.com/compatible-mode/v1/models"
+    req = urllib.request.Request(url)
+    req.add_header("Authorization", f"Bearer {api_key}")
+
+    with urllib.request.urlopen(req, timeout=15, context=_ssl_context()) as resp:
+        result = json.loads(resp.read().decode())
+
+    models = []
+    for item in result.get("data", []):
+        model_id = item.get("id", "")
+        if not model_id.startswith("qwen"):
+            continue
+        display_name = item.get("id", model_id)
+        models.append({
+            "id": model_id,
+            "name": display_name,
+            "free": False,
+            "context": item.get("context_length", 0),
+        })
+
+    models.sort(key=lambda m: m["id"].lower())
+    return models
+
+
 # ---------------------------------------------------------------------------
 # Settings GET / POST
 # ---------------------------------------------------------------------------
@@ -357,7 +421,13 @@ def get_settings():
             "has_anthropic_key": bool(anthropic_key),
             "openrouter_api_key": mask_key(env_dict.get("OPENROUTER_API_KEY")) if env_dict.get("OPENROUTER_API_KEY") else None,
             "has_openrouter_key": bool(env_dict.get("OPENROUTER_API_KEY")),
-            "openrouter_model": env_dict.get("OPENROUTER_MODEL", "google/gemini-2.5-flash:free"),
+            "openrouter_model": env_dict.get("OPENROUTER_MODEL", "google/gemini-2.0-flash:free"),
+            "has_openai_key": bool(env_dict.get("OPENAI_API_KEY")),
+            "openai_api_key": mask_key(env_dict.get("OPENAI_API_KEY")) if env_dict.get("OPENAI_API_KEY") else None,
+            "openai_model": env_dict.get("OPENAI_MODEL", "gpt-4o"),
+            "has_qwen_key": bool(env_dict.get("DASHSCOPE_API_KEY")),
+            "qwen_api_key": mask_key(env_dict.get("DASHSCOPE_API_KEY")) if env_dict.get("DASHSCOPE_API_KEY") else None,
+            "qwen_model": env_dict.get("QWEN_MODEL", "qwen3.5-plus"),
             "spotify_client_id": mask_key(spotify_id) if spotify_id else None,
             "spotify_client_secret": mask_key(spotify_secret) if spotify_secret else None,
             "has_spotify": bool(spotify_id) and bool(spotify_secret),
@@ -366,6 +436,10 @@ def get_settings():
             "classify_batch_size": int(env_dict.get("CLASSIFY_BATCH_SIZE", "10")),
             "auto_approve_threshold": int(env_dict.get("AUTO_APPROVE_THRESHOLD", "0")),
             "spotify_enrich_enabled": env_dict.get("SPOTIFY_ENRICH_ENABLED", "true").lower() == "true",
+            "deezer_enrich_enabled": env_dict.get("DEEZER_ENRICH_ENABLED", "true").lower() == "true",
+            "lastfm_api_key": mask_key(env_dict.get("LASTFM_API_KEY")) if env_dict.get("LASTFM_API_KEY") else None,
+            "has_lastfm_key": bool(env_dict.get("LASTFM_API_KEY")),
+            "beatport_enrich_enabled": env_dict.get("BEATPORT_ENRICH_ENABLED", "false").lower() == "true",
         }), 200
 
     except Exception as e:
@@ -413,6 +487,21 @@ def save_settings():
         if "openrouter_model" in data and data["openrouter_model"]:
             env_dict["OPENROUTER_MODEL"] = data["openrouter_model"]
 
+        if "openai_api_key" in data and data["openai_api_key"]:
+            env_dict["OPENAI_API_KEY"] = data["openai_api_key"]
+
+        if "openai_model" in data and data["openai_model"]:
+            env_dict["OPENAI_MODEL"] = data["openai_model"]
+
+        if "qwen_api_key" in data and data["qwen_api_key"]:
+            env_dict["DASHSCOPE_API_KEY"] = data["qwen_api_key"]
+
+        if "qwen_model" in data and data["qwen_model"]:
+            env_dict["QWEN_MODEL"] = data["qwen_model"]
+
+        if "lastfm_api_key" in data and data["lastfm_api_key"]:
+            env_dict["LASTFM_API_KEY"] = data["lastfm_api_key"]
+
         if "spotify_client_id" in data and data["spotify_client_id"]:
             env_dict["SPOTIFY_CLIENT_ID"] = data["spotify_client_id"]
 
@@ -420,7 +509,7 @@ def save_settings():
             env_dict["SPOTIFY_CLIENT_SECRET"] = data["spotify_client_secret"]
 
         if "ai_model" in data and data["ai_model"]:
-            if data["ai_model"] in ["claude", "gemini", "ollama", "openrouter"]:
+            if data["ai_model"] in ["claude", "gemini", "ollama", "openrouter", "openai", "qwen"]:
                 env_dict["AI_MODEL"] = data["ai_model"]
 
         # Save model_id to the correct env var based on provider
@@ -434,6 +523,10 @@ def save_settings():
                 env_dict["ANTHROPIC_MODEL"] = data["model_id"]
             elif provider == "gemini":
                 env_dict["GEMINI_MODEL"] = data["model_id"]
+            elif provider == "openai":
+                env_dict["OPENAI_MODEL"] = data["model_id"]
+            elif provider == "qwen":
+                env_dict["QWEN_MODEL"] = data["model_id"]
 
         if "ollama_model" in data and data["ollama_model"]:
             env_dict["OLLAMA_MODEL"] = data["ollama_model"]
@@ -456,6 +549,12 @@ def save_settings():
 
         if "spotify_enrich_enabled" in data:
             env_dict["SPOTIFY_ENRICH_ENABLED"] = "true" if data["spotify_enrich_enabled"] else "false"
+
+        if "deezer_enrich_enabled" in data:
+            env_dict["DEEZER_ENRICH_ENABLED"] = "true" if data["deezer_enrich_enabled"] else "false"
+
+        if "beatport_enrich_enabled" in data:
+            env_dict["BEATPORT_ENRICH_ENABLED"] = "true" if data["beatport_enrich_enabled"] else "false"
 
         # Write back
         write_env(env_dict)

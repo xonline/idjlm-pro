@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import time
 
@@ -10,6 +11,8 @@ except ImportError:
     USES_NEW_API = False
 
 from app.models.track import Track
+
+logger = logging.getLogger(__name__)
 
 
 def _build_classification_prompt(tracks: list[Track], taxonomy: dict) -> str:
@@ -176,7 +179,7 @@ def _classify_with_gemini(prompt: str, batch: list[Track]) -> tuple[bool, str]:
                         contents=prompt
                     )
                 except Exception as e:
-                    print(f"[classifier] gemini-2.5-flash failed: {e}, trying gemini-2.0-flash")
+                    logger.debug("gemini-2.5-flash failed: %s, trying gemini-2.0-flash", e)
                     response = client.models.generate_content(
                         model="gemini-2.0-flash",
                         contents=prompt
@@ -189,7 +192,7 @@ def _classify_with_gemini(prompt: str, batch: list[Track]) -> tuple[bool, str]:
                     model = genai.GenerativeModel("gemini-2.5-flash")
                     response = model.generate_content(prompt)
                 except Exception as e:
-                    print(f"[classifier] gemini-2.5-flash failed: {e}, trying gemini-2.0-flash")
+                    logger.debug("gemini-2.5-flash failed: %s, trying gemini-2.0-flash", e)
                     model = genai.GenerativeModel("gemini-2.0-flash")
                     response = model.generate_content(prompt)
                 return response.text
@@ -216,6 +219,87 @@ def _classify_with_ollama(prompt: str, batch: list[Track]) -> tuple[bool, str]:
         if response.status_code != 200:
             return False, f"Ollama API error: {response.status_code}"
         return True, response.json()["response"]
+    except Exception as e:
+        return False, str(e)
+
+
+def _classify_with_openai(prompt: str, batch: list[Track]) -> tuple[bool, str]:
+    """
+    Classify tracks using OpenAI (GPT) API with exponential backoff retry.
+    Returns (success: bool, response_text: str)
+    """
+    try:
+        import requests as req
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            return False, "OPENAI_API_KEY not set"
+        model_name = os.getenv("OPENAI_MODEL", "gpt-4o")
+
+        def call_openai():
+            response = req.post(
+                "https://api.openai.com/v1/chat/completions",
+                json={
+                    "model": model_name,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 2048,
+                },
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                timeout=120,
+            )
+            if response.status_code != 200:
+                raise Exception(f"OpenAI API error: {response.status_code} — {response.text[:200]}")
+            data = response.json()
+            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            if not content:
+                raise Exception("OpenAI returned empty response")
+            return content
+
+        response_text = _call_with_backoff(call_openai, max_retries=3)
+        return True, response_text
+    except Exception as e:
+        return False, str(e)
+
+
+def _classify_with_qwen(prompt: str, batch: list[Track]) -> tuple[bool, str]:
+    """
+    Classify tracks using Qwen (DashScope) API with exponential backoff retry.
+    Uses OpenAI-compatible endpoint for portability.
+    Returns (success: bool, response_text: str)
+    """
+    try:
+        import requests as req
+        api_key = os.getenv("DASHSCOPE_API_KEY")
+        if not api_key:
+            return False, "DASHSCOPE_API_KEY not set"
+        model_name = os.getenv("QWEN_MODEL", "qwen3.5-plus")
+
+        def call_qwen():
+            response = req.post(
+                "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+                json={
+                    "model": model_name,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 2048,
+                },
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                timeout=120,
+            )
+            if response.status_code != 200:
+                raise Exception(f"Qwen API error: {response.status_code} — {response.text[:200]}")
+            data = response.json()
+            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            if not content:
+                raise Exception("Qwen returned empty response")
+            return content
+
+        response_text = _call_with_backoff(call_qwen, max_retries=3)
+        return True, response_text
     except Exception as e:
         return False, str(e)
 
@@ -271,14 +355,10 @@ def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False, mo
     ai_model = os.getenv("AI_MODEL", "claude").lower()
     batch_size = int(os.getenv("CLASSIFY_BATCH_SIZE", "10"))
 
-    # Debug logging
-    print(f"[classifier] Starting classification: ai_model={ai_model}, batch_size={batch_size}")
-    print(f"[classifier] GEMINI_API_KEY set: {bool(os.getenv('GEMINI_API_KEY'))}")
-    print(f"[classifier] ANTHROPIC_API_KEY set: {bool(os.getenv('ANTHROPIC_API_KEY'))}")
-    print(f"[classifier] OPENROUTER_API_KEY set: {bool(os.getenv('OPENROUTER_API_KEY'))}")
-    print(f"[classifier] Tracks to classify: {len(tracks)}")
+    logger.debug("Starting classification: ai_model=%s, batch_size=%d, tracks=%d",
+                 ai_model, batch_size, len(tracks))
     if model_override:
-        print(f"[classifier] Model override: {model_override} (no fallback)")
+        logger.debug("Model override: %s (no fallback)", model_override)
 
     # Skip already-classified tracks unless forced
     if not force:
@@ -287,22 +367,26 @@ def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False, mo
             if t.review_status == 'pending' and t.proposed_genre is None
         ]
 
-    print(f"[classifier] After filtering (excluding already classified): {len(tracks)} tracks")
+    logger.debug("After filtering (excluding already classified): %d tracks", len(tracks))
 
     # Define model chain in order
     if model_override:
         # Use ONLY the specified model, no fallback
         model_chain = [model_override.lower()]
     elif ai_model == "claude" or ai_model == "":
-        model_chain = ["claude", "gemini", "openrouter", "ollama"]
+        model_chain = ["claude", "gemini", "openai", "qwen", "openrouter", "ollama"]
     elif ai_model == "gemini":
-        model_chain = ["gemini", "claude", "openrouter", "ollama"]
+        model_chain = ["gemini", "claude", "openai", "qwen", "openrouter", "ollama"]
+    elif ai_model == "openai":
+        model_chain = ["openai", "claude", "gemini", "qwen", "openrouter", "ollama"]
+    elif ai_model == "qwen":
+        model_chain = ["qwen", "openai", "gemini", "claude", "openrouter", "ollama"]
     elif ai_model == "ollama":
-        model_chain = ["ollama", "claude", "gemini", "openrouter"]
+        model_chain = ["ollama", "qwen", "openrouter", "claude", "gemini", "openai"]
     elif ai_model == "openrouter":
-        model_chain = ["openrouter", "claude", "gemini", "ollama"]
+        model_chain = ["openrouter", "claude", "gemini", "openai", "qwen", "ollama"]
     else:
-        model_chain = ["claude", "gemini", "openrouter", "ollama"]
+        model_chain = ["claude", "gemini", "openai", "qwen", "openrouter", "ollama"]
 
     # Process tracks in batches
     for batch_start in range(0, len(tracks), batch_size):
@@ -327,6 +411,16 @@ def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False, mo
                 if success:
                     used_model = "gemini"
                     break
+            elif model_name == "openai":
+                success, response_text = _classify_with_openai(prompt, batch)
+                if success:
+                    used_model = "openai"
+                    break
+            elif model_name == "qwen":
+                success, response_text = _classify_with_qwen(prompt, batch)
+                if success:
+                    used_model = "qwen"
+                    break
             elif model_name == "ollama":
                 success, response_text = _classify_with_ollama(prompt, batch)
                 if success:
@@ -344,7 +438,7 @@ def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False, mo
                 track.error = f"Classification failed: {response_text}"
             continue
 
-        print(f"[classifier] Using {used_model}")
+        logger.debug("Using %s", used_model)
 
         # Parse response
         classifications = _parse_classification_response(response_text, len(batch))

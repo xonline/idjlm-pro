@@ -3198,7 +3198,7 @@ async function loadLearningStats() {
 
 /** Show only the API key section matching the selected provider, hide others */
 function showProviderSection(provider) {
-  const sections = ['claude', 'openrouter', 'gemini'];
+  const sections = ['claude', 'openai', 'openrouter', 'gemini', 'qwen'];
   for (const sec of sections) {
     const el = document.getElementById('api-key-section-' + sec);
     if (el) el.style.display = sec === provider ? '' : 'none';
@@ -3239,6 +3239,10 @@ async function fetchModels(provider) {
     apiKey = document.getElementById('settings-openrouter-key')?.value.trim() || '';
   } else if (provider === 'gemini') {
     apiKey = document.getElementById('settings-gemini-key')?.value.trim() || '';
+  } else if (provider === 'openai') {
+    apiKey = document.getElementById('settings-openai-key')?.value.trim() || '';
+  } else if (provider === 'qwen') {
+    apiKey = document.getElementById('settings-qwen-key')?.value.trim() || '';
   }
 
   try {
@@ -3282,6 +3286,9 @@ async function loadSettings() {
     const spotifySecretInput = document.getElementById('settings-spotify-secret');
     const anthropicInput = document.getElementById('settings-anthropic-key');
     const openrouterInput = document.getElementById('settings-openrouter-key');
+    const openaiInput = document.getElementById('settings-openai-key');
+    const qwenInput = document.getElementById('settings-qwen-key');
+    const lastfmInput = document.getElementById('settings-lastfm-key');
 
     // Show placeholder text for existing keys -- format: "sk-a...xyz1 -- saved"
     const keyLabel = (masked) => masked ? masked + '  --  saved' : 'saved';
@@ -3300,6 +3307,21 @@ async function loadSettings() {
     } else if (anthropicInput) {
       anthropicInput.placeholder = 'Paste your Anthropic API key';
     }
+    if (response.has_openai_key && openaiInput) {
+      openaiInput.placeholder = keyLabel(response.openai_api_key);
+    } else if (openaiInput) {
+      openaiInput.placeholder = 'Paste your OpenAI API key';
+    }
+    if (response.has_qwen_key && qwenInput) {
+      qwenInput.placeholder = keyLabel(response.qwen_api_key);
+    } else if (qwenInput) {
+      qwenInput.placeholder = 'Paste your DashScope API key';
+    }
+    if (response.has_lastfm_key && lastfmInput) {
+      lastfmInput.placeholder = keyLabel(response.lastfm_api_key);
+    } else if (lastfmInput) {
+      lastfmInput.placeholder = 'Paste your Last.fm API key';
+    }
     if (response.has_spotify) {
       spotifyIdInput.placeholder = keyLabel(response.spotify_client_id);
       spotifySecretInput.placeholder = keyLabel(response.spotify_client_secret);
@@ -3314,6 +3336,17 @@ async function loadSettings() {
     spotifySecretInput.value = '';
     if (anthropicInput) anthropicInput.value = '';
     if (openrouterInput) openrouterInput.value = '';
+    if (openaiInput) openaiInput.value = '';
+    if (qwenInput) qwenInput.value = '';
+    if (lastfmInput) lastfmInput.value = '';
+
+    // Set enrichment toggles
+    const spotifyEnabledEl = document.getElementById('settings-spotify-enabled');
+    const deezerEnabledEl = document.getElementById('settings-deezer-enabled');
+    const beatportEnabledEl = document.getElementById('settings-beatport-enabled');
+    if (spotifyEnabledEl) spotifyEnabledEl.checked = response.spotify_enrich_enabled ?? true;
+    if (deezerEnabledEl) deezerEnabledEl.checked = response.deezer_enrich_enabled ?? true;
+    if (beatportEnabledEl) beatportEnabledEl.checked = response.beatport_enrich_enabled ?? false;
 
     // Sync provider selector
     const providerSelect = document.getElementById('settings-provider');
@@ -3334,6 +3367,10 @@ async function loadSettings() {
         savedModel = response.openrouter_model || '';
       } else if (aiModel === 'ollama') {
         savedModel = response.ollama_model || '';
+      } else if (aiModel === 'openai') {
+        savedModel = response.openai_model || '';
+      } else if (aiModel === 'qwen') {
+        savedModel = response.qwen_model || '';
       }
       if (savedModel && modelSelect.querySelector('option[value="' + savedModel + '"]')) {
         modelSelect.value = savedModel;
@@ -4559,19 +4596,31 @@ async function saveSettingsRound2() {
     const autoApproveThreshold = parseInt(document.getElementById('settings-auto-approve')?.value) || 80;
     const geminiKey = document.getElementById('settings-gemini-key')?.value.trim() || '';
     const openrouterKey = document.getElementById('settings-openrouter-key')?.value.trim() || '';
+    const openaiKey = document.getElementById('settings-openai-key')?.value.trim() || '';
+    const qwenKey = document.getElementById('settings-qwen-key')?.value.trim() || '';
     const spotifyId = document.getElementById('settings-spotify-id')?.value.trim() || '';
     const spotifySecret = document.getElementById('settings-spotify-secret')?.value.trim() || '';
+    const lastfmKey = document.getElementById('settings-lastfm-key')?.value.trim() || '';
+    const spotifyEnabled = document.getElementById('settings-spotify-enabled')?.checked ?? false;
+    const deezerEnabled = document.getElementById('settings-deezer-enabled')?.checked ?? false;
+    const beatportEnabled = document.getElementById('settings-beatport-enabled')?.checked ?? false;
 
     const payload = {
       ai_model: aiModel,
       model_id: modelId,
       classify_batch_size: batchSize,
       auto_approve_threshold: autoApproveThreshold,
+      spotify_enrich_enabled: spotifyEnabled,
+      deezer_enrich_enabled: deezerEnabled,
+      beatport_enrich_enabled: beatportEnabled,
     };
 
     if (anthropicKey) payload.anthropic_api_key = anthropicKey;
     if (geminiKey) payload.gemini_api_key = geminiKey;
     if (openrouterKey) payload.openrouter_api_key = openrouterKey;
+    if (openaiKey) payload.openai_api_key = openaiKey;
+    if (qwenKey) payload.qwen_api_key = qwenKey;
+    if (lastfmKey) payload.lastfm_api_key = lastfmKey;
     if (spotifyId) payload.spotify_client_id = spotifyId;
     if (spotifySecret) payload.spotify_client_secret = spotifySecret;
 
