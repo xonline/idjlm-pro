@@ -110,10 +110,10 @@
             </div>
           </div>
           <div class="toolbar-pipeline">
-            <button class="btn pipeline-btn" id="btn-analyse" disabled>▶ Analyse All</button>
-            <button class="btn pipeline-btn" id="btn-classify" disabled>✦ Classify All</button>
+            <button class="btn pipeline-btn" id="btn-analyse" disabled data-hint="🔒 Requires imported tracks first. Pick a music folder above to get started.">▶ Analyse All</button>
+            <button class="btn pipeline-btn" id="btn-classify" disabled data-hint="🔒 Analyse tracks first. Click 'Analyse All' to detect BPM, key, and energy.">✦ Classify All</button>
             <button class="btn pipeline-btn" id="btn-bulk-approve-toolbar" disabled>✓ Approve ≥<input type="number" id="toolbar-threshold" value="80" min="1" max="100" title="Confidence threshold">%</button>
-            <button class="btn pipeline-btn pipeline-btn-write" id="btn-write-tags" disabled>✎ Write Tags</button>
+            <button class="btn pipeline-btn pipeline-btn-write" id="btn-write-tags" disabled data-hint="🔒 Approve tracks first. Analyse → Classify → Review → Write Tags to your files.">✎ Write Tags</button>
           </div>
           <button class="btn btn-secondary btn-sm" id="btn-shortcuts" title="Keyboard shortcuts (?)" style="font-size:16px;padding:6px 10px;">?</button>
         </div>
@@ -1355,25 +1355,35 @@
 
       <div class="onboarding-step" id="onboard-step-2" style="display:none;">
         <div class="onboarding-icon">⚙️</div>
-        <h3>Configure AI Provider</h3>
-        <p>Choose an AI provider to classify your music. <strong>Gemini is free</strong> for most users.</p>
+        <h3>Set Up AI Classification</h3>
+        <p>IDJLM Pro uses AI to detect genre + sub-genre for every track. You need an API key from one of these providers:</p>
         <div class="onboarding-providers">
           <div class="onboarding-provider" data-provider="gemini">🌟 Google Gemini (Free)</div>
           <div class="onboarding-provider" data-provider="claude">Anthropic Claude</div>
           <div class="onboarding-provider" data-provider="openai">OpenAI GPT</div>
           <div class="onboarding-provider" data-provider="qwen">Qwen (Alibaba)</div>
         </div>
-        <div class="onboarding-actions">
-          <button class="btn btn-primary" id="onboard-continue">Configure in Settings →</button>
+        <div class="onboarding-tip">
+          💡 <strong>Recommendation:</strong> Gemini is free and takes 30 seconds. Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent);">aistudio.google.com/apikey</a>.
+        </div>
+        <div class="onboarding-actions" style="margin-top:16px;">
+          <button class="btn btn-primary" id="onboard-continue">I have my API key — Continue →</button>
+          <button class="btn btn-secondary btn-sm" id="onboard-skip-api">Skip for now — I'll set it up later</button>
         </div>
       </div>
 
       <div class="onboarding-step" id="onboard-step-3" style="display:none;">
         <div class="onboarding-icon">▶</div>
-        <h3>Start Import & Analysis</h3>
-        <p>Click <strong>"Analyse"</strong> in the pipeline above to detect BPM, key, energy, and LUFS.</p>
-        <div class="onboarding-actions">
-          <button class="btn btn-primary" id="onboard-start-import">Got it — Let's go! 🎵</button>
+        <h3>You're All Set!</h3>
+        <p>Here's what to do next:</p>
+        <div class="onboarding-tip" style="text-align:left;">
+          <strong>1.</strong> If you haven't set an API key yet, go to <strong>Settings</strong> → pick a provider → paste your key → click <strong>Test</strong> to verify.<br><br>
+          <strong>2.</strong> Once your API key is set, the <strong>Analyse</strong> button in the pipeline above will activate.<br><br>
+          <strong>3.</strong> Click <strong>Analyse</strong> → then <strong>Classify</strong> → review results → <strong>Write Tags</strong>.
+        </div>
+        <div class="onboarding-actions" style="margin-top:16px;">
+          <button class="btn btn-primary" id="onboard-go-settings">Take me to Settings</button>
+          <button class="btn btn-secondary btn-sm" id="onboard-start-import">Got it — I'll explore on my own</button>
         </div>
       </div>
 

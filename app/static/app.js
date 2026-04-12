@@ -7265,6 +7265,21 @@ function initOnboarding() {
     startBtn.addEventListener('click', function() { completeOnboarding(); });
   }
 
+  // Skip API key setup
+  var skipBtn = document.getElementById('onboard-skip-api');
+  if (skipBtn) {
+    skipBtn.addEventListener('click', function() { updateOnboardingStep(3); });
+  }
+
+  // Go to Settings from onboarding
+  var settingsBtn = document.getElementById('onboard-go-settings');
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', function() {
+      completeOnboarding();
+      switchTab('settings');
+    });
+  }
+
   showOnboardingIfNeeded();
 }
 
