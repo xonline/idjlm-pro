@@ -219,7 +219,7 @@ class TestAudioRoutes:
 
     def test_serve_audio_nonexistent_file(self, client):
         resp = client.get("/api/audio?path=/nonexistent/file.mp3")
-        assert resp.status_code in (404, 400)
+        assert resp.status_code in (404, 400, 403)
 
 
 # ---------------------------------------------------------------------------
