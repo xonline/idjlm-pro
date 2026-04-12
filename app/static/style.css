@@ -400,7 +400,7 @@ body {
    ============================================================================ */
 
 .tab {
-  display: none;
+  display: none !important;
   animation: fadeIn 0.3s ease;
   padding-bottom: 70px;
 }
@@ -3149,8 +3149,8 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
 .table-wrap { flex: 1; overflow-y: auto; overflow-x: auto; }
 
 /* ─── Library tab fills viewport ──────────────────────────── */
-#tab-library { display: none; flex-direction: column; height: 100%; overflow: hidden; }
-#tab-library.active { display: flex; }
+#tab-library { display: none !important; flex-direction: column; height: 100%; overflow: hidden; }
+#tab-library.active { display: flex !important; }
 
 /* ─── Settings section ─────────────────────────────────────── */
 .settings-section { margin-top: 24px; }
