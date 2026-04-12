@@ -10,8 +10,8 @@
   --bg-hover:   #1e1e2e;
   --bg-deeper:  #252538;
   --border:     #21213a;
-  --text-primary:     #c8c8e4;
-  --text-secondary:   #6a6a94;
+  --text-primary:     #e0e0f0;
+  --text-secondary:   #9090b8;
   --text-placeholder: #42425e;
   --text-loud:  #f0efff;
   --accent:       #7c5af6;
@@ -402,7 +402,7 @@ body {
 .tab {
   display: none;
   animation: fadeIn 0.3s ease;
-  padding-bottom: 80px;
+  padding-bottom: 70px;
 }
 
 .tab.active {
@@ -1173,7 +1173,6 @@ body.light .taxonomy-subgenres {
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
   background-color: var(--overlay);
   display: flex;
   align-items: center;
@@ -1306,7 +1305,6 @@ body.light .taxonomy-subgenres {
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
   background-color: var(--spinner-overlay);
   display: flex;
   align-items: center;
@@ -1573,7 +1571,7 @@ body.light .taxonomy-subgenres {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   min-width: 200px;
-  z-index: 100;
+  z-index: 1100; bottom: 70px;
   box-shadow: var(--shadow-md);
   margin-top: 8px;
   overflow: hidden;
@@ -1606,7 +1604,6 @@ body.light .taxonomy-subgenres {
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
   background-color: var(--overlay);
   display: flex;
   align-items: center;
@@ -1895,7 +1892,7 @@ body.light .taxonomy-subgenres {
   position: absolute; top: 100%; right: 0; margin-top: 4px;
   background: var(--bg-panel); border: 1px solid var(--border);
   border-radius: var(--radius-md); min-width: 200px;
-  box-shadow: var(--shadow-md); z-index: 100;
+  box-shadow: var(--shadow-md); z-index: 1100; bottom: 70px;
 }
 
 .column-toggle-item {
@@ -2215,7 +2212,6 @@ body.light .taxonomy-subgenres {
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
   z-index: 900;
   animation: fadeIn 0.2s ease;
@@ -2561,7 +2557,6 @@ body.light .taxonomy-subgenres {
 
 .bulk-actions-bar {
   position: fixed;
-  bottom: 0;
   left: 0;
   right: 0;
   background-color: var(--bg-subtle);
@@ -2571,7 +2566,7 @@ body.light .taxonomy-subgenres {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  z-index: 100;
+  z-index: 1100; bottom: 70px;
   animation: slideIn 0.2s ease;
 }
 
@@ -3934,7 +3929,7 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
   font-size: 12px;
   color: var(--text-primary);
   box-shadow: var(--shadow-md);
-  z-index: 100;
+  z-index: 1100; bottom: 70px;
   max-width: 260px;
   line-height: 1.4;
 }
