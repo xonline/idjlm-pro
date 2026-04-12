@@ -1,5 +1,6 @@
 import os
 from flask import Blueprint, send_file, jsonify, request
+from app import get_current_folder_path
 
 bp = Blueprint("audio", __name__, url_prefix="/api")
 
@@ -9,6 +10,7 @@ def serve_audio():
     """
     Serve MP3 file with range request support for HTML5 audio seeking.
     GET /api/audio?path=/absolute/path/to/file.mp3
+    Security: file must be within the current music folder.
     """
     try:
         file_path = request.args.get("path", "")
@@ -16,6 +18,14 @@ def serve_audio():
             return jsonify({"error": "Missing path parameter"}), 400
         # Ensure absolute path and normalize
         file_path = os.path.abspath(file_path)
+
+        # Security: restrict to the current music folder
+        music_folder = get_current_folder_path()
+        if music_folder:
+            real_folder = os.path.realpath(music_folder)
+            real_file = os.path.realpath(file_path)
+            if not real_file.startswith(real_folder + os.sep) and real_file != real_folder:
+                return jsonify({"error": "Access denied: file outside music folder"}), 403
 
         if not os.path.exists(file_path):
             return jsonify({"error": "Audio file not found"}), 404

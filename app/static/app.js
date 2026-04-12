@@ -1531,6 +1531,9 @@ function renderTracks() {
   // Reset to page 1 when filter/sort changes
   window.currentPage = 1;
 
+  // Update pipeline stepper
+  updatePipelineStepper();
+
   if (!sorted.length) {
     const row = document.createElement('tr');
     row.className = 'empty-state';
@@ -3619,7 +3622,8 @@ function openTrackDetail(track) {
     </div>
 
     <div class="track-detail-actions">
-      <button class="btn btn-primary" onclick="addTrackToSetlist('${track.file_path.replace(/'/g, "\\'")}')">Add to Setlist</button>
+      <button class="btn btn-primary" onclick="addTrackToSetlist('${track.file_path.replace(/'/g, "&#39;")}')">Add to Setlist</button>
+      <button class="btn btn-secondary" onclick="showNextTrackAdvisor('${track.file_path.replace(/'/g, "&#39;")}')">Next Track Advisor</button>
     </div>
   `;
 
@@ -7055,4 +7059,138 @@ function initUpdateChecker() {
       if (e.target === modal) closeUpdateModal();
     });
   }
+}
+
+// ============================================================================
+// Next Track Advisor
+// ============================================================================
+
+/**
+ * Next Track Advisor — suggests next tracks combining harmonic, BPM, energy, and genre compatibility.
+ */
+async function showNextTrackAdvisor(filePath) {
+  try {
+    const result = await apiFetch('/api/suggest_next', {
+      method: 'POST',
+      body: JSON.stringify({ file_path: filePath, limit: 5 })
+    });
+
+    const suggestions = result.suggestions || [];
+    if (suggestions.length === 0) {
+      showToast('No compatible tracks found in your library', 'info');
+      return;
+    }
+
+    let msg = 'Next Track Advisor:\n';
+    for (const s of suggestions) {
+      msg += '\u2022 ' + s.display_title + ' \u2014 ' + s.display_artist + ' (Score: ' + s.score + '%, Key: ' + s.final_key + ', BPM: ' + s.final_bpm + ')\n';
+    }
+    showToast(msg, 'info');
+  } catch (e) {
+    showToast('Failed to get suggestions', 'error');
+  }
+}
+
+/* ============================================================
+   Pipeline Stepper & Onboarding Wizard
+   ============================================================ */
+
+/** Update the pipeline stepper based on current track states */
+function updatePipelineStepper() {
+  var allTracks = Object.values(window.trackStore || {});
+  if (!allTracks.length) return;
+
+  var total = allTracks.length;
+  var imported = total;
+  var analyzed = allTracks.filter(function(t) { return t.analysis_done; }).length;
+  var classified = allTracks.filter(function(t) { return t.classification_done; }).length;
+  var approved = allTracks.filter(function(t) { return t.review_status === 'approved' || t.review_status === 'edited'; }).length;
+  var written = allTracks.filter(function(t) { return t.tags_written; }).length;
+
+  setStepStatus('import', imported, imported, total, imported > 0 ? 'completed' : '');
+  setStepStatus('analyse', analyzed, total, analyzed > 0 ? (analyzed === total ? 'completed' : 'active') : '');
+  setStepStatus('classify', classified, total, classified > 0 ? (classified === total ? 'completed' : 'active') : '');
+  setStepStatus('review', approved, total, approved > 0 ? (approved === total ? 'completed' : 'active') : '');
+  setStepStatus('write', written, total, written > 0 ? (written === total ? 'completed' : 'active') : '');
+}
+
+function setStepStatus(step, done, total, status) {
+  var el = document.getElementById('step-' + step);
+  var countEl = document.getElementById('count-' + step);
+  if (!el || !countEl) return;
+  el.classList.toggle('active', status === 'active');
+  el.classList.toggle('completed', status === 'completed');
+  countEl.textContent = done + '/' + total;
+}
+
+/** Show onboarding wizard if first run */
+function showOnboardingIfNeeded() {
+  if (localStorage.getItem('idjlm-onboarding-done')) return;
+  var store = window.trackStore || {};
+  if (Object.keys(store).length > 0) return;
+  var overlay = document.getElementById('onboarding-overlay');
+  if (overlay) { overlay.style.display = 'flex'; updateOnboardingStep(1); }
+}
+
+function updateOnboardingStep(step) {
+  for (var i = 1; i <= 3; i++) {
+    var el = document.getElementById('onboard-step-' + i);
+    if (el) el.style.display = i === step ? '' : 'none';
+  }
+  var fill = document.getElementById('onboard-progress-fill');
+  var text = document.getElementById('onboard-progress-text');
+  if (fill) fill.style.width = (step / 3 * 100) + '%';
+  if (text) text.textContent = 'Step ' + step + ' of 3';
+}
+
+function completeOnboarding() {
+  localStorage.setItem('idjlm-onboarding-done', 'true');
+  var overlay = document.getElementById('onboarding-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function initOnboarding() {
+  var closeBtn = document.getElementById('onboarding-close');
+  if (closeBtn) closeBtn.addEventListener('click', completeOnboarding);
+
+  var chooseBtn = document.getElementById('onboard-choose-folder');
+  if (chooseBtn) {
+    chooseBtn.addEventListener('click', async function() {
+      if (window.pywebview && window.pywebview.api) {
+        var path = await window.pywebview.api.choose_folder();
+        if (path) {
+          document.getElementById('onboard-folder-path').textContent = path;
+          updateOnboardingStep(2);
+        }
+      } else {
+        document.getElementById('btn-get-started')?.click();
+        updateOnboardingStep(2);
+      }
+    });
+  }
+
+  var continueBtn = document.getElementById('onboard-continue');
+  if (continueBtn) {
+    continueBtn.addEventListener('click', function() {
+      var sel = document.querySelector('.onboarding-provider.selected');
+      var provider = sel ? sel.dataset.provider : 'gemini';
+      var ps = document.getElementById('settings-provider');
+      if (ps) { ps.value = provider; ps.dispatchEvent(new Event('change')); }
+      updateOnboardingStep(3);
+    });
+  }
+
+  document.querySelectorAll('.onboarding-provider').forEach(function(el) {
+    el.addEventListener('click', function() {
+      document.querySelectorAll('.onboarding-provider').forEach(function(e) { e.classList.remove('selected'); });
+      el.classList.add('selected');
+    });
+  });
+
+  var startBtn = document.getElementById('onboard-start-import');
+  if (startBtn) {
+    startBtn.addEventListener('click', function() { completeOnboarding(); });
+  }
+
+  showOnboardingIfNeeded();
 }

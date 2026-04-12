@@ -77,6 +77,38 @@
             <input type="text" id="folder-input" class="folder-input-inline" placeholder="/path/to/music" style="display:none;" />
             <button class="btn btn-primary btn-sm" id="btn-import" style="display:none;">Import</button>
           </div>
+          <!-- Pipeline stepper showing workflow state -->
+          <div class="pipeline-stepper" id="pipeline-stepper">
+            <div class="pipeline-step" data-step="import" id="step-import">
+              <div class="step-circle">1</div>
+              <div class="step-label">Import</div>
+              <div class="step-count" id="count-import">0</div>
+            </div>
+            <div class="pipeline-connector"></div>
+            <div class="pipeline-step" data-step="analyse" id="step-analyse">
+              <div class="step-circle">2</div>
+              <div class="step-label">Analyse</div>
+              <div class="step-count" id="count-analyse">0</div>
+            </div>
+            <div class="pipeline-connector"></div>
+            <div class="pipeline-step" data-step="classify" id="step-classify">
+              <div class="step-circle">3</div>
+              <div class="step-label">Classify</div>
+              <div class="step-count" id="count-classify">0</div>
+            </div>
+            <div class="pipeline-connector"></div>
+            <div class="pipeline-step" data-step="review" id="step-review">
+              <div class="step-circle">4</div>
+              <div class="step-label">Review</div>
+              <div class="step-count" id="count-review">0</div>
+            </div>
+            <div class="pipeline-connector"></div>
+            <div class="pipeline-step" data-step="write" id="step-write">
+              <div class="step-circle">5</div>
+              <div class="step-label">Write Tags</div>
+              <div class="step-count" id="count-write">0</div>
+            </div>
+          </div>
           <div class="toolbar-pipeline">
             <button class="btn pipeline-btn" id="btn-analyse" disabled>▶ Analyse All</button>
             <button class="btn pipeline-btn" id="btn-classify" disabled>✦ Classify All</button>
@@ -1290,6 +1322,54 @@
       </div>
       <div class="modal-footer">
         <button id="key-graph-done" class="btn btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Onboarding Wizard Modal -->
+  <div id="onboarding-overlay" class="onboarding-overlay" style="display:none;">
+    <div class="onboarding-modal">
+      <button class="onboarding-close" id="onboarding-close">&times;</button>
+
+      <div class="onboarding-step" id="onboard-step-1">
+        <div class="onboarding-icon">📁</div>
+        <h3>Welcome to IDJLM Pro</h3>
+        <p>Let's get your music library organized. First, pick a folder containing your music files.</p>
+        <div class="onboarding-actions">
+          <button class="btn btn-primary" id="onboard-choose-folder">Choose Music Folder</button>
+          <span id="onboard-folder-path" class="onboarding-path"></span>
+        </div>
+      </div>
+
+      <div class="onboarding-step" id="onboard-step-2" style="display:none;">
+        <div class="onboarding-icon">⚙️</div>
+        <h3>Configure AI Provider</h3>
+        <p>Choose an AI provider to classify your music. <strong>Gemini is free</strong> for most users.</p>
+        <div class="onboarding-providers">
+          <div class="onboarding-provider" data-provider="gemini">🌟 Google Gemini (Free)</div>
+          <div class="onboarding-provider" data-provider="claude">Anthropic Claude</div>
+          <div class="onboarding-provider" data-provider="openai">OpenAI GPT</div>
+          <div class="onboarding-provider" data-provider="qwen">Qwen (Alibaba)</div>
+        </div>
+        <div class="onboarding-actions">
+          <button class="btn btn-primary" id="onboard-continue">Configure in Settings →</button>
+        </div>
+      </div>
+
+      <div class="onboarding-step" id="onboard-step-3" style="display:none;">
+        <div class="onboarding-icon">▶</div>
+        <h3>Start Import & Analysis</h3>
+        <p>Click <strong>"Analyse"</strong> in the pipeline above to detect BPM, key, energy, and LUFS.</p>
+        <div class="onboarding-actions">
+          <button class="btn btn-primary" id="onboard-start-import">Got it — Let's go! 🎵</button>
+        </div>
+      </div>
+
+      <div class="onboarding-progress">
+        <div class="onboarding-progress-bar">
+          <div class="onboarding-progress-fill" id="onboard-progress-fill" style="width:33%"></div>
+        </div>
+        <span class="onboarding-progress-text" id="onboard-progress-text">Step 1 of 3</span>
       </div>
     </div>
   </div>

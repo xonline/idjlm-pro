@@ -1,12 +1,17 @@
 import os
 import subprocess
 import sys
+import threading
 import logging
 from flask import Blueprint, request, jsonify
 
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("import", __name__, url_prefix="/api")
+
+# Rate limiting locks — prevent concurrent expensive operations
+_analyze_lock = threading.Lock()
+_classify_lock = threading.Lock()
 
 
 @bp.route("/pick-folder", methods=["GET"])
@@ -94,7 +99,11 @@ def analyze_tracks():
     body: { "track_paths": ["/path1", "/path2"] }  # or empty list = all tracks
     Returns: { "op_id": "...", "total": N }  (202 Accepted)
     Stream progress via EventSource('/api/progress/<op_id>')
+    Rate-limited: only one analysis at a time (429 if busy).
     """
+    if not _analyze_lock.acquire(blocking=False):
+        return jsonify({"error": "Analysis already in progress"}), 429
+
     try:
         import uuid
         import threading
@@ -152,6 +161,7 @@ def analyze_tracks():
                     })
             logger.info(f"Analysis complete: {analyzed}/{total} succeeded, {len(errors)} errors")
             q.put({'done': True, 'analyzed': analyzed, 'errors': errors, 'refetch': True})
+            _analyze_lock.release()
 
         threading.Thread(target=run, daemon=True).start()
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202
@@ -177,6 +187,9 @@ def classify_tracks():
     Returns: { "op_id": "...", "total": N }  (202 Accepted)
     Stream progress via EventSource('/api/progress/<op_id>')
     """
+    if not _classify_lock.acquire(blocking=False):
+        return jsonify({"error": "Classification already in progress"}), 429
+
     try:
         import uuid
         import threading
@@ -258,6 +271,7 @@ def classify_tracks():
                 save_session(track_store, get_current_folder_path())
             except Exception:
                 pass
+            _classify_lock.release()
 
         threading.Thread(target=run, daemon=True).start()
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202

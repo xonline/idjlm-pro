@@ -295,12 +295,20 @@ def open_dmg():
     if not path:
         return jsonify({"error": "path is required"}), 400
 
-    if not os.path.exists(path):
-        return jsonify({"error": f"File not found: {path}"}), 404
+    # Security: validate path is a .dmg within ~/Downloads
+    real_path = os.path.realpath(path)
+    downloads_dir = os.path.realpath(os.path.expanduser("~/Downloads"))
+    if not real_path.startswith(downloads_dir + os.sep) and real_path != downloads_dir:
+        return jsonify({"error": "Access denied: file must be in Downloads folder"}), 403
+    if not real_path.endswith(".dmg"):
+        return jsonify({"error": "Access denied: file must be a .dmg"}), 400
+
+    if not os.path.exists(real_path):
+        return jsonify({"error": f"File not found: {real_path}"}), 404
 
     try:
-        subprocess.run(["open", path], timeout=10, check=True)
-        return jsonify({"opened": True, "path": path}), 200
+        subprocess.run(["open", real_path], timeout=10, check=True)
+        return jsonify({"opened": True, "path": real_path}), 200
     except subprocess.TimeoutExpired:
         return jsonify({"error": "Opening DMG timed out"}), 500
     except Exception as e:
@@ -308,9 +316,9 @@ def open_dmg():
         return jsonify({"error": f"Failed to open DMG: {str(e)}"}), 500
 
 
-@bp.route("/git-pull", methods=["GET"])
+@bp.route("/git-pull", methods=["POST"])
 def git_pull():
-    """GET /api/version/git-pull — run git pull for source installs."""
+    """POST /api/version/git-pull — run git pull for source installs."""
     try:
         result = subprocess.run(
             ["git", "pull"],

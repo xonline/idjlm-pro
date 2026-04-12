@@ -67,7 +67,7 @@ def create_app() -> Flask:
     log_path = _setup_file_logging()
 
     app = Flask(__name__, template_folder="../templates", static_folder="static")
-    CORS(app)
+    CORS(app, origins=["http://localhost:5050", "http://127.0.0.1:5050"])
     logging.getLogger(__name__).info("IDJLM Pro starting — log: %s", log_path)
 
     # Load taxonomy — prefer user-writable copy (may have edits), fall back to bundle
@@ -101,6 +101,9 @@ def create_app() -> Flask:
     from app.routes.key_routes import bp as key_bp
     from app.routes.applescript_routes import bp as applescript_bp
     from app.routes.version_routes import bp as version_bp
+    from app.routes.health_routes import bp as health_bp
+    from app.routes.advisor_routes import bp as advisor_bp
+    from app.routes.rekordbox_routes import bp as rekordbox_bp
 
     app.register_blueprint(import_bp)
     app.register_blueprint(track_bp)
@@ -121,6 +124,9 @@ def create_app() -> Flask:
     app.register_blueprint(key_bp)
     app.register_blueprint(applescript_bp)
     app.register_blueprint(version_bp)
+    app.register_blueprint(health_bp)
+    app.register_blueprint(advisor_bp)
+    app.register_blueprint(rekordbox_bp)
 
     @app.route("/")
     def index():
