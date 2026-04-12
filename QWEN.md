@@ -1,2 +1,3 @@
 ## Qwen Added Memories
 - Whenever pushing a new version tag (vX.Y.Z), I must create a GitHub Release with proper notes. The workflow `.github/workflows/release-auto.yml` auto-creates releases on tag push, but I should still verify the release was created correctly and add meaningful release notes rather than relying solely on auto-generated ones. This is part of my ongoing responsibility — not something the user needs to handle.
+- STANDARD WORKFLOW for every update: 1) Commit changes 2) Push commit to origin/main 3) Create annotated version tag (vX.Y.Z) 4) Push tag to trigger release workflow 5) Wait for DMG/EXE to build (~4 min). NEVER push changes without creating a downloadable release tag. The user needs to be able to download, test, and verify every update.

@@ -168,6 +168,35 @@ function initNavigation() {
 
   const detailOverlay = document.getElementById('track-detail-overlay');
   if (detailOverlay) detailOverlay.addEventListener('click', closeTrackDetail);
+
+  // Track detail panel buttons
+  const detailAddSetlist = document.getElementById('btn-track-detail-add-setlist');
+  if (detailAddSetlist) {
+    detailAddSetlist.addEventListener('click', function() {
+      if (window._currentDetailTrack) {
+        addTrackToSetlist(window._currentDetailTrack.file_path);
+      }
+    });
+  }
+  const detailEditBtn = document.getElementById('btn-track-detail-edit');
+  if (detailEditBtn) {
+    detailEditBtn.addEventListener('click', function() {
+      if (window._currentDetailTrack) {
+        closeTrackDetail();
+        openEditModal(window._currentDetailTrack.file_path);
+      }
+    });
+  }
+
+  // ESC key closes track detail panel
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      const panel = document.getElementById('track-detail-panel');
+      if (panel && panel.style.display === 'block') {
+        closeTrackDetail();
+      }
+    }
+  });
 }
 
 // ============================================================================
@@ -3552,6 +3581,7 @@ function connectToProgress(opId, total, onProgress, onComplete, onError) {
 
 // Track detail panel
 function openTrackDetail(track) {
+  window._currentDetailTrack = track;
   const overlay = document.getElementById('track-detail-overlay');
   const panel = document.getElementById('track-detail-panel');
 
@@ -7233,6 +7263,25 @@ function initOnboarding() {
         var path = await window.pywebview.api.choose_folder();
         if (path) {
           document.getElementById('onboard-folder-path').textContent = path;
+          // Actually import the folder — not just show the path
+          try {
+            var result = await apiFetch('/api/import', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ folder_path: path })
+            });
+            if (result && result.tracks) {
+              window.tracks = result.tracks;
+              window.searchResults = null;
+              renderTracks();
+              updateStats();
+              updatePipelineStepper();
+              updateToolbarButtonStates();
+              showToast((result.count || result.tracks.length) + ' tracks imported', 'success');
+            }
+          } catch (e) {
+            showToast('Import failed: ' + e.message, 'error');
+          }
           updateOnboardingStep(2);
         }
       } else {
@@ -7287,9 +7336,13 @@ function initOnboarding() {
    API Key Test Button
    ============================================================ */
 async function testApiKey(provider) {
+  // Clear all status elements first
+  document.querySelectorAll('[id^="key-test-status-"]').forEach(function(el) {
+    el.innerHTML = '';
+  });
   const statusEl = document.getElementById('key-test-status-' + provider);
   if (!statusEl) return;
-  statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:12px;">Testing...</span>';
+  statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:12px;">Testing ' + provider + '...</span>';
 
   try {
     const res = await apiFetch('/api/test_key', {

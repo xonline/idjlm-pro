@@ -146,7 +146,7 @@ def _classify_with_claude(prompt: str, batch: list[Track]) -> tuple[bool, str]:
         def call_claude():
             client = anthropic.Anthropic(api_key=api_key)
             response = client.messages.create(
-                model="claude-sonnet-4-6",
+                model="claude-opus-4-6-20260522",
                 max_tokens=2048,
                 messages=[{"role": "user", "content": prompt}]
             )
