@@ -4985,13 +4985,25 @@ function initThresholdPersistence() {
   if (tbody) observer.observe(tbody, { childList: true });
 })();
 
-function initOnboarding() {
-  if (localStorage.getItem('idjlm-onboarded')) return;
-  document.getElementById('onboarding-modal').style.display = 'flex';
-  document.getElementById('onboarding-close').addEventListener('click', () => {
-    document.getElementById('onboarding-modal').style.display = 'none';
-    localStorage.setItem('idjlm-onboarded', '1');
-  });
+function initWorkflowGuide() {
+  // Show workflow guide on first run (if no tracks imported yet)
+  var guide = document.getElementById('workflow-guide');
+  if (!guide) return;
+
+  if (!localStorage.getItem('idjlm-workflow-seen')) {
+    var store = window.tracks || [];
+    if (store.length === 0) {
+      guide.style.display = 'block';
+    }
+  }
+
+  var closeBtn = document.getElementById('close-workflow-guide');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', function() {
+      guide.style.display = 'none';
+      localStorage.setItem('idjlm-workflow-seen', '1');
+    });
+  }
 }
 
 function saveSetlistToStorage() {
@@ -5048,6 +5060,7 @@ document.addEventListener('DOMContentLoaded', () => {
   checkResumeSession();
   initThresholdPersistence();
   initOnboarding();
+  initWorkflowGuide();
 });
 
 // ============================================================================
@@ -7200,7 +7213,7 @@ async function showNextTrackAdvisor(filePath) {
 
 /** Update the pipeline stepper based on current track states */
 function updatePipelineStepper() {
-  var allTracks = Object.values(window.trackStore || {});
+  var allTracks = window.tracks || [];
   if (!allTracks.length) return;
 
   var total = allTracks.length;

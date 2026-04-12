@@ -112,10 +112,27 @@
           <div class="toolbar-pipeline">
             <button class="btn pipeline-btn" id="btn-analyse" disabled data-hint="🔒 Requires imported tracks first. Pick a music folder above to get started.">▶ Analyse All</button>
             <button class="btn pipeline-btn" id="btn-classify" disabled data-hint="🔒 Analyse tracks first. Click 'Analyse All' to detect BPM, key, and energy.">✦ Classify All</button>
-            <button class="btn pipeline-btn" id="btn-bulk-approve-toolbar" disabled>✓ Approve ≥<input type="number" id="toolbar-threshold" value="80" min="1" max="100" title="Confidence threshold">%</button>
-            <button class="btn pipeline-btn pipeline-btn-write" id="btn-write-tags" disabled data-hint="🔒 Approve tracks first. Analyse → Classify → Review → Write Tags to your files.">✎ Write Tags</button>
+            <button class="btn pipeline-btn" id="btn-bulk-approve-toolbar" disabled data-hint="🔒 Classify tracks first. Only tracks with confidence ≥ threshold can be approved.">✓ Approve ≥<input type="number" id="toolbar-threshold" value="80" min="1" max="100" title="Confidence threshold">%</button>
+            <button class="btn pipeline-btn pipeline-btn-write" id="btn-write-tags" disabled data-hint="🔒 Approve tracks first. Analyse → Classify → Approve → Write Tags to your files.">✎ Write Tags</button>
           </div>
           <button class="btn btn-secondary btn-sm" id="btn-shortcuts" title="Keyboard shortcuts (?)" style="font-size:16px;padding:6px 10px;">?</button>
+        </div>
+
+        <!-- How It Works Guide -->
+        <div class="workflow-guide" id="workflow-guide" style="display:none; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:10px; padding:16px 20px; margin-bottom:12px; font-size:13px; line-height:1.6;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <strong>📖 How It Works</strong>
+            <button class="btn btn-sm btn-secondary" id="close-workflow-guide" style="padding:2px 8px; font-size:11px;">✕</button>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px 24px;">
+            <div><strong>1. Analyse</strong> — Detects BPM, key, energy, loudness for each track</div>
+            <div><strong>2. Classify</strong> — AI assigns genre + sub-genre with confidence scores</div>
+            <div><strong>3. Approve</strong> — Review AI suggestions. Bulk-approve tracks ≥ confidence threshold</div>
+            <div><strong>4. Write Tags</strong> — Writes approved tags to your audio files (backup created)</div>
+          </div>
+          <div style="margin-top:8px; color:var(--text-muted); font-size:12px;">
+            💡 <strong>"Pending"</strong> means the track hasn't been reviewed yet. After Classifying, click <strong>Approve</strong> to accept the AI's genre suggestion, then <strong>Write Tags</strong> to save to your files.
+          </div>
         </div>
 
         <!-- Stats bar -->
