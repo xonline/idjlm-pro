@@ -36,8 +36,8 @@ Sound familiar?
 | Step | What Happens | Time for 500 Tracks |
 |------|-------------|---------------------|
 | **1. Import** | Pick your music folder. All existing tags load instantly. | ~5 seconds |
-| **2. Analyse** | BPM, key (Camelot), energy, loudness — all detected automatically. | ~3 minutes |
-| **3. Classify** | AI assigns genre + sub-genre with confidence scores. | ~2 minutes |
+| **2. Analyse** | BPM, key (Camelot), energy, loudness — all detected automatically. | ~10 minutes |
+| **3. Classify** | AI assigns genre + sub-genre with confidence scores. | ~10 minutes |
 | **4. Review** | Bulk-approve high-confidence tracks. Edit the rest. Undo if needed. | ~2 minutes |
 | **5. Write Tags** | Clean tags written to your files. Backup created automatically. | ~30 seconds |
 
