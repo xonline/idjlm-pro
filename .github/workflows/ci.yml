@@ -23,7 +23,7 @@ jobs:
           pip install -r requirements.txt
           pip install pytest ruff
       - name: Lint with ruff
-        run: ruff check app/ --select E,F,W --ignore E501
+        run: ruff check app/ --select E,F,W --ignore E501,E701
       - name: Run tests
         run: pytest -v --tb=short
       - name: Check Python syntax

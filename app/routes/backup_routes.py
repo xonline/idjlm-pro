@@ -41,6 +41,7 @@ def backups_restore(backup_id):
 
             # Restore ID3 tags from backup
             try:
+                from mutagen import File as MutagenFile
                 audio = MutagenFile(file_path, easy=True)
                 if audio is None:
                     continue

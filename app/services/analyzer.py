@@ -153,7 +153,7 @@ def _compute_lufs(y: np.ndarray, sr: int) -> tuple:
         # 1. K-weighted pre-filtering: high-pass below 100Hz, boost 1.5kHz-4kHz
         # Simple FIR high-pass at 100 Hz
         nyquist = sr / 2.0
-        cutoff = 100.0 / nyquist
+        100.0 / nyquist
         # Use a simple difference-based high-pass approximation
         # y_filtered = y - low_pass(y); approximate low-pass with rolling mean
         hp_taps = max(3, int(sr / 100))  # ~100 Hz window
@@ -165,8 +165,8 @@ def _compute_lufs(y: np.ndarray, sr: int) -> tuple:
 
         # Boost 1.5kHz-4kHz region with a simple band-pass energy boost
         # Approximate: compute energy in mid-high freq band and amplify
-        bp_low = 1500.0 / nyquist
-        bp_high = 4000.0 / nyquist
+        1500.0 / nyquist
+        4000.0 / nyquist
         bp_taps_low = max(3, int(sr / 1500))
         bp_taps_high = max(3, int(sr / 4000))
         if bp_taps_low > len(y_hp):

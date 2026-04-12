@@ -106,7 +106,7 @@ def generate_setplan():
         duration_minutes = int(data.get("duration_minutes", 60))
         genre = data.get("genre")
         bpm_range = data.get("bpm_range")  # [min, max]
-        seed_path = data.get("seed_path")
+        data.get("seed_path")  # Reserved for future use
 
         # Validate arc
         if arc not in ARC_TEMPLATES:

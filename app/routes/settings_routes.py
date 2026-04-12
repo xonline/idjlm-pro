@@ -612,7 +612,7 @@ def test_key():
         if provider == "claude":
             import anthropic
             client = anthropic.Anthropic(api_key=api_key)
-            resp = client.messages.create(model="claude-sonnet-4-6", max_tokens=10, messages=[{"role": "user", "content": "Hi"}])
+            client.messages.create(model="claude-sonnet-4-6", max_tokens=10, messages=[{"role": "user", "content": "Hi"}])
             latency = round((time.time() - start) * 1000)
             return jsonify({"ok": True, "latency_ms": latency}), 200
         elif provider == "openai":
