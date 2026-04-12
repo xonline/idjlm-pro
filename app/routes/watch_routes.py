@@ -1,7 +1,10 @@
+import logging
 from flask import Blueprint, request, jsonify
 from app.services.watcher import start_watching, stop_watching, get_new_files, WatcherState
 
 bp = Blueprint("watch", __name__, url_prefix="/api")
+
+logger = logging.getLogger(__name__)
 
 
 @bp.route("/watch/start", methods=["POST"])
@@ -133,7 +136,7 @@ def watch_poll():
 
             except Exception as e:
                 # Log error but continue processing other files
-                print(f"Warning: Failed to process new file {file_path}: {str(e)}")
+                logger.warning("Failed to process new file %s: %s", file_path, e)
                 continue
 
         return jsonify({

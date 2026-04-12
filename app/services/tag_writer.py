@@ -1,8 +1,11 @@
+import logging
 from mutagen.id3 import ID3, TCON, COMM, TBPM, TKEY, TDRC, APIC, TXXX
 from mutagen.mp3 import MP3
 import requests
 
 from app.models.track import Track
+
+logger = logging.getLogger(__name__)
 
 
 def _ensure_id3_tags(mp3: MP3) -> None:
@@ -69,7 +72,7 @@ def write_tags(track: Track) -> Track:
                 if response.status_code == 200:
                     content_type = response.headers.get("Content-Type", "")
                     if not content_type.startswith("image/"):
-                        print(f"Warning: Album art URL returned non-image content type: {content_type}")
+                        logger.warning("Album art URL returned non-image content type: %s", content_type)
                         return
                     # Determine MIME type from content type
                     mime = "image/jpeg"
@@ -90,7 +93,7 @@ def write_tags(track: Track) -> Track:
                     tags['APIC:'] = apic
             except Exception as img_err:
                 # Log image fetch failure but don't fail the entire tag write
-                print(f"Warning: Failed to fetch/write album art for {track.filename}: {str(img_err)}")
+                logger.warning("Failed to fetch/write album art for %s: %s", track.filename, img_err)
 
         # Latin metadata to COMM frames
         # Clave pattern (e.g. "2-3", "3-2")

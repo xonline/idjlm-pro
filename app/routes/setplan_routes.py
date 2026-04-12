@@ -204,6 +204,32 @@ def generate_setplan():
             genre_name = track.final_genre or "Unknown"
             genres[genre_name] = genres.get(genre_name, 0) + 1
 
+        # BPM transition analysis
+        transitions = []
+        for i in range(len(selected_tracks) - 1):
+            t1 = selected_tracks[i]
+            t2 = selected_tracks[i + 1]
+            bpm1 = float(t1.final_bpm) if t1.final_bpm else None
+            bpm2 = float(t2.final_bpm) if t2.final_bpm else None
+            if bpm1 and bpm2:
+                delta = round(bpm2 - bpm1, 1)
+                pct = abs(delta) / bpm1 * 100
+                if pct <= 3:
+                    rating = "smooth"
+                elif pct <= 5:
+                    rating = "moderate"
+                elif pct <= 8:
+                    rating = "challenging"
+                else:
+                    rating = "hard"
+                transitions.append({
+                    "from": t1.display_title,
+                    "to": t2.display_title,
+                    "bpm_delta": delta,
+                    "bpm_pct_change": round(pct, 1),
+                    "rating": rating,
+                })
+
         response = {
             "arc": arc,
             "duration_minutes": duration_minutes,
@@ -222,12 +248,15 @@ def generate_setplan():
                 }
                 for idx, t in enumerate(selected_tracks)
             ],
+            "transitions": transitions,
             "stats": {
                 "total_tracks": len(selected_tracks),
                 "estimated_duration_minutes": len(selected_tracks) * 4,
                 "bpm_range": [int(min(bpms)), int(max(bpms))] if bpms else [0, 0],
                 "energy_range": [min(energies), max(energies)] if energies else [0, 0],
                 "genres": genres,
+                "smooth_transitions": sum(1 for t in transitions if t["rating"] in ("smooth", "moderate")),
+                "challenging_transitions": sum(1 for t in transitions if t["rating"] in ("challenging", "hard")),
             },
         }
 

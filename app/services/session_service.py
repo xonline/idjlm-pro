@@ -1,10 +1,13 @@
 import os
 import sys
 import json
+import logging
 import platform
 from datetime import datetime
 from typing import Optional, Tuple
 from app.models.track import Track
+
+logger = logging.getLogger(__name__)
 
 
 def _get_session_path() -> str:
@@ -88,7 +91,7 @@ def load_session() -> Tuple[Optional[dict], Optional[dict]]:
                 track_store[file_path] = track
             except Exception as e:
                 # Log issue but continue loading other tracks
-                print(f"Warning: Failed to reconstruct track {file_path}: {str(e)}")
+                logger.warning("Failed to reconstruct track %s: %s", file_path, e)
                 continue
 
         return track_store, metadata

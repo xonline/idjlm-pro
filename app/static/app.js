@@ -92,14 +92,53 @@ function hideSpinner() {
   overlay.style.display = 'none';
 }
 
-function showToast(message, type = 'info') {
+function showToast(message, type = 'info', options = {}) {
   const toast = document.getElementById('toast');
-  toast.textContent = message;
   toast.className = `toast ${type}`;
+  toast.textContent = '';
+
+  // Create message span
+  const msgSpan = document.createElement('span');
+  msgSpan.textContent = message;
+  toast.appendChild(msgSpan);
+
+  // Optional action button
+  if (options.action && options.onAction) {
+    const btn = document.createElement('button');
+    btn.className = 'toast-action-btn';
+    btn.textContent = options.action;
+    btn.addEventListener('click', () => {
+      toast.style.display = 'none';
+      options.onAction();
+    });
+    toast.appendChild(btn);
+  }
+
   toast.style.display = 'block';
-  setTimeout(() => {
-    toast.style.display = 'none';
-  }, 4000);
+  const duration = options.duration || 4000;
+  setTimeout(() => { toast.style.display = 'none'; }, duration);
+}
+
+/** Undo last write — restore tags from backup */
+async function undoLastWrite() {
+  try {
+    const result = await apiFetch('/api/organise/backups/latest', { method: 'GET' });
+    if (result && result.backups && result.backups.length > 0) {
+      const latestBackup = result.backups[0];
+      await apiFetch('/api/organise/backups/' + latestBackup.id + '/restore', { method: 'POST' });
+      // Refetch tracks
+      const d = await apiFetch('/api/tracks');
+      window.tracks = d.tracks || [];
+      window.searchResults = null;
+      renderTracks();
+      updateStats();
+      showToast('Tags restored from backup', 'success');
+    } else {
+      showToast('No backup found — undo not available', 'info');
+    }
+  } catch (e) {
+    showToast('Undo failed: ' + e.message, 'error');
+  }
 }
 
 function switchTab(tabName) {
@@ -439,8 +478,14 @@ function initLibraryToolbar() {
               const changes = data.change_summary || [];
               const changedCount = changes.length;
 
+              // Save state for undo
+              window._lastWrittenState = JSON.parse(JSON.stringify(window.tracks || []));
+
               if (changedCount > 0) {
-                showToast(written + ' tracks written, ' + changedCount + ' changed', 'success');
+                showToast(written + ' tracks written, ' + changedCount + ' changed', 'success', {
+                  action: 'Undo',
+                  onAction: undoLastWrite
+                });
                 // Show first 3 changes in detail
                 let detailHtml = '<div style="max-height:300px;overflow-y:auto;font-size:13px;line-height:1.5;">';
                 changes.slice(0, 3).forEach(entry => {
@@ -463,7 +508,10 @@ function initLibraryToolbar() {
                   modal.style.display = 'block';
                 }
               } else {
-                showToast(written + ' tracks written', 'success');
+                showToast(written + ' tracks written', 'success', {
+                  action: 'Undo',
+                  onAction: undoLastWrite
+                });
               }
 
               btnWriteTags.disabled = false;
