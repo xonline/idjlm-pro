@@ -33,7 +33,7 @@ def pick_folder():
             return jsonify({"error": "Folder picker only supported on macOS"}), 400
     except subprocess.TimeoutExpired:
         return jsonify({"cancelled": True}), 200
-    except Exception as e:
+    except Exception:
         logger.exception("Error in /api/pick-folder")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
@@ -86,7 +86,7 @@ def import_tracks():
             "tracks": [t.to_dict() for t in tracks]
         }), 200
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error in /api/import")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
@@ -118,7 +118,7 @@ def analyze_tracks():
         # If empty, analyze all tracks
         if not track_paths:
             track_paths = list(track_store.keys())
-        
+
         logger.info(f"Analyze request: {len(track_paths)} tracks, store has {len(track_store)} tracks")
 
         op_id = str(uuid.uuid4())[:8]
@@ -166,7 +166,7 @@ def analyze_tracks():
         threading.Thread(target=run, daemon=True).start()
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error in /api/analyze")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
@@ -276,6 +276,6 @@ def classify_tracks():
         threading.Thread(target=run, daemon=True).start()
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error in /api/classify")
         return jsonify({"error": "Operation failed. Check server logs."}), 500

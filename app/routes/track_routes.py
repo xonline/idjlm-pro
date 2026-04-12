@@ -64,7 +64,7 @@ def list_tracks():
             "total": len(tracks)
         }), 200
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error in /api/tracks GET")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
@@ -110,7 +110,7 @@ def search_tracks():
             "query": q
         }), 200
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error in /api/tracks/search GET")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
@@ -132,7 +132,7 @@ def get_track(file_path):
         track = track_store[file_path]
         return jsonify(track.to_dict()), 200
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Error in /api/tracks/{file_path} PUT")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 

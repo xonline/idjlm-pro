@@ -87,7 +87,6 @@ def watch_poll():
     GET /api/watch/poll
     """
     try:
-        from app.services.scanner import scan_folder
         from app import get_track_store
 
         # Get newly detected files and clear buffer

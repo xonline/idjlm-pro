@@ -99,7 +99,7 @@ def read_rekordbox_library() -> list[dict]:
         except Exception:
             pass
         return []
-    except Exception as e:
+    except Exception:
         logger.exception("Error reading rekordbox database")
         return []
 

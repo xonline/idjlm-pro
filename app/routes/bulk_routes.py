@@ -3,7 +3,7 @@ import json
 import logging
 import platform
 from collections import defaultdict
-from flask import Blueprint, request, jsonify, send_file, Response
+from flask import Blueprint, request, jsonify, send_file
 from io import BytesIO
 
 logger = logging.getLogger(__name__)
@@ -32,8 +32,8 @@ def get_taxonomy():
 
         return jsonify(get_taxonomy()), 200
 
-    except Exception as e:
-        logger.exception(f"Error in bulk routes endpoint")
+    except Exception:
+        logger.exception("Error in bulk routes endpoint")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
@@ -64,8 +64,8 @@ def update_taxonomy():
 
         return jsonify({"ok": True}), 200
 
-    except Exception as e:
-        logger.exception(f"Error in bulk routes endpoint")
+    except Exception:
+        logger.exception("Error in bulk routes endpoint")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
@@ -104,8 +104,8 @@ def add_genre():
 
         return jsonify(taxonomy), 200
 
-    except Exception as e:
-        logger.exception(f"Error in bulk routes endpoint")
+    except Exception:
+        logger.exception("Error in bulk routes endpoint")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
@@ -134,8 +134,8 @@ def delete_genre(name):
 
         return jsonify({"ok": True}), 200
 
-    except Exception as e:
-        logger.exception(f"Error in bulk routes endpoint")
+    except Exception:
+        logger.exception("Error in bulk routes endpoint")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
@@ -169,8 +169,8 @@ def get_stats():
             "errors": errors
         }), 200
 
-    except Exception as e:
-        logger.exception(f"Error in bulk routes endpoint")
+    except Exception:
+        logger.exception("Error in bulk routes endpoint")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
@@ -181,7 +181,7 @@ def get_stats_age():
     GET /api/stats/age
     """
     try:
-        from app import get_track_store, get_taxonomy
+        from app import get_track_store
 
         track_store = get_track_store()
         tracks = list(track_store.values())
@@ -288,8 +288,8 @@ def get_stats_age():
             "median_year": median_year
         }), 200
 
-    except Exception as e:
-        logger.exception(f"Error in stats/age endpoint")
+    except Exception:
+        logger.exception("Error in stats/age endpoint")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
@@ -329,8 +329,8 @@ def export_taxonomy():
             download_name="idjlm_taxonomy.json"
         )
 
-    except Exception as e:
-        logger.exception(f"Error in taxonomy export endpoint")
+    except Exception:
+        logger.exception("Error in taxonomy export endpoint")
         return jsonify({"error": "Export failed. Check server logs."}), 500
 
 
@@ -421,8 +421,8 @@ def import_taxonomy():
                 "taxonomy": taxonomy
             }), 200
 
-    except Exception as e:
-        logger.exception(f"Error in taxonomy import endpoint")
+    except Exception:
+        logger.exception("Error in taxonomy import endpoint")
         return jsonify({"error": "Import failed. Check server logs."}), 500
 
 
@@ -450,8 +450,8 @@ def list_templates():
             }
         return jsonify(result), 200
 
-    except Exception as e:
-        logger.exception(f"Error in taxonomy templates list endpoint")
+    except Exception:
+        logger.exception("Error in taxonomy templates list endpoint")
         return jsonify({"error": "Failed to list templates. Check server logs."}), 500
 
 
@@ -534,8 +534,8 @@ def apply_template(name):
             "taxonomy": taxonomy
         }), 200
 
-    except Exception as e:
-        logger.exception(f"Error in apply template endpoint")
+    except Exception:
+        logger.exception("Error in apply template endpoint")
         return jsonify({"error": "Failed to apply template. Check server logs."}), 500
 
 
@@ -583,7 +583,7 @@ def import_onetagger():
             mappings_found += 1
 
             if target not in new_genres:
-                new_genres[target] = {"description": f"Imported from OneTagger", "subgenres": {}}
+                new_genres[target] = {"description": "Imported from OneTagger", "subgenres": {}}
             if target_sub and target_sub not in new_genres[target]["subgenres"]:
                 new_genres[target]["subgenres"][target_sub] = f"Mapped from '{source_genre}'"
 
@@ -597,7 +597,7 @@ def import_onetagger():
             mappings_found += 1
 
             if target not in new_genres:
-                new_genres[target] = {"description": f"Imported from OneTagger", "subgenres": {}}
+                new_genres[target] = {"description": "Imported from OneTagger", "subgenres": {}}
             if target_sub and target_sub not in new_genres[target]["subgenres"]:
                 new_genres[target]["subgenres"][target_sub] = f"Mapped from '{source_sub}'"
 
@@ -637,5 +637,5 @@ def import_onetagger():
         }), 200
 
     except Exception as e:
-        logger.exception(f"Error in OneTagger import endpoint")
+        logger.exception("Error in OneTagger import endpoint")
         return jsonify({"error": f"Failed to import OneTagger settings: {str(e)}"}), 500

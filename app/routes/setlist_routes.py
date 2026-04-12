@@ -39,7 +39,6 @@ def update_setlist():
 @bp.route("/setlist/add", methods=["POST"])
 def add_to_setlist():
     """Add track to setlist. body: {"file_path": "...", "position": null (append)}"""
-    from app import get_track_store
 
     data = request.get_json(silent=True) or {}
     file_path = data.get("file_path")

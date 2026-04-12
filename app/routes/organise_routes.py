@@ -96,8 +96,8 @@ def library_health():
             }
         })
 
-    except Exception as e:
-        logger.exception(f"Error in organise routes endpoint")
+    except Exception:
+        logger.exception("Error in organise routes endpoint")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
@@ -165,8 +165,8 @@ def parse_filenames():
 
         return jsonify(results)
 
-    except Exception as e:
-        logger.exception(f"Error in organise routes endpoint")
+    except Exception:
+        logger.exception("Error in organise routes endpoint")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
@@ -198,7 +198,7 @@ def apply_filename_tags():
             title = update.get("title")
 
             if not file_path:
-                errors.append(f"Missing file_path in update")
+                errors.append("Missing file_path in update")
                 continue
 
             if file_path not in track_store:
@@ -220,8 +220,8 @@ def apply_filename_tags():
             "errors": errors
         })
 
-    except Exception as e:
-        logger.exception(f"Error in organise routes endpoint")
+    except Exception:
+        logger.exception("Error in organise routes endpoint")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
 
@@ -319,6 +319,6 @@ def organise_folders():
                 "errors": errors
             })
 
-    except Exception as e:
-        logger.exception(f"Error in organise routes endpoint")
+    except Exception:
+        logger.exception("Error in organise routes endpoint")
         return jsonify({"error": "Operation failed. Check server logs."}), 500

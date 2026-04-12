@@ -1,0 +1,2 @@
+## Qwen Added Memories
+- Whenever pushing a new version tag (vX.Y.Z), I must create a GitHub Release with proper notes. The workflow `.github/workflows/release-auto.yml` auto-creates releases on tag push, but I should still verify the release was created correctly and add meaningful release notes rather than relying solely on auto-generated ones. This is part of my ongoing responsibility — not something the user needs to handle.

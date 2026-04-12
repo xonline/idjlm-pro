@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TYER, TCON, COMM, TBPM, TKEY
+from mutagen.id3 import ID3
 from mutagen.mp3 import MP3
 from mutagen import File as MutagenFile
 

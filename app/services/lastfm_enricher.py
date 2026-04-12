@@ -29,11 +29,11 @@ def _search_lastfm(query: str, api_key: str) -> Optional[dict]:
         ctx = ssl.create_default_context()
         with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
             result = json.loads(resp.read().decode())
-        
+
         matches = result.get("results", {}).get("trackmatches", {}).get("track", [])
         if not matches:
             return None
-        
+
         track = matches[0] if isinstance(matches, list) else matches
         return {
             "title": track.get("name"),
@@ -67,17 +67,17 @@ def _get_track_info(track_name: str, artist_name: str, api_key: str) -> Optional
         ctx = ssl.create_default_context()
         with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
             result = json.loads(resp.read().decode())
-        
+
         track_data = result.get("track", {})
         if not track_data:
             return None
-        
+
         tags = []
         for tag in track_data.get("toptags", {}).get("tag", []):
             tag_name = tag.get("name", "").strip()
             if tag_name:
                 tags.append(tag_name)
-        
+
         return {
             "title": track_data.get("name"),
             "artist": track_data.get("artist", {}).get("name"),
@@ -115,7 +115,7 @@ def enrich_with_lastfm(track: Track, api_key: str) -> Track:
     if result.get("tags") and not track.lastfm_genres:
         # Filter to meaningful genre-like tags
         genre_tags = []
-        skip_tags = {"seen live", "favorite", "to own", "my music", "music", "male vocalists", 
+        skip_tags = {"seen live", "favorite", "to own", "my music", "music", "male vocalists",
                      "female vocalists", "i love", "00s", "10s", "90s", "80s", "70s", "60s"}
         for tag in result["tags"]:
             tag_lower = tag.lower()

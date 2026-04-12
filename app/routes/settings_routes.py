@@ -442,7 +442,7 @@ def get_settings():
             "beatport_enrich_enabled": env_dict.get("BEATPORT_ENRICH_ENABLED", "false").lower() == "true",
         }), 200
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error in /api/settings GET")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
@@ -566,7 +566,7 @@ def save_settings():
 
         return jsonify({"saved": True}), 200
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error in /api/settings POST")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 

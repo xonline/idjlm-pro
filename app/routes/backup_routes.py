@@ -1,6 +1,5 @@
 import logging
 from flask import Blueprint, jsonify
-from app.services.tag_backup import create_backup, list_backups, get_latest_backup, load_backup
 
 logger = logging.getLogger(__name__)
 
@@ -9,6 +8,7 @@ bp = Blueprint("backup", __name__, url_prefix="/api")
 @bp.route("/organise/backups/latest", methods=["GET"])
 def backups_latest():
     """GET /api/organise/backups/latest — return latest backup info."""
+    from app.services.tag_backup import get_latest_backup
     latest = get_latest_backup()
     if latest:
         return jsonify({"backups": [latest]}), 200
@@ -17,6 +17,7 @@ def backups_latest():
 @bp.route("/organise/backups", methods=["GET"])
 def backups_list():
     """GET /api/organise/backups — list all backups."""
+    from app.services.tag_backup import list_backups
     return jsonify({"backups": list_backups()}), 200
 
 @bp.route("/organise/backups/<backup_id>/restore", methods=["POST"])
@@ -24,9 +25,7 @@ def backups_restore(backup_id):
     """POST /api/organise/backups/{id}/restore — restore tags from backup."""
     try:
         from app import get_track_store
-        from mutagen.mp3 import MP3
-        from mutagen.flac import FLAC
-        from mutagen import File as MutagenFile
+        from app.services.tag_backup import load_backup
 
         backup = load_backup(backup_id)
         if not backup:

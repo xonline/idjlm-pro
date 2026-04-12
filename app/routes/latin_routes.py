@@ -6,8 +6,6 @@ import queue as _queue
 from urllib.parse import quote
 from flask import Blueprint, request, jsonify, send_file
 import io
-import zipfile
-from app.models.track import Track
 
 bp = Blueprint("latin", __name__, url_prefix="/api")
 

@@ -1,7 +1,4 @@
 from flask import Blueprint, request, jsonify
-import json
-import datetime
-import os
 import logging
 import threading
 
@@ -40,7 +37,7 @@ def approve_tracks():
 
         return jsonify({"approved": approved}), 200
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error in /api/review/approve")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
@@ -67,7 +64,7 @@ def skip_tracks():
 
         return jsonify({"skipped": skipped}), 200
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error in /api/review/skip")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
@@ -99,7 +96,7 @@ def bulk_approve():
 
         return jsonify({"approved": approved}), 200
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error in /api/review/bulk-approve")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
@@ -245,7 +242,7 @@ def write_tags():
         threading.Thread(target=run, daemon=True).start()
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error in /api/review/write")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
 
@@ -342,6 +339,6 @@ def bulk_edit():
 
         return jsonify({"updated": updated}), 200
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error in /api/review/bulk-edit")
         return jsonify({"error": "Operation failed. Check server logs."}), 500
