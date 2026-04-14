@@ -154,7 +154,7 @@ function switchTab(tabName) {
   if (tabName === 'organise') initOrganiseTab();
   if (tabName === 'setplan') initSetPlanTab();
   if (tabName === 'playlists') initPlaylistsTab();
-  if (tabName === 'settings') initTaxonomyTab();
+  if (tabName === 'settings') initSettingsTab();
   if (tabName === 'library') renderTracks();
 }
 
@@ -7242,8 +7242,8 @@ function setStepStatus(step, done, total, status) {
 /** Show onboarding wizard if first run */
 function showOnboardingIfNeeded() {
   if (localStorage.getItem('idjlm-onboarding-done')) return;
-  var store = window.trackStore || {};
-  if (Object.keys(store).length > 0) return;
+  var store = window.tracks || [];
+  if (store.length > 0) return;
   var overlay = document.getElementById('onboarding-overlay');
   if (overlay) { overlay.style.display = 'flex'; updateOnboardingStep(1); }
 }
