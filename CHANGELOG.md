@@ -4,6 +4,13 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [3.5.0] — 2026-04-16
+
+### Refactor
+- **JS modularisation** — Split the 7,462-line monolith `app/static/app.js` into 15 logical module files under `app/static/modules/`. No bundler, no ES6 imports — plain `<script>` tags in dependency order. `app.js` is now a lean entry point containing only the `DOMContentLoaded` bootstrap block. Zero behaviour changes.
+
+---
+
 ## [3.4.0] — 2026-04-16
 
 ### New Features
