@@ -1,6 +1,6 @@
 """
 Multi-source metadata enrichment orchestrator.
-Chains providers: Spotify → Deezer → Last.fm → Beatport → MusicBrainz.
+Chains providers: Spotify → Deezer → Last.fm → Beatport.
 Each provider only fills in fields that are still empty.
 """
 import os
@@ -51,9 +51,11 @@ def enrich_tracks(tracks: list[Track], config: Optional[dict] = None) -> list[Tr
     """
     if config is None:
         config = {
-            "spotify_enabled": bool(os.getenv("SPOTIFY_CLIENT_ID") and os.getenv("SPOTIFY_CLIENT_SECRET")),
+            "spotify_enabled": bool(os.getenv("SPOTIFY_CLIENT_ID") and os.getenv("SPOTIFY_CLIENT_SECRET"))
+                and os.getenv("SPOTIFY_ENRICH_ENABLED", "true").lower() == "true",
             "deezer_enabled": os.getenv("DEEZER_ENRICH_ENABLED", "true").lower() == "true",
             "beatport_enabled": os.getenv("BEATPORT_ENRICH_ENABLED", "false").lower() == "true",
+            "lastfm_api_key": os.getenv("LASTFM_API_KEY", ""),
         }
 
     for track in tracks:

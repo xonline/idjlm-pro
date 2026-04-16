@@ -130,7 +130,7 @@ def write_env(env_dict):
 # Model listing — cascading provider → model selection
 # ---------------------------------------------------------------------------
 
-VALID_PROVIDERS = {"claude", "openrouter", "gemini", "ollama", "qwen", "openai"}
+VALID_PROVIDERS = {"claude", "openrouter", "gemini", "ollama", "qwen", "openai", "deepseek", "groq"}
 
 
 @bp.route("/list_models", methods=["POST"])
@@ -164,6 +164,10 @@ def list_models():
             api_key = env.get("OPENAI_API_KEY", "")
         elif provider == "qwen":
             api_key = env.get("DASHSCOPE_API_KEY", "")
+        elif provider == "deepseek":
+            api_key = env.get("DEEPSEEK_API_KEY", "")
+        elif provider == "groq":
+            api_key = env.get("GROQ_API_KEY", "")
 
     try:
         if provider == "claude":
@@ -186,6 +190,14 @@ def list_models():
             if not api_key:
                 return jsonify({"error": "API key required for qwen -- paste your key in settings first"}), 400
             models = _list_qwen_models(api_key)
+        elif provider == "deepseek":
+            if not api_key:
+                return jsonify({"error": "API key required for deepseek -- paste your key in settings first"}), 400
+            models = _list_deepseek_models(api_key)
+        elif provider == "groq":
+            if not api_key:
+                return jsonify({"error": "API key required for groq -- paste your key in settings first"}), 400
+            models = _list_groq_models(api_key)
         else:
             return jsonify({"error": f"Unknown provider: {provider}"}), 400
 
@@ -380,6 +392,59 @@ def _list_qwen_models(api_key):
     return models
 
 
+def _list_deepseek_models(api_key):
+    """Fetch available DeepSeek models from their OpenAI-compatible API."""
+    import requests as req
+    r = req.get(
+        "https://api.deepseek.com/v1/models",
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=15,
+    )
+    if r.status_code != 200:
+        raise Exception(f"DeepSeek API error: {r.status_code}")
+    result = r.json()
+    models = []
+    for item in result.get("data", []):
+        model_id = item.get("id", "")
+        if not model_id.startswith("deepseek"):
+            continue
+        models.append({
+            "id": model_id,
+            "name": model_id,
+            "free": False,
+            "context": 0,
+        })
+    models.sort(key=lambda m: m["id"].lower())
+    return models
+
+
+def _list_groq_models(api_key):
+    """Fetch available Groq LLM models from their OpenAI-compatible API."""
+    import requests as req
+    r = req.get(
+        "https://api.groq.com/openai/v1/models",
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=15,
+    )
+    if r.status_code != 200:
+        raise Exception(f"Groq API error: {r.status_code}")
+    result = r.json()
+    models = []
+    for item in result.get("data", []):
+        model_id = item.get("id", "")
+        # Skip non-LLM models (whisper transcription, guard models)
+        if any(x in model_id for x in ("whisper", "guard")):
+            continue
+        models.append({
+            "id": model_id,
+            "name": model_id,
+            "free": True,
+            "context": item.get("context_window", 0),
+        })
+    models.sort(key=lambda m: m["id"].lower())
+    return models
+
+
 # ---------------------------------------------------------------------------
 # Settings GET / POST
 # ---------------------------------------------------------------------------
@@ -428,6 +493,12 @@ def get_settings():
             "has_qwen_key": bool(env_dict.get("DASHSCOPE_API_KEY")),
             "qwen_api_key": mask_key(env_dict.get("DASHSCOPE_API_KEY")) if env_dict.get("DASHSCOPE_API_KEY") else None,
             "qwen_model": env_dict.get("QWEN_MODEL", "qwen3.5-plus"),
+            "has_deepseek_key": bool(env_dict.get("DEEPSEEK_API_KEY")),
+            "deepseek_api_key": mask_key(env_dict.get("DEEPSEEK_API_KEY")) if env_dict.get("DEEPSEEK_API_KEY") else None,
+            "deepseek_model": env_dict.get("DEEPSEEK_MODEL", "deepseek-chat"),
+            "has_groq_key": bool(env_dict.get("GROQ_API_KEY")),
+            "groq_api_key": mask_key(env_dict.get("GROQ_API_KEY")) if env_dict.get("GROQ_API_KEY") else None,
+            "groq_model": env_dict.get("GROQ_MODEL", "llama-3.3-70b-versatile"),
             "spotify_client_id": mask_key(spotify_id) if spotify_id else None,
             "spotify_client_secret": mask_key(spotify_secret) if spotify_secret else None,
             "has_spotify": bool(spotify_id) and bool(spotify_secret),
@@ -499,6 +570,18 @@ def save_settings():
         if "qwen_model" in data and data["qwen_model"]:
             env_dict["QWEN_MODEL"] = data["qwen_model"]
 
+        if "deepseek_api_key" in data and data["deepseek_api_key"]:
+            env_dict["DEEPSEEK_API_KEY"] = data["deepseek_api_key"]
+
+        if "deepseek_model" in data and data["deepseek_model"]:
+            env_dict["DEEPSEEK_MODEL"] = data["deepseek_model"]
+
+        if "groq_api_key" in data and data["groq_api_key"]:
+            env_dict["GROQ_API_KEY"] = data["groq_api_key"]
+
+        if "groq_model" in data and data["groq_model"]:
+            env_dict["GROQ_MODEL"] = data["groq_model"]
+
         if "lastfm_api_key" in data and data["lastfm_api_key"]:
             env_dict["LASTFM_API_KEY"] = data["lastfm_api_key"]
 
@@ -509,7 +592,7 @@ def save_settings():
             env_dict["SPOTIFY_CLIENT_SECRET"] = data["spotify_client_secret"]
 
         if "ai_model" in data and data["ai_model"]:
-            if data["ai_model"] in ["claude", "gemini", "ollama", "openrouter", "openai", "qwen"]:
+            if data["ai_model"] in ["claude", "gemini", "ollama", "openrouter", "openai", "qwen", "deepseek", "groq"]:
                 env_dict["AI_MODEL"] = data["ai_model"]
 
         # Save model_id to the correct env var based on provider
@@ -527,6 +610,10 @@ def save_settings():
                 env_dict["OPENAI_MODEL"] = data["model_id"]
             elif provider == "qwen":
                 env_dict["QWEN_MODEL"] = data["model_id"]
+            elif provider == "deepseek":
+                env_dict["DEEPSEEK_MODEL"] = data["model_id"]
+            elif provider == "groq":
+                env_dict["GROQ_MODEL"] = data["model_id"]
 
         if "ollama_model" in data and data["ollama_model"]:
             env_dict["OLLAMA_MODEL"] = data["ollama_model"]
@@ -603,6 +690,10 @@ def test_key():
             api_key = env.get("DASHSCOPE_API_KEY", "")
         elif provider == "openrouter":
             api_key = env.get("OPENROUTER_API_KEY", "")
+        elif provider == "deepseek":
+            api_key = env.get("DEEPSEEK_API_KEY", "")
+        elif provider == "groq":
+            api_key = env.get("GROQ_API_KEY", "")
 
     if not api_key:
         return jsonify({"ok": False, "error": "No API key found for this provider"}), 200
@@ -636,6 +727,22 @@ def test_key():
         elif provider == "openrouter":
             import requests as req
             r = req.get("https://openrouter.ai/api/v1/models", headers={"Authorization": f"Bearer {api_key}"}, timeout=15)
+            if r.status_code != 200:
+                return jsonify({"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}), 200
+            return jsonify({"ok": True, "latency_ms": round((time.time() - start) * 1000)}), 200
+        elif provider == "deepseek":
+            import requests as req
+            r = req.post("https://api.deepseek.com/v1/chat/completions",
+                json={"model": "deepseek-chat", "messages": [{"role": "user", "content": "Hi"}], "max_tokens": 5},
+                headers={"Authorization": f"Bearer {api_key}"}, timeout=15)
+            if r.status_code != 200:
+                return jsonify({"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}), 200
+            return jsonify({"ok": True, "latency_ms": round((time.time() - start) * 1000)}), 200
+        elif provider == "groq":
+            import requests as req
+            r = req.post("https://api.groq.com/openai/v1/chat/completions",
+                json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": "Hi"}], "max_tokens": 5},
+                headers={"Authorization": f"Bearer {api_key}"}, timeout=15)
             if r.status_code != 200:
                 return jsonify({"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}), 200
             return jsonify({"ok": True, "latency_ms": round((time.time() - start) * 1000)}), 200

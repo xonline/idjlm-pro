@@ -195,7 +195,7 @@ def classify_tracks():
         import threading
         import queue as _queue
         from app.services.classifier import classify_tracks as classify_service
-        from app.services.enricher import enrich_tracks as enrich_service
+        from app.services.multi_enricher import enrich_tracks as enrich_service
         from app import get_track_store, get_taxonomy, get_progress_queues
 
         data = request.get_json(silent=True) or {}
@@ -245,9 +245,18 @@ def classify_tracks():
             except Exception as e:
                 errors.append({'error': str(e)})
 
-            # Enrich all tracks
+            # Enrich all tracks using the full multi-provider chain
             try:
-                enrich_service(tracks_to_classify)
+                from app.routes.settings_routes import load_env
+                _env = load_env()
+                enrich_config = {
+                    "spotify_enabled": bool(_env.get("SPOTIFY_CLIENT_ID") and _env.get("SPOTIFY_CLIENT_SECRET"))
+                        and _env.get("SPOTIFY_ENRICH_ENABLED", "true").lower() == "true",
+                    "deezer_enabled": _env.get("DEEZER_ENRICH_ENABLED", "true").lower() == "true",
+                    "beatport_enabled": _env.get("BEATPORT_ENRICH_ENABLED", "false").lower() == "true",
+                    "lastfm_api_key": _env.get("LASTFM_API_KEY", ""),
+                }
+                enrich_service(tracks_to_classify, config=enrich_config)
             except Exception as e:
                 errors.append({'error': str(e)})
 

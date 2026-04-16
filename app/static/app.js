@@ -3278,7 +3278,7 @@ async function loadLearningStats() {
 
 /** Show only the API key section matching the selected provider, hide others */
 function showProviderSection(provider) {
-  const sections = ['claude', 'openai', 'openrouter', 'gemini', 'qwen'];
+  const sections = ['claude', 'openai', 'openrouter', 'gemini', 'qwen', 'deepseek', 'groq'];
   for (const sec of sections) {
     const el = document.getElementById('api-key-section-' + sec);
     if (el) el.style.display = sec === provider ? '' : 'none';
@@ -3323,6 +3323,10 @@ async function fetchModels(provider) {
     apiKey = document.getElementById('settings-openai-key')?.value.trim() || '';
   } else if (provider === 'qwen') {
     apiKey = document.getElementById('settings-qwen-key')?.value.trim() || '';
+  } else if (provider === 'deepseek') {
+    apiKey = document.getElementById('settings-deepseek-key')?.value.trim() || '';
+  } else if (provider === 'groq') {
+    apiKey = document.getElementById('settings-groq-key')?.value.trim() || '';
   }
 
   try {
@@ -3368,6 +3372,8 @@ async function loadSettings() {
     const openrouterInput = document.getElementById('settings-openrouter-key');
     const openaiInput = document.getElementById('settings-openai-key');
     const qwenInput = document.getElementById('settings-qwen-key');
+    const deepseekInput = document.getElementById('settings-deepseek-key');
+    const groqInput = document.getElementById('settings-groq-key');
     const lastfmInput = document.getElementById('settings-lastfm-key');
 
     // Show placeholder text for existing keys -- format: "sk-a...xyz1 -- saved"
@@ -3397,6 +3403,16 @@ async function loadSettings() {
     } else if (qwenInput) {
       qwenInput.placeholder = 'Paste your DashScope API key';
     }
+    if (response.has_deepseek_key && deepseekInput) {
+      deepseekInput.placeholder = keyLabel(response.deepseek_api_key);
+    } else if (deepseekInput) {
+      deepseekInput.placeholder = 'Paste your DeepSeek API key';
+    }
+    if (response.has_groq_key && groqInput) {
+      groqInput.placeholder = keyLabel(response.groq_api_key);
+    } else if (groqInput) {
+      groqInput.placeholder = 'Paste your Groq API key';
+    }
     if (response.has_lastfm_key && lastfmInput) {
       lastfmInput.placeholder = keyLabel(response.lastfm_api_key);
     } else if (lastfmInput) {
@@ -3418,6 +3434,8 @@ async function loadSettings() {
     if (openrouterInput) openrouterInput.value = '';
     if (openaiInput) openaiInput.value = '';
     if (qwenInput) qwenInput.value = '';
+    if (deepseekInput) deepseekInput.value = '';
+    if (groqInput) groqInput.value = '';
     if (lastfmInput) lastfmInput.value = '';
 
     // Set enrichment toggles
@@ -3451,6 +3469,10 @@ async function loadSettings() {
         savedModel = response.openai_model || '';
       } else if (aiModel === 'qwen') {
         savedModel = response.qwen_model || '';
+      } else if (aiModel === 'deepseek') {
+        savedModel = response.deepseek_model || '';
+      } else if (aiModel === 'groq') {
+        savedModel = response.groq_model || '';
       }
       if (savedModel && modelSelect.querySelector('option[value="' + savedModel + '"]')) {
         modelSelect.value = savedModel;
@@ -4705,6 +4727,8 @@ async function saveSettingsRound2() {
     const openrouterKey = document.getElementById('settings-openrouter-key')?.value.trim() || '';
     const openaiKey = document.getElementById('settings-openai-key')?.value.trim() || '';
     const qwenKey = document.getElementById('settings-qwen-key')?.value.trim() || '';
+    const deepseekKey = document.getElementById('settings-deepseek-key')?.value.trim() || '';
+    const groqKey = document.getElementById('settings-groq-key')?.value.trim() || '';
     const spotifyId = document.getElementById('settings-spotify-id')?.value.trim() || '';
     const spotifySecret = document.getElementById('settings-spotify-secret')?.value.trim() || '';
     const lastfmKey = document.getElementById('settings-lastfm-key')?.value.trim() || '';
@@ -4727,6 +4751,8 @@ async function saveSettingsRound2() {
     if (openrouterKey) payload.openrouter_api_key = openrouterKey;
     if (openaiKey) payload.openai_api_key = openaiKey;
     if (qwenKey) payload.qwen_api_key = qwenKey;
+    if (deepseekKey) payload.deepseek_api_key = deepseekKey;
+    if (groqKey) payload.groq_api_key = groqKey;
     if (lastfmKey) payload.lastfm_api_key = lastfmKey;
     if (spotifyId) payload.spotify_client_id = spotifyId;
     if (spotifySecret) payload.spotify_client_secret = spotifySecret;

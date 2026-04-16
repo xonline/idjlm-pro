@@ -668,6 +668,8 @@
               <option value="openrouter">OpenRouter</option>
               <option value="gemini">Google (Gemini)</option>
               <option value="qwen">Qwen (Alibaba)</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="groq">Groq</option>
               <option value="ollama">Ollama (Local)</option>
             </select>
           </div>
@@ -721,6 +723,26 @@
             </div>
             <div class="settings-hint">Get key at <a href="https://dashscope.console.aliyun.com/" target="_blank">dashscope.console.aliyun.com</a></div>
             <div class="key-test-status" id="key-test-status-qwen"></div>
+          </div>
+
+          <div class="form-group" id="api-key-section-deepseek">
+            <label for="settings-deepseek-key">DeepSeek API Key</label>
+            <div style="display:flex;gap:8px;">
+              <input type="password" id="settings-deepseek-key" placeholder="Enter your DeepSeek API key" class="input-text" style="flex:1;">
+              <button type="button" class="btn btn-sm btn-secondary" onclick="testApiKey('deepseek')" style="white-space:nowrap;">Test</button>
+            </div>
+            <div class="settings-hint">Get key at <a href="https://platform.deepseek.com/api_keys" target="_blank">platform.deepseek.com</a></div>
+            <div class="key-test-status" id="key-test-status-deepseek"></div>
+          </div>
+
+          <div class="form-group" id="api-key-section-groq">
+            <label for="settings-groq-key">Groq API Key</label>
+            <div style="display:flex;gap:8px;">
+              <input type="password" id="settings-groq-key" placeholder="Enter your Groq API key" class="input-text" style="flex:1;">
+              <button type="button" class="btn btn-sm btn-secondary" onclick="testApiKey('groq')" style="white-space:nowrap;">Test</button>
+            </div>
+            <div class="settings-hint">Get free key at <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a></div>
+            <div class="key-test-status" id="key-test-status-groq"></div>
           </div>
 
           <!-- Dynamic model selector -->

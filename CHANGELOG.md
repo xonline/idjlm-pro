@@ -4,6 +4,144 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [3.4.0] — 2026-04-16
+
+### New Features
+- **DeepSeek AI provider** — full integration: Settings UI key section, model listing from API, key test, fallback chain support
+- **Groq AI provider** — same full integration: LLaMA 3.3 70B and others, context window shown in model picker
+- **Multi-enricher now wired** — Deezer, Last.fm, and Beatport enrichers now run during the Classify phase (previously only Spotify ran); all enrichment providers respect their env-flag toggles
+
+### Bug Fixes
+- **`SPOTIFY_ENRICH_ENABLED` not respected** — Default enrichment config now reads the env flag correctly; Spotify no longer runs unconditionally when credentials exist
+- **Enricher config never passed** — Classify route now reads `.env` and builds a full enricher config, passing it to `multi_enricher`; enrichment settings in the UI now actually take effect
+
+---
+
+## [3.3.6] — 2026-04-14
+
+### Bug Fixes
+- **Self-test failures** — Comprehensive fixes to test suite to align with current security and API behaviour
+
+---
+
+## [3.3.5] — 2026-04-13
+
+### Bug Fixes
+- **Pipeline stepper invisible** — Corrected tab visibility logic that hid the stepper when switching tabs
+- **Workflow guidance missing** — Re-enabled contextual workflow guidance messages in the Organise tab
+
+---
+
+## [3.3.4] — 2026-04-13
+
+### Bug Fixes
+- **Raw HTML rendering on Settings page** — Removed orphaned HTML fragments that were rendering as visible text blocks on screen
+- **Tab visibility incorrect after Settings close** — Fixed state logic so the correct tab content shows after closing and reopening Settings
+
+---
+
+## [3.3.3] — 2026-04-13
+
+### Bug Fixes
+- **Readability and layout fixes** — Spacing, contrast, and font-size polish across the Organise, Classify, and Settings panels
+
+---
+
+## [3.3.2] — 2026-04-13
+
+### Bug Fixes
+- **VERSION file not read on startup** — App version now correctly loads from `VERSION` file at boot
+- **Import wizard path** — Wizard no longer skips to wrong step when importing from a recently-used folder
+- **API key test overlaps input** — Test status message now appears in a dedicated div below the input, not floating on top
+- **ESC key closes wrong modal** — ESC now closes only the topmost modal; nested modals stay open
+- **Edit modal field sync** — Editing a track no longer clears fields that weren't changed
+
+---
+
+## [3.3.1] — 2026-04-13
+
+### Bug Fixes
+- **Onboarding readability** — Increased contrast and font size on onboarding wizard cards
+- **Disabled button tooltip** — Hovering a disabled action button now shows why it's disabled (e.g. "Analyse tracks first")
+- **Skip step in wizard** — Added explicit "Skip" link on optional wizard steps so users aren't blocked
+
+---
+
+## [3.3.0] — 2026-04-13
+
+### Infrastructure
+- **CI auto-release** — GitHub Actions now creates a GitHub Release automatically on every tag push
+- **Full integration test suite** — 57-track real-audio library (salsa + kizomba) used for end-to-end CI tests; 93 tests passing
+- **README rewrite** — Rewritten as a marketing-focused product page with accurate feature descriptions
+- **Realistic time estimates** — README analysis/classify estimates corrected to reflect real-world runtimes
+
+---
+
+## [3.2.0] — 2026-04-12
+
+### New Features
+- **API key test button** — Every provider key input in Settings has a Test button; shows latency on success or error message on failure
+- **Backup/restore endpoints** — `GET /api/organise/backups` lists all backups; `POST /api/organise/backups/{id}/restore` restores tags; auto-cleanup keeps max 20 backups, removes those older than 7 days
+- **Undo after Write Tags** — Undo button in the write-success toast now functional (calls latest backup restore)
+- **BPM transition UI** — Set Planner results show a per-transition panel: from/to track, BPM delta, rating (smooth/moderate/challenging/hard); summary counts shown at top
+
+### Bug Fixes
+- **Beatport scraper broken by site update** — Replaced regex-based `__NEXT_DATA__` extraction with HTML parser; query length capped at 200 chars
+
+---
+
+## [3.1.1] — 2026-04-12
+
+### New Features
+- **BPM transition analysis** — `/api/setplan/generate` now returns a `transitions` array with per-step BPM delta and rating
+- **Undo toast action button** — `showToast()` now supports optional action buttons; write success includes an Undo action
+
+### Improvements
+- **Logging cleanup** — Replaced remaining `print()` calls in `tag_writer.py`, `session_service.py`, `watch_routes.py` with proper `logging`
+- **JS module loader** — `app/static/modules/loader.js` added as infrastructure for future `app.js` modularisation
+
+---
+
+## [3.1.0] — 2026-04-12
+
+### Security
+- **Arbitrary file read fixed** — `/api/audio` now restricted to the imported music folder only (403 for paths outside)
+- **DMG open restricted** — `/api/version/open-dmg` requires the file to be a `.dmg` in `~/Downloads`
+- **git-pull changed to POST** — Prevents CSRF on the update endpoint
+- **CORS locked to localhost:5050** — Rejects cross-origin requests from other origins
+- **Rate limiting on analyse/classify** — Returns 429 if a job is already running; prevents resource exhaustion
+
+### New Features
+- **Visual pipeline stepper** — Import → Analyse → Classify → Review → Write Tags progress indicator shown at top of workflow
+- **Onboarding wizard** — 3-step modal for first-time users: choose folder, run analysis, configure AI provider
+- **Next Track Advisor** — Harmonic + BPM + energy + genre scoring to suggest what to play next in a set
+- **rekordbox integration** — Reads rekordbox SQLite library for cross-referencing your DJ software collection
+- **`/api/health` endpoint** — Returns service status for operational monitoring
+
+### Infrastructure
+- **CI/CD pipeline** — `.github/workflows/ci.yml` runs lint + tests on every push and PR
+- **Dependabot** — Monthly automated dependency update PRs via `.github/dependabot.yml`
+- **Test suite expanded** — `test_classifier.py`, `test_advisor.py`, `test_scanner.py` added; 93 tests total
+
+---
+
+## [3.0.0] — 2026-04-12
+
+### New Features
+- **OpenAI provider** — GPT-4o and other OpenAI models available for track classification
+- **Qwen provider** — DashScope-hosted Qwen models (qwen-plus, qwen-max) for classification
+- **Deezer enricher** — Free metadata enrichment (no auth); fills BPM, duration, cover art
+- **Last.fm enricher** — Tag-based genre and mood enrichment via Last.fm API
+- **Beatport enricher** — Scrapes Beatport for genre, BPM, key metadata
+- **Multi-enricher chain** — Providers run in sequence (Spotify → Deezer → Last.fm → Beatport); each only fills fields still empty
+- **Dynamic model listing** — Settings loads available models from each provider's API in real time
+- **Full provider fallback chain** — Primary provider → all others in order → Ollama as last resort
+
+### Bug Fixes
+- **Salsa BPM detection** — Halves double-time readings (e.g. 189 → 95) using genre-aware BPM range correction
+
+---
+
 ## [2.9.0] — 2026-04-08
 
 ### Bug Fixes
