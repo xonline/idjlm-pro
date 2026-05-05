@@ -279,7 +279,7 @@ def classify_tracks():
                 from app import get_current_folder_path
                 save_session(track_store, get_current_folder_path())
             except Exception:
-                pass
+                logger.exception("Session save failed after classification")
             _classify_lock.release()
 
         threading.Thread(target=run, daemon=True).start()

@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import platform
+import tempfile
 from collections import defaultdict
 from flask import Blueprint, request, jsonify, send_file
 from io import BytesIO
@@ -19,6 +20,20 @@ def _get_taxonomy_write_path() -> str:
         d = os.path.expanduser("~/.idjlm-pro")
     os.makedirs(d, exist_ok=True)
     return os.path.join(d, "taxonomy.json")
+
+
+def _atomic_write_json(path: str, data: dict) -> None:
+    """Write JSON atomically using a temp file and os.replace()."""
+    dir_name = os.path.dirname(path)
+    fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp_path, path)
+    except Exception:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
 
 
 @bp.route("/taxonomy", methods=["GET"])
@@ -53,14 +68,15 @@ def update_taxonomy():
         if not new_taxonomy:
             return jsonify({"error": "Taxonomy data is required"}), 400
 
-        # Update in-memory taxonomy
+        # Update in-memory taxonomy atomically (avoid empty-window)
         taxonomy = get_taxonomy()
-        taxonomy.clear()
+        for key in list(taxonomy.keys()):
+            if key not in new_taxonomy:
+                del taxonomy[key]
         taxonomy.update(new_taxonomy)
 
         # Write back to taxonomy.json (user-writable location)
-        with open(_get_taxonomy_write_path(), "w") as f:
-            json.dump(taxonomy, f, indent=2)
+        _atomic_write_json(_get_taxonomy_write_path(), taxonomy)
 
         return jsonify({"ok": True}), 200
 
@@ -99,8 +115,7 @@ def add_genre():
         }
 
         # Write back to file (user-writable location)
-        with open(_get_taxonomy_write_path(), "w") as f:
-            json.dump(taxonomy, f, indent=2)
+        _atomic_write_json(_get_taxonomy_write_path(), taxonomy)
 
         return jsonify(taxonomy), 200
 
@@ -129,8 +144,7 @@ def delete_genre(name):
         del taxonomy["genres"][name]
 
         # Write back to file (user-writable location)
-        with open(_get_taxonomy_write_path(), "w") as f:
-            json.dump(taxonomy, f, indent=2)
+        _atomic_write_json(_get_taxonomy_write_path(), taxonomy)
 
         return jsonify({"ok": True}), 200
 
@@ -394,9 +408,7 @@ def import_taxonomy():
                                 added_subgenres += 1
 
             # Write back to file
-            from app.routes.bulk_routes import _get_taxonomy_write_path
-            with open(_get_taxonomy_write_path(), "w") as f:
-                json.dump(taxonomy, f, indent=2)
+            _atomic_write_json(_get_taxonomy_write_path(), taxonomy)
 
             return jsonify({
                 "ok": True,
@@ -405,14 +417,14 @@ def import_taxonomy():
                 "taxonomy": taxonomy
             }), 200
         else:
-            # Replace entire taxonomy
-            taxonomy.clear()
+            # Replace entire taxonomy atomically
+            for key in list(taxonomy.keys()):
+                if key not in new_taxonomy:
+                    del taxonomy[key]
             taxonomy.update(new_taxonomy)
 
             # Write back to file
-            from app.routes.bulk_routes import _get_taxonomy_write_path
-            with open(_get_taxonomy_write_path(), "w") as f:
-                json.dump(taxonomy, f, indent=2)
+            _atomic_write_json(_get_taxonomy_write_path(), taxonomy)
 
             return jsonify({
                 "ok": True,
@@ -523,8 +535,7 @@ def apply_template(name):
                 taxonomy[genre_name] = genre_data
 
         # Write back to file
-        with open(_get_taxonomy_write_path(), "w") as f:
-            json.dump(taxonomy, f, indent=2)
+        _atomic_write_json(_get_taxonomy_write_path(), taxonomy)
 
         return jsonify({
             "ok": True,
@@ -622,8 +633,7 @@ def import_onetagger():
             taxonomy["genres"] = new_genres
 
         # Write back to file
-        with open(_get_taxonomy_write_path(), "w") as f:
-            json.dump(taxonomy, f, indent=2)
+        _atomic_write_json(_get_taxonomy_write_path(), taxonomy)
 
         genre_count = len(new_genres)
         subgenre_count = sum(len(g.get("subgenres", {})) for g in new_genres.values())

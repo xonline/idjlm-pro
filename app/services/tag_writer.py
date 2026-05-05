@@ -91,24 +91,24 @@ def write_tags(track: Track) -> Track:
                     content_type = response.headers.get("Content-Type", "")
                     if not content_type.startswith("image/"):
                         logger.warning("Album art URL returned non-image content type: %s", content_type)
-                        return
-                    # Determine MIME type from content type
-                    mime = "image/jpeg"
-                    if "png" in content_type:
-                        mime = "image/png"
-                    elif "gif" in content_type:
-                        mime = "image/gif"
-                    elif "webp" in content_type:
-                        mime = "image/webp"
-                    image_data = response.content
-                    apic = APIC(
-                        encoding=3,
-                        mime=mime,
-                        type=3,  # Cover (front)
-                        desc='Cover',
-                        data=image_data
-                    )
-                    tags['APIC:'] = apic
+                    else:
+                        # Determine MIME type from content type
+                        mime = "image/jpeg"
+                        if "png" in content_type:
+                            mime = "image/png"
+                        elif "gif" in content_type:
+                            mime = "image/gif"
+                        elif "webp" in content_type:
+                            mime = "image/webp"
+                        image_data = response.content
+                        apic = APIC(
+                            encoding=3,
+                            mime=mime,
+                            type=3,  # Cover (front)
+                            desc='Cover',
+                            data=image_data
+                        )
+                        tags['APIC:'] = apic
             except Exception as img_err:
                 # Log image fetch failure but don't fail the entire tag write
                 logger.warning("Failed to fetch/write album art for %s: %s", track.filename, img_err)

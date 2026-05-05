@@ -18,6 +18,26 @@ def _sanitize_path_component(component: str) -> str:
     return sanitized.strip() or "Unknown"
 
 
+def _sanitize_destination_path(destination: str) -> str:
+    """Resolve and validate a destination path, preventing traversal attacks."""
+    if not destination or not isinstance(destination, str):
+        raise ValueError("destination must be a non-empty string")
+
+    # Expand user and get absolute path
+    dest = os.path.abspath(os.path.expanduser(destination))
+
+    # Check for null bytes
+    if '\x00' in dest:
+        raise ValueError("destination contains null bytes")
+
+    # Ensure the path is within the user's home directory
+    home = os.path.expanduser("~")
+    if not dest.startswith(home + os.sep) and dest != home:
+        raise ValueError("destination must be within the home directory")
+
+    return dest
+
+
 @bp.route("/library/health", methods=["GET"])
 def library_health():
     """
@@ -252,6 +272,11 @@ def organise_folders():
         if not destination:
             return jsonify({"error": "destination is required"}), 400
 
+        try:
+            destination = _sanitize_destination_path(destination)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
         if pattern not in ["genre", "genre/subgenre", "genre/subgenre/year"]:
             return jsonify({"error": "pattern must be 'genre', 'genre/subgenre', or 'genre/subgenre/year'"}), 400
 
@@ -285,7 +310,7 @@ def organise_folders():
             dest_dir = os.path.join(destination, rel_path)
             dest_file = os.path.join(dest_dir, track.filename)
 
-            would_overwrite = os.path.exists(dest_file) if not dry_run else False
+            would_overwrite = os.path.exists(dest_file)
 
             moves.append({
                 "from": track.file_path,

@@ -1,9 +1,17 @@
 from flask import Blueprint, request, jsonify
 import logging
 import threading
+import platform
+import os
 
 logger = logging.getLogger(__name__)
 _log_lock = threading.Lock()
+
+
+def _get_data_dir() -> str:
+    if platform.system() == "Darwin":
+        return os.path.expanduser("~/Library/Application Support/IDJLM Pro")
+    return os.path.expanduser("~/.idjlm-pro")
 
 bp = Blueprint("review", __name__, url_prefix="/api")
 
@@ -81,7 +89,9 @@ def bulk_approve():
 
         data = request.get_json(silent=True) or {}
         # Support both min_confidence and threshold for backwards compatibility
-        min_confidence = data.get("min_confidence") or data.get("threshold") or 0
+        _mc = data.get("min_confidence")
+        _th = data.get("threshold")
+        min_confidence = 0 if _mc is None and _th is None else (_mc if _mc is not None else _th)
         track_store = get_track_store()
 
         approved = 0
@@ -140,7 +150,9 @@ def write_tags():
             written = 0
             errors = []
             change_summary = []
-            log_path = os.path.join(os.path.dirname(__file__), '..', '..', 'approval_log.jsonl')
+            log_dir = _get_data_dir()
+            os.makedirs(log_dir, exist_ok=True)
+            log_path = os.path.join(log_dir, 'approval_log.jsonl')
 
             for i, file_path in enumerate(track_paths):
                 if file_path not in track_store:
@@ -237,7 +249,7 @@ def write_tags():
                 from app import get_track_store, get_current_folder_path
                 save_session(get_track_store(), get_current_folder_path())
             except Exception:
-                pass
+                logger.exception("Session save failed after tag write")
 
         threading.Thread(target=run, daemon=True).start()
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202

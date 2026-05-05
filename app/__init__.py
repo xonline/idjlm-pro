@@ -35,7 +35,20 @@ _track_store: dict = {}
 # Taxonomy loaded from taxonomy.json (mutable at runtime)
 _taxonomy: dict = {}
 # Progress queues: { op_id: queue.Queue }
-_progress_queues: dict = {}
+class _LimitedProgressQueues(dict):
+    """Size-capped dict that evicts oldest entries when limit is reached."""
+    _MAX = 50
+
+    def __setitem__(self, key, value):
+        while len(self) >= self._MAX:
+            try:
+                oldest = next(iter(self))
+                del self[oldest]
+            except StopIteration:
+                break
+        super().__setitem__(key, value)
+
+_progress_queues = _LimitedProgressQueues()
 # Last imported folder path (used for auto-save)
 _current_folder_path: str = ""
 
@@ -50,6 +63,10 @@ def get_taxonomy() -> dict:
 
 def get_progress_queues() -> dict:
     return _progress_queues
+
+
+def cleanup_progress_queue(op_id: str) -> None:
+    _progress_queues.pop(op_id, None)
 
 
 def get_current_folder_path() -> str:
@@ -69,6 +86,9 @@ def create_app() -> Flask:
     CORS(app, origins=["http://localhost:5050", "http://127.0.0.1:5050"])
     logging.getLogger(__name__).info("IDJLM Pro starting — log: %s", log_path)
 
+    # Clear any stale progress queues from previous sessions
+    _progress_queues.clear()
+
     # Load taxonomy — prefer user-writable copy (may have edits), fall back to bundle
     import platform
     if platform.system() == "Darwin":
@@ -77,8 +97,14 @@ def create_app() -> Flask:
         _user_taxonomy = os.path.expanduser("~/.idjlm-pro/taxonomy.json")
     _bundle_taxonomy = os.path.join(os.path.dirname(__file__), "..", "taxonomy.json")
     taxonomy_path = _user_taxonomy if os.path.exists(_user_taxonomy) else _bundle_taxonomy
-    with open(taxonomy_path) as f:
-        _taxonomy.update(json.load(f))
+    try:
+        with open(taxonomy_path) as f:
+            _taxonomy.update(json.load(f))
+    except (FileNotFoundError, json.JSONDecodeError, OSError) as e:
+        logging.getLogger(__name__).warning(
+            "Failed to load taxonomy from %s: %s. Using built-in default taxonomy.", taxonomy_path, e
+        )
+        _taxonomy.update({"genres": {"Unknown": {"description": "Default genre", "subgenres": {}}}})
 
     # Register blueprints
     from app.routes.import_routes import bp as import_bp

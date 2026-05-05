@@ -18,22 +18,23 @@ def stream_progress(op_id):
         if not q:
             yield f"event: error\ndata: {json.dumps({'error': 'Unknown operation'})}\n\n"
             return
-        while True:
-            try:
-                msg = q.get(timeout=45)
-                if msg.get('done'):
-                    # Send named 'complete' event, then clean up
-                    queues.pop(op_id, None)
-                    yield f"event: complete\ndata: {json.dumps(msg)}\n\n"
-                    break
-                elif msg.get('ping'):
-                    # Keep-alive — send as comment so EventSource stays open
+        try:
+            while True:
+                try:
+                    msg = q.get(timeout=45)
+                    if msg.get('done'):
+                        yield f"event: complete\ndata: {json.dumps(msg)}\n\n"
+                        break
+                    elif msg.get('ping'):
+                        # Keep-alive — send as comment so EventSource stays open
+                        yield ": ping\n\n"
+                    else:
+                        yield f"event: progress\ndata: {json.dumps(msg)}\n\n"
+                except queue.Empty:
+                    # Keep-alive ping
                     yield ": ping\n\n"
-                else:
-                    yield f"event: progress\ndata: {json.dumps(msg)}\n\n"
-            except queue.Empty:
-                # Keep-alive ping
-                yield ": ping\n\n"
+        finally:
+            queues.pop(op_id, None)
 
     return Response(
         stream_with_context(generate()),

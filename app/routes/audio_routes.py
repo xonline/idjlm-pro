@@ -21,11 +21,12 @@ def serve_audio():
 
         # Security: restrict to the current music folder
         music_folder = get_current_folder_path()
-        if music_folder:
-            real_folder = os.path.realpath(music_folder)
-            real_file = os.path.realpath(file_path)
-            if not real_file.startswith(real_folder + os.sep) and real_file != real_folder:
-                return jsonify({"error": "Access denied: file outside music folder"}), 403
+        if not music_folder:
+            return jsonify({"error": "Access denied: no music folder imported"}), 403
+        real_folder = os.path.realpath(music_folder)
+        real_file = os.path.realpath(file_path)
+        if not real_file.startswith(real_folder + os.sep) and real_file != real_folder:
+            return jsonify({"error": "Access denied: file outside music folder"}), 403
 
         if not os.path.exists(file_path):
             return jsonify({"error": "Audio file not found"}), 404

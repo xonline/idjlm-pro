@@ -87,22 +87,32 @@ Example output format:
 
 def _call_with_backoff(call_fn, max_retries=3):
     """
-    Call fn with exponential backoff on rate limit errors.
+    Call fn with exponential backoff on rate limit and transient errors.
     Returns the result if successful.
-    Raises Exception if all retries exhausted or non-rate-limit error occurs.
+    Raises Exception if all retries exhausted or non-retryable error occurs.
     """
     for attempt in range(max_retries):
         try:
             return call_fn()
         except Exception as e:
             err = str(e).lower()
-            if '429' in err or 'rate limit' in err or 'quota' in err:
+            is_rate_limit = '429' in err or 'rate limit' in err or 'quota' in err
+            is_transient = (
+                'timeout' in err or
+                'connection' in err or
+                'reset' in err or
+                '503' in err or
+                '502' in err or
+                '504' in err or
+                'service unavailable' in err
+            )
+            if is_rate_limit or is_transient:
                 if attempt < max_retries - 1:
                     wait = 30 * (2 ** attempt)  # 30s, 60s, 120s
                     time.sleep(wait)
                     continue
-            raise  # Re-raise non-rate-limit errors immediately
-    raise Exception("Rate limit exceeded after retries")
+            raise  # Re-raise non-retryable errors immediately
+    raise Exception("API call failed after retries")
 
 
 def _parse_classification_response(response_text: str, num_tracks: int) -> list[dict]:
@@ -396,52 +406,40 @@ def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False, mo
         prompt = _build_classification_prompt(batch, taxonomy)
 
         # Try models in chain order
-        success = False
-        response_text = None
+        classifications = []
         used_model = None
 
         for model_name in model_chain:
+            success = False
+            response_text = None
+
             if model_name == "claude":
                 success, response_text = _classify_with_claude(prompt, batch)
-                if success:
-                    used_model = "claude"
-                    break
             elif model_name == "gemini":
                 success, response_text = _classify_with_gemini(prompt, batch)
-                if success:
-                    used_model = "gemini"
-                    break
             elif model_name == "openai":
                 success, response_text = _classify_with_openai(prompt, batch)
-                if success:
-                    used_model = "openai"
-                    break
             elif model_name == "qwen":
                 success, response_text = _classify_with_qwen(prompt, batch)
-                if success:
-                    used_model = "qwen"
-                    break
             elif model_name == "ollama":
                 success, response_text = _classify_with_ollama(prompt, batch)
-                if success:
-                    used_model = "ollama"
-                    break
             elif model_name == "openrouter":
                 success, response_text = _classify_with_openrouter(prompt, batch)
-                if success:
-                    used_model = "openrouter"
-                    break
 
-        if not success or not response_text:
-            # All models failed
+            if success and response_text:
+                classifications = _parse_classification_response(response_text, len(batch))
+                if classifications:
+                    used_model = model_name
+                    break
+                # Malformed/empty response: try next provider in chain
+
+        if not used_model:
+            # All models failed or returned malformed responses
             for track in batch:
-                track.error = f"Classification failed: {response_text}"
+                track.error = "Classification failed: all providers exhausted"
             continue
 
         logger.debug("Using %s", used_model)
-
-        # Parse response
-        classifications = _parse_classification_response(response_text, len(batch))
 
         # Apply results to batch
         for classification in classifications:
