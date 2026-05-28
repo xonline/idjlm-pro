@@ -97,16 +97,9 @@ function initReviewTab() {
         body: JSON.stringify({ min_confidence: threshold }),
       });
 
-      // Update tracks
-      result.forEach(trackPath => {
-        const track = window.tracks.find(t => t.file_path === trackPath);
-        if (track) {
-          track.review_status = 'approved';
-        }
-      });
-
-      showToast(`Approved ${result.length} tracks`, 'success');
-      renderReview();
+      const approvedCount = result.approved || 0;
+      showToast(`${approvedCount} track${approvedCount !== 1 ? 's' : ''} approved`, 'success');
+      renderTracks();
       updateStats();
     } catch (error) {
       // Error shown in apiFetch
@@ -116,30 +109,59 @@ function initReviewTab() {
   });
 
   btnWriteTags.addEventListener('click', async () => {
-    showSpinner('Writing tags to files...');
+    btnWriteTags.disabled = true;
     try {
       const result = await apiFetch('/api/review/write', {
         method: 'POST',
         body: JSON.stringify({ track_paths: [] }), // Empty = all approved
       });
 
-      // Update tracks
-      result.forEach(trackPath => {
-        const track = window.tracks.find(t => t.file_path === trackPath);
-        if (track) {
-          track.tags_written = true;
-          track.review_status = 'written';
-        }
-      });
-
-      showToast(`Tags written to ${result.length} files`, 'success');
-      renderReview();
-      renderTracks();
-      updateStats();
+      if (result && result.op_id) {
+        const total = result.total || 0;
+        showToast('Writing tags to ' + total + ' files — do not close the app', 'info');
+        showProgressInStatsBar('Writing tags...', 'write');
+        const cancelBtn = document.getElementById('stat-cancel-btn');
+        if (cancelBtn) cancelBtn.style.display = 'inline-block';
+        cancelBtn.onclick = async () => {
+          await apiFetch('/api/progress/' + result.op_id + '/cancel', { method: 'POST' });
+          hideProgressInStatsBar();
+          showToast('Write cancelled', 'info');
+          btnWriteTags.disabled = false;
+          if (cancelBtn) cancelBtn.style.display = 'none';
+        };
+        connectToProgress(
+          result.op_id,
+          result.total,
+          (current, total, message) => {
+            const pct = Math.round((current / total) * 100);
+            showProgressInStatsBar(current + ' / ' + total + ' writing...', 'write');
+            const fill = document.getElementById('stat-progress-fill');
+            if (fill) fill.style.width = pct + '%';
+          },
+          (data) => {
+            hideProgressInStatsBar();
+            if (cancelBtn) cancelBtn.style.display = 'none';
+            if (data.cancelled) {
+              showToast('Write cancelled', 'info');
+              btnWriteTags.disabled = false;
+              return;
+            }
+            apiFetch('/api/tracks').then(d => {
+              window.tracks = d.tracks || [];
+              window.searchResults = null;
+              renderTracks();
+              updateStats();
+            });
+            const written = data.written || data.total || 0;
+            showToast(`Tags written to ${written} file${written !== 1 ? 's' : ''}`, 'success');
+            renderReview();
+            btnWriteTags.disabled = false;
+          }
+        );
+      }
     } catch (error) {
-      // Error shown
-    } finally {
-      hideSpinner();
+      // Error shown in apiFetch
+      btnWriteTags.disabled = false;
     }
   });
 }
