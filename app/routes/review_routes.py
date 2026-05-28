@@ -47,7 +47,7 @@ def approve_tracks():
 
     except Exception:
         logger.exception("Error in /api/review/approve")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/review/skip", methods=["POST"])
@@ -74,7 +74,7 @@ def skip_tracks():
 
     except Exception:
         logger.exception("Error in /api/review/skip")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/review/bulk-approve", methods=["POST"])
@@ -108,7 +108,7 @@ def bulk_approve():
 
     except Exception:
         logger.exception("Error in /api/review/bulk-approve")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/review/write", methods=["POST"])
@@ -256,7 +256,7 @@ def write_tags():
 
     except Exception:
         logger.exception("Error in /api/review/write")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/review/bulk-edit", methods=["POST"])
@@ -353,4 +353,4 @@ def bulk_edit():
 
     except Exception:
         logger.exception("Error in /api/review/bulk-edit")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500

@@ -33,7 +33,7 @@ def save_session_endpoint():
 
     except Exception:
         logger.exception("Error in /api/session/save")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/session/load", methods=["POST"])
@@ -73,7 +73,7 @@ def load_session_endpoint():
 
     except Exception:
         logger.exception("Error in /api/session/load")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/session/exists", methods=["GET"])
@@ -106,4 +106,4 @@ def session_exists():
 
     except Exception:
         logger.exception("Error in /api/session/exists")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500

@@ -118,7 +118,7 @@ def library_health():
 
     except Exception:
         logger.exception("Error in organise routes endpoint")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/organise/parse-filenames", methods=["POST"])
@@ -187,7 +187,7 @@ def parse_filenames():
 
     except Exception:
         logger.exception("Error in organise routes endpoint")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/organise/apply-filename-tags", methods=["POST"])
@@ -242,7 +242,7 @@ def apply_filename_tags():
 
     except Exception:
         logger.exception("Error in organise routes endpoint")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/organise/folders", methods=["POST"])
@@ -346,4 +346,4 @@ def organise_folders():
 
     except Exception:
         logger.exception("Error in organise routes endpoint")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500

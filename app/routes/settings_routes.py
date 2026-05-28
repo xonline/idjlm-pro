@@ -515,7 +515,7 @@ def get_settings():
 
     except Exception:
         logger.exception("Error in /api/settings GET")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/settings", methods=["POST"])
@@ -655,7 +655,7 @@ def save_settings():
 
     except Exception:
         logger.exception("Error in /api/settings POST")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------------------------------------------------------------------

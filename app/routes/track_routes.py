@@ -66,7 +66,7 @@ def list_tracks():
 
     except Exception:
         logger.exception("Error in /api/tracks GET")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/tracks/search", methods=["GET"])
@@ -112,7 +112,7 @@ def search_tracks():
 
     except Exception:
         logger.exception("Error in /api/tracks/search GET")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/tracks/<path:file_path>", methods=["GET"])
@@ -134,7 +134,7 @@ def get_track(file_path):
 
     except Exception:
         logger.exception(f"Error in /api/tracks/{file_path} PUT")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/tracks/by-path", methods=["PUT"])

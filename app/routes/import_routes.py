@@ -35,7 +35,7 @@ def pick_folder():
         return jsonify({"cancelled": True}), 200
     except Exception:
         logger.exception("Error in /api/pick-folder")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/import", methods=["POST"])
@@ -88,7 +88,7 @@ def import_tracks():
 
     except Exception:
         logger.exception("Error in /api/import")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/analyze", methods=["POST"])
@@ -168,7 +168,7 @@ def analyze_tracks():
 
     except Exception:
         logger.exception("Error in /api/analyze")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/classify", methods=["POST"])
@@ -287,4 +287,4 @@ def classify_tracks():
 
     except Exception:
         logger.exception("Error in /api/classify")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500

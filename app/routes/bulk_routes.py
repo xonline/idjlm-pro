@@ -49,7 +49,7 @@ def get_taxonomy():
 
     except Exception:
         logger.exception("Error in bulk routes endpoint")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/taxonomy", methods=["PUT"])
@@ -82,7 +82,7 @@ def update_taxonomy():
 
     except Exception:
         logger.exception("Error in bulk routes endpoint")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/taxonomy/genre", methods=["POST"])
@@ -121,7 +121,7 @@ def add_genre():
 
     except Exception:
         logger.exception("Error in bulk routes endpoint")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/taxonomy/genre/<name>", methods=["DELETE"])
@@ -150,7 +150,7 @@ def delete_genre(name):
 
     except Exception:
         logger.exception("Error in bulk routes endpoint")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/stats", methods=["GET"])
@@ -185,7 +185,7 @@ def get_stats():
 
     except Exception:
         logger.exception("Error in bulk routes endpoint")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/stats/age", methods=["GET"])
@@ -304,7 +304,7 @@ def get_stats_age():
 
     except Exception:
         logger.exception("Error in stats/age endpoint")
-        return jsonify({"error": "Operation failed. Check server logs."}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 # ============================================================================
