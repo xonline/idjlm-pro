@@ -96,7 +96,7 @@ function openEditModal(filePath) {
   newGenreSelect.addEventListener('change', updateSubgenreOptions);
 
   // Populate analysis results
-  document.getElementById('modal-analyzed-bpm').textContent = track.analyzed_bpm
+  document.getElementById('modal-analysed-bpm').textContent = track.analyzed_bpm
     ? Math.round(track.analyzed_bpm)
     : '—';
   document.getElementById('modal-energy').textContent = track.analyzed_energy

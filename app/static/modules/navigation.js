@@ -66,7 +66,7 @@ function updateStats() {
     if (!data) return;
     const el = id => document.getElementById(id);
     if (el('stat-total'))       el('stat-total').textContent      = data.total      ?? 0;
-    if (el('stat-analyzed'))    el('stat-analyzed').textContent   = data.analyzed   ?? 0;
+    if (el('stat-analysed'))    el('stat-analysed').textContent   = data.analyzed   ?? 0;
     if (el('stat-classified'))  el('stat-classified').textContent = data.classified ?? 0;
     if (el('stat-approved'))    el('stat-approved').textContent   = data.approved   ?? 0;
     updateToolbarButtonStates(data);

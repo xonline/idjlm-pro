@@ -1507,7 +1507,7 @@ async function loadLibraryHealth() {
   try {
     const res = await apiFetch('/api/library/health');
     document.getElementById('health-total').textContent = res.total;
-    document.getElementById('health-analyzed').textContent = res.analyzed;
+    document.getElementById('health-analysed').textContent = res.analyzed;
     document.getElementById('health-classified').textContent = res.classified;
     document.getElementById('health-approved').textContent = res.approved;
     document.getElementById('health-written').textContent = res.tags_written;
