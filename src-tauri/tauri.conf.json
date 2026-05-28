@@ -1,0 +1,73 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "IDJLM Pro",
+  "version": "3.5.0",
+  "identifier": "au.idjlm.pro",
+  "build": {
+    "frontendDist": "http://localhost:5050",
+    "devUrl": "http://localhost:5050",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "IDJLM Pro",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "center": true,
+        "url": "about:blank"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../run_app.py": "run_app.py",
+      "../app/**/*": "app/",
+      "../templates/**/*": "templates/",
+      "../taxonomy.json": "taxonomy.json"
+    },
+    "macOS": {
+      "dmg": {
+        "background": null,
+        "windowSize": { "width": 660, "height": 400 }
+      },
+      "minimumSystemVersion": "11.0",
+      "signingIdentity": null,
+      "entitlements": null
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    }
+  },
+  "plugins": {
+    "shell": {
+      "open": false,
+      "sidecar": true
+    },
+    "dialog": {
+      "open": true,
+      "save": false
+    }
+  }
+}

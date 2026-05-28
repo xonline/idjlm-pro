@@ -1,4 +1,6 @@
 #!/bin/bash
+# DEPRECATED as of v3.5.0 — superseded by Tauri (src-tauri/).
+# Retained for emergency rollback only. Do not use for new releases.
 # Builds a self-contained IDJLM Pro.app using PyInstaller.
 # Run this once on your Mac. Output: dist/IDJLM Pro.app
 # Share that .app (or zip it) — no Python/pip needed on the target machine.

@@ -13,4 +13,4 @@ build/
 *.log
 *.tmp
 .superpowers/
-.superpowers/
+src-tauri/target/

@@ -14,16 +14,44 @@ function initLibraryToolbar() {
   const btnGetStarted  = document.getElementById('btn-get-started');
 
   async function openFolderPicker() {
+    // Tauri v2 — invoke the pick_folder Rust command directly (most reliable path)
+    if (window.__TAURI__ && window.__TAURI__.core) {
+      try {
+        const selected = await window.__TAURI__.core.invoke('pick_folder');
+        if (selected) doImport(selected);
+      } catch (e) {
+        console.warn('[idjlm] Tauri pick_folder invoke failed, trying dialog plugin:', e);
+        // Fallback: dialog plugin JS API
+        try {
+          const selected2 = await window.__TAURI__.dialog.open({
+            directory: true,
+            multiple: false,
+            title: 'Select Music Folder'
+          });
+          if (selected2) doImport(selected2);
+        } catch (e2) {
+          console.warn('[idjlm] Tauri dialog.open also failed, using text input:', e2);
+          _showTextInput();
+        }
+      }
+      return;
+    }
+
+    // pywebview native dialog (legacy PyInstaller build — kept for rollback)
     if (window.pywebview && window.pywebview.api) {
-      // Native OS folder picker via pywebview
       const path = await window.pywebview.api.choose_folder();
       if (path) doImport(path);
-    } else {
-      // Dev-mode fallback: show text input
-      if (folderInput)  folderInput.style.display  = 'inline-block';
-      if (btnImport)    btnImport.style.display    = 'inline-block';
-      if (folderInput)  folderInput.focus();
+      return;
     }
+
+    // Dev-mode / plain browser fallback: show text input
+    _showTextInput();
+  }
+
+  function _showTextInput() {
+    if (folderInput)  folderInput.style.display  = 'inline-block';
+    if (btnImport)    btnImport.style.display    = 'inline-block';
+    if (folderInput)  folderInput.focus();
   }
 
   if (btnGetStarted) btnGetStarted.addEventListener('click', openFolderPicker);

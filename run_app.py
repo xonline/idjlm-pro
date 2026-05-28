@@ -153,6 +153,16 @@ if __name__ == "__main__":
     flask_thread = threading.Thread(target=_run_flask, args=(flask_app,), daemon=True)
     flask_thread.start()
 
+    # When launched by Tauri (IDJLM_HEADLESS=1), skip pywebview entirely.
+    # Tauri handles the window; we just run Flask and block.
+    if os.getenv("IDJLM_HEADLESS"):
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            pass
+        raise SystemExit(0)
+
     try:
         import webview
 
