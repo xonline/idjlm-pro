@@ -130,37 +130,37 @@
             <input type="text" id="folder-input" class="folder-input-inline" placeholder="/path/to/music" style="display:none;" />
             <button class="btn btn-primary btn-sm" id="btn-import" style="display:none;">Import</button>
           </div>
-          <!-- Pipeline stepper showing workflow state -->
-          <div class="pipeline-stepper" id="pipeline-stepper">
-            <div class="pipeline-step" data-step="import" id="step-import">
-              <div class="step-circle">1</div>
-              <div class="step-label">Import</div>
-              <div class="step-count" id="count-import">0</div>
-            </div>
-            <div class="pipeline-connector"></div>
-            <div class="pipeline-step" data-step="analyse" id="step-analyse">
-              <div class="step-circle">2</div>
-              <div class="step-label">Analyse</div>
-              <div class="step-count" id="count-analyse">0</div>
-            </div>
-            <div class="pipeline-connector"></div>
-            <div class="pipeline-step" data-step="classify" id="step-classify">
-              <div class="step-circle">3</div>
-              <div class="step-label">Classify</div>
-              <div class="step-count" id="count-classify">0</div>
-            </div>
-            <div class="pipeline-connector"></div>
-            <div class="pipeline-step" data-step="review" id="step-review">
-              <div class="step-circle">4</div>
-              <div class="step-label">Review</div>
-              <div class="step-count" id="count-review">0</div>
-            </div>
-            <div class="pipeline-connector"></div>
-            <div class="pipeline-step" data-step="write" id="step-write">
-              <div class="step-circle">5</div>
-              <div class="step-label">Write Tags</div>
-              <div class="step-count" id="count-write">0</div>
-            </div>
+          <!-- Pipeline stepper — compact segmented control -->
+          <div class="pipeline-seg" id="pipeline-stepper" role="tablist" aria-label="Pipeline steps">
+            <button class="seg-step" data-step="import" id="step-import" role="tab">
+              <span class="seg-step-icon" id="seg-icon-import">1</span>
+              <span class="seg-step-label">Import</span>
+              <span class="seg-step-count mono" id="count-import">0</span>
+            </button>
+            <span class="seg-sep" aria-hidden="true"></span>
+            <button class="seg-step" data-step="analyse" id="step-analyse" role="tab">
+              <span class="seg-step-icon" id="seg-icon-analyse">2</span>
+              <span class="seg-step-label">Analyse</span>
+              <span class="seg-step-count mono" id="count-analyse">0</span>
+            </button>
+            <span class="seg-sep" aria-hidden="true"></span>
+            <button class="seg-step" data-step="classify" id="step-classify" role="tab">
+              <span class="seg-step-icon" id="seg-icon-classify">3</span>
+              <span class="seg-step-label">Classify</span>
+              <span class="seg-step-count mono" id="count-classify">0</span>
+            </button>
+            <span class="seg-sep" aria-hidden="true"></span>
+            <button class="seg-step" data-step="review" id="step-review" role="tab">
+              <span class="seg-step-icon" id="seg-icon-review">4</span>
+              <span class="seg-step-label">Review</span>
+              <span class="seg-step-count mono" id="count-review">0</span>
+            </button>
+            <span class="seg-sep" aria-hidden="true"></span>
+            <button class="seg-step" data-step="write" id="step-write" role="tab">
+              <span class="seg-step-icon" id="seg-icon-write">5</span>
+              <span class="seg-step-label">Write Tags</span>
+              <span class="seg-step-count mono" id="count-write">0</span>
+            </button>
           </div>
           <div class="toolbar-pipeline">
             <button class="btn pipeline-btn" id="btn-analyse" disabled data-hint="🔒 Requires imported tracks first. Pick a music folder above to get started.">▶ Analyse All</button>

@@ -4472,31 +4472,116 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
   100% { opacity: 1; transform: translateY(0); }
 }
 
-/* Pipeline Stepper */
-.pipeline-stepper {
-  display: flex; align-items: center; justify-content: center;
-  gap: 4px; padding: 12px 16px; margin-bottom: 8px; flex-wrap: wrap;
+/* ============================================================================
+   Pipeline Stepper — v4 compact segmented control
+   ============================================================================ */
+
+.pipeline-seg {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg2);
+  border: 1px solid var(--ln);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  gap: 0;
 }
-.pipeline-step {
-  display: flex; flex-direction: column; align-items: center;
-  padding: 10px 14px; border-radius: 10px; cursor: pointer;
-  transition: all 0.2s ease; min-width: 70px; border: 2px solid transparent;
-  background: var(--bg-secondary);
+
+.seg-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--ln);
+  flex-shrink: 0;
 }
-.pipeline-step:hover { background: var(--bg-tertiary); border-color: rgba(139,92,246,0.3); }
-.pipeline-step.active { border-color: var(--accent); background: rgba(139,92,246,0.1); }
-.pipeline-step.completed { border-color: #22c55e; opacity: 0.8; }
-.step-circle {
-  width: 28px; height: 28px; border-radius: 50%; display: flex;
-  align-items: center; justify-content: center; font-size: 13px;
-  font-weight: 700; background: var(--bg-tertiary); color: var(--text-secondary);
-  margin-bottom: 4px;
+
+.seg-step {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  cursor: pointer;
+  color: var(--t3);
+  font-family: 'Outfit', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
 }
-.pipeline-step.active .step-circle { background: var(--accent); color: #fff; }
-.pipeline-step.completed .step-circle { background: #22c55e; color: #fff; }
-.step-label { font-size: 11px; font-weight: 600; color: var(--text-primary); }
-.step-count { font-size: 16px; font-weight: 700; color: var(--accent); margin-top: 2px; }
-.pipeline-connector { width: 24px; height: 2px; background: var(--border-color); border-radius: 1px; }
+
+.seg-step:hover:not(.active) {
+  background: var(--bg3);
+  color: var(--t2);
+}
+
+.seg-step.active {
+  background: var(--acc-dim);
+  color: var(--acc);
+}
+
+.seg-step.completed {
+  color: var(--green);
+}
+
+.seg-step-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg3);
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  color: var(--t3);
+}
+
+.seg-step.active .seg-step-icon {
+  background: var(--acc);
+  color: #fff;
+}
+
+.seg-step.completed .seg-step-icon {
+  background: var(--green);
+  color: #fff;
+  font-size: 0; /* hide number */
+}
+
+.seg-step.completed .seg-step-icon::after {
+  content: 'v';
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.seg-step-label {
+  font-size: 12px;
+}
+
+.seg-step-count {
+  font-size: 11px;
+  color: var(--t4);
+  background: var(--bg3);
+  border-radius: 10px;
+  padding: 0 5px;
+  min-width: 20px;
+  text-align: center;
+  line-height: 16px;
+}
+
+.seg-step.active .seg-step-count {
+  background: color-mix(in srgb, var(--acc) 20%, transparent);
+  color: var(--acc);
+}
+
+/* Legacy selectors — keep JS working during transition */
+.pipeline-stepper { display: contents; }
+.pipeline-step    { display: contents; }
+.step-circle      { display: none; }
+.step-label       { display: none; }
+.step-count       { display: none; }
+.pipeline-connector { display: none; }
 
 /* Onboarding Wizard */
 .onboarding-overlay {
