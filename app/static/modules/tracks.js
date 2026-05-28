@@ -194,15 +194,35 @@ function renderTracks() {
     tdCheckbox.appendChild(checkbox);
     row.appendChild(tdCheckbox);
 
-    // Title
-    const tdTitle = document.createElement('td');
-    tdTitle.textContent = track.display_title || '—';
-    row.appendChild(tdTitle);
+    // Album Art (26px thumb)
+    const tdArt = document.createElement('td');
+    tdArt.className = 'col-art';
+    if (track.album_art_url) {
+      const img = document.createElement('img');
+      img.src = track.album_art_url;
+      img.className = 'track-art-thumb';
+      img.alt = '';
+      img.loading = 'lazy';
+      tdArt.appendChild(img);
+    } else {
+      const artPlaceholder = document.createElement('div');
+      artPlaceholder.className = 'track-art-placeholder';
+      tdArt.appendChild(artPlaceholder);
+    }
+    row.appendChild(tdArt);
 
-    // Artist
-    const tdArtist = document.createElement('td');
-    tdArtist.textContent = track.display_artist || '—';
-    row.appendChild(tdArtist);
+    // Title / Artist — stacked in one cell
+    const tdTitleArtist = document.createElement('td');
+    tdTitleArtist.className = 'col-title';
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'track-title-text';
+    titleDiv.textContent = track.display_title || '—';
+    const artistDiv = document.createElement('div');
+    artistDiv.className = 'track-artist-text';
+    artistDiv.textContent = track.display_artist || '—';
+    tdTitleArtist.appendChild(titleDiv);
+    tdTitleArtist.appendChild(artistDiv);
+    row.appendChild(tdTitleArtist);
 
     // Genre (with color chip)
     const tdGenre = document.createElement('td');
@@ -219,13 +239,19 @@ function renderTracks() {
     tdConfidence.innerHTML = confidenceBadge(track.confidence);
     row.appendChild(tdConfidence);
 
-    // BPM
+    // BPM — Geist Mono, 1 decimal place
     const tdBpm = document.createElement('td');
-    tdBpm.textContent = track.final_bpm || '—';
+    tdBpm.className = 'mono col-bpm';
+    tdBpm.textContent = track.final_bpm ? parseFloat(track.final_bpm).toFixed(1) : '—';
     row.appendChild(tdBpm);
 
-    // Key
+    // Key — accent colour, Geist Mono
     const tdKey = document.createElement('td');
+    tdKey.className = 'mono col-key-cell';
+    if (track.final_key) {
+      tdKey.style.color = 'var(--acc)';
+      tdKey.style.fontWeight = '500';
+    }
     tdKey.textContent = track.final_key || '—';
     row.appendChild(tdKey);
 

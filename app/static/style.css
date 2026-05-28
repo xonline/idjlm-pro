@@ -793,60 +793,115 @@ textarea.input-text {
   box-shadow: var(--shadow-sm);
 }
 
+/* ============================================================================
+   Track Table — v4 (dense 38px rows)
+   ============================================================================ */
+
 .tracks-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
-.tracks-table thead {
-  background-color: var(--bg-subtle);
-  border-bottom: 1px solid var(--border);
-}
-
-.tracks-table th {
-  padding: 11px 14px;
-  text-align: left;
-  color: var(--text-primary);
-  font-weight: 700;
+.tracks-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg1);
+  color: var(--t3);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0 8px;
+  height: 32px;
+  border-bottom: 1px solid var(--ln);
+  white-space: nowrap;
+  cursor: pointer;
   user-select: none;
 }
 
-.tracks-table th.sortable {
-  cursor: pointer;
-  transition: background-color 0.2s ease;
+.tracks-table thead th:hover {
+  color: var(--t1);
 }
-
-.tracks-table th.sortable:hover {
-  background-color: var(--bg-hover);
-}
-
-.tracks-table th.sortable::after { content: ' ⇅'; opacity: 0.3; }
-.tracks-table th.sortable.sort-asc::after { content: ' ↑'; opacity: 1; }
-.tracks-table th.sortable.sort-desc::after { content: ' ↓'; opacity: 1; }
 
 .tracks-table tbody tr {
-  border-bottom: 1px solid var(--border);
-  transition: background-color 0.2s ease;
+  height: 38px;
+  border-bottom: 1px solid var(--bg2);
+  transition: background 0.08s;
   cursor: pointer;
 }
 
 .tracks-table tbody tr:hover {
-  background-color: var(--bg-hover);
+  background: var(--bg2);
 }
 
-body:not(.light) .tracks-table tbody tr:nth-child(even) {
-  background-color: transparent;
+.tracks-table tbody td {
+  padding: 0 8px;
+  color: var(--t1);
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-body.light .tracks-table tbody tr:nth-child(even) {
-  background-color: rgba(0, 0, 0, 0.02);
+/* Column widths */
+.col-check   { width: 32px; padding: 0 6px; }
+.col-art     { width: 34px; padding: 0 4px; }
+.col-title   { min-width: 180px; }
+.col-genre   { width: 110px; }
+.col-subgenre { width: 110px; }
+.col-conf    { width: 52px; text-align: center; }
+.col-bpm     { width: 58px; text-align: right; }
+.col-key-cell { width: 50px; text-align: center; }
+.col-clave   { width: 46px; text-align: center; }
+.col-vocal   { width: 64px; text-align: center; }
+.col-tempo   { width: 60px; }
+.col-lufs    { width: 48px; text-align: right; }
+.col-year    { width: 44px; text-align: center; }
+.col-status  { width: 70px; }
+.col-approve { width: 60px; text-align: center; }
+.col-action  { width: 60px; text-align: center; }
+
+/* Stacked title/artist */
+.track-title-text {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--t1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
 }
 
-.tracks-table td {
-  padding: 11px 14px;
-  color: var(--text-primary);
+.track-artist-text {
+  font-size: 11px;
+  color: var(--t3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
 }
+
+/* Album art */
+.track-art-thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 3px;
+  object-fit: cover;
+  display: block;
+}
+
+.track-art-placeholder {
+  width: 26px;
+  height: 26px;
+  border-radius: 3px;
+  background: var(--bg3);
+  display: block;
+}
+
+/* Legacy table rules — keep for sort arrows and empty state */
+.tracks-table th.sortable { cursor: pointer; }
+.tracks-table th.sortable::after { content: ' ⇅'; opacity: 0.3; }
+.tracks-table th.sortable.sort-asc::after { content: ' ↑'; opacity: 1; }
+.tracks-table th.sortable.sort-desc::after { content: ' ↓'; opacity: 1; }
 
 .tracks-table .empty-state {
   cursor: default;
