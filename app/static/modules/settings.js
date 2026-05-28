@@ -267,8 +267,27 @@ async function loadSettings() {
       showProviderSection(aiModel);
     }
 
-    // Fetch models for the current provider
-    await fetchModels(aiModel);
+    // Fetch models for the current provider — only if a key is actually saved.
+    // Without a key, the backend returns 400 and the dropdown shows "Error loading
+    // models" before the user has done anything wrong.
+    const providerHasKey = {
+      claude: response.has_anthropic_key,
+      openai: response.has_openai_key,
+      openrouter: response.has_openrouter_key,
+      gemini: response.has_gemini_key,
+      qwen: response.has_qwen_key,
+      deepseek: response.has_deepseek_key,
+      groq: response.has_groq_key,
+      ollama: true, // Ollama is local — no key required
+    };
+    if (providerHasKey[aiModel]) {
+      await fetchModels(aiModel);
+    } else {
+      const modelSel = document.getElementById('settings-model');
+      if (modelSel) {
+        setModelOptions(modelSel, [{ value: '', text: 'Enter API key first' }]);
+      }
+    }
 
     // Select the saved model from populated dropdown
     const modelSelect = document.getElementById('settings-model');

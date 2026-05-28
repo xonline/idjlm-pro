@@ -2373,10 +2373,25 @@ async function testApiKey(provider) {
   if (!statusEl) return;
   statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:12px;">Testing ' + provider + '...</span>';
 
+  // Read the key the user has typed (or left blank to use the saved key).
+  const keyInputMap = {
+    claude: 'settings-anthropic-key',
+    openai: 'settings-openai-key',
+    openrouter: 'settings-openrouter-key',
+    gemini: 'settings-gemini-key',
+    qwen: 'settings-qwen-key',
+    deepseek: 'settings-deepseek-key',
+    groq: 'settings-groq-key',
+  };
+  const keyInputEl = keyInputMap[provider] ? document.getElementById(keyInputMap[provider]) : null;
+  const typedKey = keyInputEl ? keyInputEl.value.trim() : '';
+  const payload = { provider: provider };
+  if (typedKey) payload.api_key = typedKey;
+
   try {
     const res = await apiFetch('/api/test_key', {
       method: 'POST',
-      body: JSON.stringify({ provider: provider })
+      body: JSON.stringify(payload)
     });
 
     if (res.ok) {
