@@ -203,11 +203,17 @@ html, body {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background-color: var(--bg-page);
   color: var(--text-primary);
   line-height: 1.5;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Geist Mono — applied to BPM, Key, times, counts via .mono class */
+.mono {
+  font-family: 'Geist Mono', 'Fira Code', 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Custom Scrollbar */
