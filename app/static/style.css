@@ -382,6 +382,67 @@ body {
 .swatch-black  { background: linear-gradient(135deg, #444, #111); }
 .stats-panel    { margin-top: auto; padding: 16px; border-top: 1px solid var(--ln); font-size: 11px; }
 
+/* ─── Settings: Theme + Accent Pickers ─────────────────────────────────────── */
+.theme-picker,
+.accent-picker {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.theme-option,
+.accent-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--ln);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--t2);
+  transition: border-color 0.12s, color 0.12s;
+  user-select: none;
+}
+
+.theme-option:has(input:checked),
+.accent-option:has(input:checked) {
+  border-color: var(--acc);
+  color: var(--t1);
+}
+
+.theme-option input,
+.accent-option input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.theme-option-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.theme-swatch-dark          { background: linear-gradient(135deg, #0a0a10, #12121c); border: 1px solid #2c2c40; }
+.theme-swatch-light         { background: linear-gradient(135deg, #f4f3f8, #eceaf5); border: 1px solid #d0cedf; }
+.theme-swatch-accessibility { background: #000; border: 2px solid #fff; }
+
+.accent-option-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.accent-option-label,
+.theme-option-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .stat-row {
   display: flex;
   justify-content: space-between;

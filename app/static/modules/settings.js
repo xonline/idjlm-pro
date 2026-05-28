@@ -371,28 +371,45 @@ async function saveSettings() {
 }
 
 // ============================================================================
-// Theme
+// Theme + Accent — v4
 // ============================================================================
 
-const THEMES = ['dark', 'pro-booth', 'studio', 'pure-black'];
-
-function initTheme() {
-  const saved = localStorage.getItem('theme') || 'pure-black';
-  applyTheme(saved);
-}
+const VALID_THEMES  = ['dark', 'light', 'accessibility'];
+const VALID_ACCENTS = ['purple', 'teal', 'orange'];
 
 function applyTheme(theme) {
-  document.body.classList.remove('light', ...THEMES.filter(t => t !== 'dark'));
-  if (theme !== 'dark') document.body.classList.add(theme);
-  localStorage.setItem('theme', theme);
-  document.querySelectorAll('.swatch').forEach(s => {
-    s.classList.toggle('active', s.dataset.theme === theme);
-  });
+  if (!VALID_THEMES.includes(theme)) theme = 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('idjlm-theme', theme);
+  const radio = document.getElementById('theme-' + theme);
+  if (radio) radio.checked = true;
+}
+
+function applyAccent(accent) {
+  if (!VALID_ACCENTS.includes(accent)) accent = 'purple';
+  document.documentElement.setAttribute('data-accent', accent);
+  localStorage.setItem('idjlm-accent', accent);
+  const radio = document.getElementById('accent-' + accent);
+  if (radio) radio.checked = true;
+}
+
+function initTheme() {
+  const savedTheme  = localStorage.getItem('idjlm-theme')  || 'dark';
+  const savedAccent = localStorage.getItem('idjlm-accent') || 'purple';
+  applyTheme(savedTheme);
+  applyAccent(savedAccent);
 }
 
 function initThemeSwatches() {
-  document.querySelectorAll('.swatch').forEach(btn => {
-    btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
+  document.querySelectorAll('input[name="theme"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      if (radio.checked) applyTheme(radio.value);
+    });
+  });
+  document.querySelectorAll('input[name="accent"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      if (radio.checked) applyAccent(radio.value);
+    });
   });
 }
 
