@@ -84,7 +84,7 @@ def _normalize_energy(rms: np.ndarray) -> int:
     rms_mean = np.mean(rms)
 
     # Normalize to 0-1 range (empirical: typical audio RMS ranges 0.01-0.5)
-    normalized = min(1.0, rms_mean / 0.35)
+    normalized = min(1.0, rms_mean / 0.35)  # raised from 0.2 — salsa tracks clustered at 9-10 in calibration testing
 
     # Scale to 1-10
     energy_score = max(1, int(normalized * 10))
