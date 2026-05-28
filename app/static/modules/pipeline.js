@@ -2275,7 +2275,10 @@ function updateOnboardingStep(step) {
 function completeOnboarding() {
   localStorage.setItem('idjlm-onboarding-done', 'true');
   var overlay = document.getElementById('onboarding-overlay');
-  if (overlay) overlay.style.display = 'none';
+  if (overlay) {
+    overlay.style.display = 'none';
+    overlay.style.pointerEvents = 'none';
+  }
 }
 
 function initOnboarding() {

@@ -4336,6 +4336,10 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
   display: flex; align-items: center; justify-content: center;
   z-index: 10000;
 }
+.onboarding-overlay[style*="display: none"],
+.onboarding-overlay[style*="display:none"] {
+  pointer-events: none;
+}
 .onboarding-modal {
   background: var(--bg-primary);
   border-radius: 16px;
