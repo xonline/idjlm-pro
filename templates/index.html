@@ -36,33 +36,48 @@
   <div class="app" id="app-content" style="opacity:0; transition: opacity 0.4s ease 0.3s;">
     <!-- SIDEBAR -->
     <nav class="sidebar">
-      <div class="logo">
-        <div class="logo-icon"><img src="/static/icon_256.png" alt="IDJLM Pro" style="width:32px;height:32px;border-radius:6px;vertical-align:middle;"></div>
-        <div class="logo-text">IDJLM Pro{% if version %}<span id="header-version-badge" class="version-badge" title="Check for updates">v{{ version }}</span>{% endif %}</div>
+      <!-- Logo -->
+      <div class="sidebar-logo">
+        <img src="/static/icon_256.png" alt="" class="sidebar-logo-img">
+        <span class="sidebar-logo-text">IDJLM<span class="sidebar-logo-accent">Pro</span></span>
+        {% if version %}<span id="header-version-badge" class="version-badge" title="Check for updates">v{{ version }}</span>{% endif %}
       </div>
-      <div class="nav-menu">
+
+      <!-- Library section -->
+      <div class="sidebar-section-label">Library</div>
+      <nav class="sidebar-nav">
         <button class="nav-btn active" data-tab="library">
-          <span class="nav-icon">📚</span> Library
-        </button>
-        <button class="nav-btn" data-tab="organise">
-          <span class="nav-icon">📊</span> Stats & Library
-        </button>
-        <button class="nav-btn" data-tab="setplan">
-          <span class="nav-icon">🎛️</span> Set Planner
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          <span>Library</span>
+          <span class="nav-count mono" id="sidebar-count-library">--</span>
         </button>
         <button class="nav-btn" data-tab="playlists">
-          <span class="nav-icon">🎵</span> Playlists
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          <span>Playlists</span>
         </button>
+      </nav>
+
+      <!-- Tools section -->
+      <div class="sidebar-section-label">Tools</div>
+      <nav class="sidebar-nav">
+        <button class="nav-btn" data-tab="organise">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>Stats &amp; Library</span>
+        </button>
+        <button class="nav-btn" data-tab="setplan">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <span>Set Planner</span>
+        </button>
+      </nav>
+
+      <!-- Sources section -->
+      <div class="sidebar-section-label">Sources</div>
+      <nav class="sidebar-nav">
         <button class="nav-btn" data-tab="settings" id="nav-btn-settings">
-          <span class="nav-icon">⚙️</span> Settings
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          <span>Settings</span>
         </button>
-      </div>
-      <div class="theme-swatches" title="Switch theme">
-        <button class="swatch swatch-purple active" data-theme="dark"     title="Purple Dark"></button>
-        <button class="swatch swatch-booth"          data-theme="pro-booth" title="Pro Booth"></button>
-        <button class="swatch swatch-studio"         data-theme="studio"    title="Studio Dark"></button>
-        <button class="swatch swatch-black"          data-theme="pure-black" title="Pure Black"></button>
-      </div>
+      </nav>
     </nav>
 
     <!-- Main Content -->

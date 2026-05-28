@@ -252,126 +252,128 @@ body {
   width: 100%;
 }
 
+/* ============================================================================
+   Sidebar — v4
+   ============================================================================ */
+
 .sidebar {
-  width: 210px;
-  background-color: var(--bg-panel);
-  border-right: 1px solid var(--border);
+  width: 192px;
+  flex-shrink: 0;
+  background-color: var(--bg1);
+  border-right: 1px solid var(--ln);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
+  overflow-x: hidden;
 }
 
-/* Logo */
-.logo {
+.sidebar-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 18px 16px 16px 16px;
-  border-bottom: 1px solid var(--border);
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
-  margin-bottom: 0;
-}
-
-.logo-icon {
-  font-size: 22px;
+  gap: 8px;
+  padding: 16px 14px 14px;
+  border-bottom: 1px solid var(--ln);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
   flex-shrink: 0;
 }
 
-.logo-text {
-  color: var(--accent);
-  letter-spacing: -0.3px;
-  white-space: nowrap;
-  overflow: hidden;
+.sidebar-logo-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  flex-shrink: 0;
 }
 
-/* Navigation Menu */
-.nav-menu {
+.sidebar-logo-text {
+  color: var(--t1);
+  white-space: nowrap;
+}
+
+.sidebar-logo-accent {
+  color: var(--acc);
+}
+
+.sidebar-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--t4);
+  padding: 14px 14px 4px;
+  flex-shrink: 0;
+}
+
+.sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 0;
-  flex: 0 0 auto;
-  margin: 16px 0 0 0;
+  gap: 1px;
+  padding: 0 6px;
+  flex-shrink: 0;
 }
 
 .nav-btn {
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 38px;
-  padding: 0 12px;
-  margin: 0 8px;
-  width: calc(100% - 16px);
+  gap: 9px;
+  height: 34px;
+  padding: 0 8px;
+  width: 100%;
   background: none;
   border: none;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
+  border-left: 2px solid transparent;
+  border-radius: 6px;
+  color: var(--t2);
   cursor: pointer;
-  font-size: 14px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
   font-weight: 500;
-  transition: all 0.15s ease;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
   text-align: left;
 }
 
 .nav-icon {
-  font-size: 16px;
-  width: 16px;
   flex-shrink: 0;
-  text-align: center;
+  color: currentColor;
+  opacity: 0.7;
+}
+
+.nav-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--t4);
 }
 
 .nav-btn:hover:not(.active) {
-  background-color: var(--bg-subtle);
-  color: var(--text-primary);
+  background-color: var(--bg2);
+  color: var(--t1);
+}
+
+.nav-btn:hover:not(.active) .nav-icon {
+  opacity: 1;
 }
 
 .nav-btn.active {
-  background-color: var(--accent-dim);
-  color: var(--accent);
-  border-left: 2px solid var(--accent);
-  padding-left: 10px;
+  background-color: color-mix(in srgb, var(--acc) 12%, transparent);
+  border-left-color: var(--acc);
+  color: var(--acc);
+  padding-left: 6px;
+  border-radius: 0 6px 6px 0;
 }
 
-/* Theme Toggle Button */
-.theme-swatches {
-  display: flex;
-  gap: 6px;
-  padding: 10px 14px 12px;
-  justify-content: center;
+.nav-btn.active .nav-icon {
+  opacity: 1;
 }
 
-.swatch {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.15s ease;
-  position: relative;
-}
-
-.swatch:hover { transform: scale(1.2); }
-
-.swatch.active {
-  border-color: var(--text-primary);
-  transform: scale(1.15);
-}
-
+/* Keep legacy swatch classes resolving for any JS that still references them */
+.theme-swatches { display: none; }
+.swatch         { display: none; }
 .swatch-purple { background: linear-gradient(135deg, #7c5af6, #06b6d4); }
 .swatch-booth  { background: linear-gradient(135deg, #f97316, #fbbf24); }
 .swatch-studio { background: linear-gradient(135deg, #00c8f0, #818cf8); }
 .swatch-black  { background: linear-gradient(135deg, #444, #111); }
-
-/* Stats Panel */
-.stats-panel {
-  margin-top: auto;
-  padding: 16px;
-  border-top: 1px solid var(--border);
-  font-size: 11px;
-}
+.stats-panel    { margin-top: auto; padding: 16px; border-top: 1px solid var(--ln); font-size: 11px; }
 
 .stat-row {
   display: flex;
