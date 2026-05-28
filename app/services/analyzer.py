@@ -84,7 +84,7 @@ def _normalize_energy(rms: np.ndarray) -> int:
     rms_mean = np.mean(rms)
 
     # Normalize to 0-1 range (empirical: typical audio RMS ranges 0.01-0.5)
-    normalized = min(1.0, rms_mean / 0.2)
+    normalized = min(1.0, rms_mean / 0.35)
 
     # Scale to 1-10
     energy_score = max(1, int(normalized * 10))
@@ -258,7 +258,7 @@ def analyze_track(track: Track) -> Track:
         bpm_arr = np.asarray(bpm)
         if bpm_arr.size == 0:
             raise ValueError("No BPM detected — audio may be silent or corrupt")
-        track.analyzed_bpm = float(bpm_arr.item() if bpm_arr.ndim > 0 else bpm_arr)
+        track.analyzed_bpm = round(float(bpm_arr.item() if bpm_arr.ndim > 0 else bpm_arr), 1)
 
         # BPM confidence — based on onset strength peak clarity
         onset_ratio = np.max(onset_env) / (np.mean(onset_env) + 1e-6)
