@@ -3265,33 +3265,74 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
 }
 .resume-banner span { flex: 1; }
 
-/* ─── Filter Bar ───────────────────────────────────────────── */
+/* ─── Filter Bar ──────────────────────────────────────────────────────────── */
 .filter-bar {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--bg-subtle);
+  padding: 6px 12px;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--ln);
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
+
 .search-input {
   flex: 1;
   min-width: 160px;
   font-size: 13px;
-  padding: 5px 10px;
-  background: var(--bg-deeper);
-  border: 1px solid var(--bg-subtle);
+  font-family: 'Outfit', sans-serif;
+  padding: 6px 10px;
+  background: var(--bg0);
+  border: 1px solid var(--ln);
   border-radius: var(--radius-sm);
-  color: var(--text-primary);
+  color: var(--t1);
+  outline: none;
+  transition: border-color 0.15s;
 }
+
+.search-input::placeholder {
+  color: var(--t3);
+  opacity: 1;
+}
+
+.search-input:focus {
+  border-color: var(--acc);
+}
+
 .filter-select {
   font-size: 12px;
+  font-family: 'Outfit', sans-serif;
   padding: 5px 8px;
-  background: var(--bg-deeper);
-  border: 1px solid var(--bg-subtle);
+  background: var(--bg0);
+  border: 1px solid var(--ln);
   border-radius: var(--radius-sm);
-  color: var(--text-primary);
+  color: var(--t1);
+  cursor: pointer;
+  outline: none;
+}
+
+.filter-select:focus {
+  border-color: var(--acc);
+}
+
+/* General input text reset — covers folder-input, form inputs, Settings inputs */
+.folder-input-inline,
+.input,
+.input-text,
+.input-select {
+  color: var(--t1);
+  background: var(--bg2);
+  border: 1px solid var(--ln);
+  border-radius: var(--radius-sm);
+  font-family: 'Outfit', sans-serif;
+}
+
+.folder-input-inline::placeholder,
+.input::placeholder,
+.input-text::placeholder {
+  color: var(--t3);
+  opacity: 1;
 }
 
 /* ─── Approve Column ───────────────────────────────────────── */
