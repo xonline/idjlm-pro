@@ -130,17 +130,29 @@ function initAudioPlayer() {
   });
 
   audio.addEventListener('ended', () => {
-    playPauseBtn.textContent = '▶';
+    playPauseBtn.textContent = '';
+    const iconPlay = document.getElementById('icon-play');
+    const iconPause = document.getElementById('icon-pause');
+    if (iconPlay)  iconPlay.style.display  = 'block';
+    if (iconPause) iconPause.style.display = 'none';
     nextBtn.click();
   });
 
   playPauseBtn.addEventListener('click', () => {
     if (audio.paused) {
       audio.play();
-      playPauseBtn.textContent = '⏸';
+      playPauseBtn.textContent = '';
+      const iconPlay = document.getElementById('icon-play');
+      const iconPause = document.getElementById('icon-pause');
+      if (iconPlay)  iconPlay.style.display  = 'none';
+      if (iconPause) iconPause.style.display = 'block';
     } else {
       audio.pause();
-      playPauseBtn.textContent = '▶';
+      playPauseBtn.textContent = '';
+      const iconPlay = document.getElementById('icon-play');
+      const iconPause = document.getElementById('icon-pause');
+      if (iconPlay)  iconPlay.style.display  = 'block';
+      if (iconPause) iconPause.style.display = 'none';
     }
   });
 
@@ -186,7 +198,11 @@ function playTrack(track) {
     audio.play().catch(err => {
       showToast('Could not play audio', 'error');
       console.error('Audio error:', err);
-      if (playPauseBtn) playPauseBtn.textContent = '▶';
+      if (playPauseBtn) playPauseBtn.textContent = '';
+      const ip = document.getElementById('icon-play');
+      const ipu = document.getElementById('icon-pause');
+      if (ip)  ip.style.display  = 'block';
+      if (ipu) ipu.style.display = 'none';
     });
   }, { once: true });
 
@@ -195,7 +211,11 @@ function playTrack(track) {
     showToast('Could not load audio — check file format', 'error');
     bar.classList.add('hidden');
   }, { once: true });
-  playPauseBtn.textContent = '⏸';
+  playPauseBtn.textContent = '';
+  const ip2 = document.getElementById('icon-play');
+  const ipu2 = document.getElementById('icon-pause');
+  if (ip2)  ip2.style.display  = 'none';
+  if (ipu2) ipu2.style.display = 'block';
 }
 
 function formatTime(seconds) {

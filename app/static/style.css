@@ -248,8 +248,15 @@ body {
 
 .app {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   width: 100%;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
 }
 
 /* ============================================================================
@@ -1796,60 +1803,150 @@ body.light .taxonomy-subgenres {
    Audio Player Bottom Bar
    ============================================================================ */
 
-.audio-player-bar {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  background: var(--bg-panel); border-top: 1px solid var(--border);
-  padding: 10px 20px; display: flex; align-items: center; gap: 12px;
-  z-index: 1000; height: 70px;
+/* ============================================================================
+   Player Bar — v4 (top, full width)
+   ============================================================================ */
+
+.player-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding: 0 16px;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--ln);
+  flex-shrink: 0;
+  z-index: 100;
 }
 
-.audio-player-bar.hidden { display: none; }
-
-.audio-btn {
-  background: none; border: none; color: var(--accent);
-  font-size: 18px; cursor: pointer; padding: 8px;
-  transition: opacity 0.2s ease;
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
-.audio-btn:hover {
-  opacity: 0.8;
-}
-
-.audio-track-info {
-  display: flex; flex-direction: column; gap: 2px; flex: 0 0 auto;
-  min-width: 150px;
-}
-
-#audio-track-title {
-  font-size: 13px; font-weight: 600; color: var(--text-primary);
-}
-
-.audio-artist {
-  font-size: 11px; color: var(--text-secondary);
-}
-
-.audio-seek {
-  flex: 1; height: 4px; border-radius: 2px;
-  background: var(--bg-subtle); outline: none;
-  -webkit-appearance: none; appearance: none;
+.player-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  color: var(--t2);
   cursor: pointer;
+  transition: background 0.12s, color 0.12s;
 }
 
-.audio-seek::-webkit-slider-thumb {
-  -webkit-appearance: none; appearance: none;
-  width: 12px; height: 12px; border-radius: 50%;
-  background: var(--accent); cursor: pointer;
+.player-btn:hover {
+  background: var(--bg3);
+  color: var(--t1);
 }
 
-.audio-seek::-moz-range-thumb {
-  width: 12px; height: 12px; border-radius: 50%;
-  background: var(--accent); cursor: pointer; border: none;
+.player-btn-play {
+  width: 36px;
+  height: 36px;
+  background: var(--acc);
+  color: #fff;
+  margin: 0 2px;
 }
 
-.audio-time {
-  font-size: 11px; color: var(--text-secondary); min-width: 70px;
+.player-btn-play:hover {
+  background: var(--acc-hover);
+  color: #fff;
+}
+
+.player-track-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex-shrink: 0;
+  min-width: 140px;
+  max-width: 200px;
+}
+
+.player-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-artist {
+  font-size: 11px;
+  color: var(--t3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-waveform-wrap {
+  flex: 1;
+  position: relative;
+  height: 40px;
+  min-width: 0;
+}
+
+.player-waveform {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 4px;
+}
+
+.player-seek-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+}
+
+.player-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.player-time {
+  font-size: 11px;
+  color: var(--t3);
+  min-width: 80px;
   text-align: right;
 }
+
+.player-bpm {
+  font-size: 12px;
+  color: var(--t2);
+  min-width: 44px;
+  text-align: center;
+}
+
+.player-key-chip {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--acc);
+  background: var(--acc-dim);
+  border: 1px solid color-mix(in srgb, var(--acc) 30%, transparent);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  min-width: 36px;
+  text-align: center;
+}
+
+/* Legacy audio-player-bar class — keep for JS that checks .hidden */
+.audio-player-bar { display: none; }
+.audio-player-bar.hidden { display: none; }
+.audio-btn { display: none; }
 
 /* ============================================================================
    Confidence Badge

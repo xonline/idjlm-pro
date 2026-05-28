@@ -34,6 +34,41 @@
   </div>
 
   <div class="app" id="app-content" style="opacity:0; transition: opacity 0.4s ease 0.3s;">
+
+    <!-- PLAYER BAR — top, full width -->
+    <div id="audio-player-bar" class="player-bar">
+      <div class="player-controls">
+        <button id="audio-prev" class="player-btn" title="Previous">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="4" x2="5" y2="20" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+        <button id="audio-play-pause" class="player-btn player-btn-play" title="Play/Pause">
+          <svg id="icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <svg id="icon-pause" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </button>
+        <button id="audio-next" class="player-btn" title="Next">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="4" x2="19" y2="20" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+      </div>
+
+      <div class="player-track-info">
+        <span id="audio-track-title" class="player-title">No track loaded</span>
+        <span id="audio-track-artist" class="player-artist">--</span>
+      </div>
+
+      <div class="player-waveform-wrap">
+        <input type="range" id="audio-seek" min="0" max="100" value="0" class="player-seek-overlay" aria-label="Seek">
+        <canvas id="waveform-canvas" class="player-waveform" height="40"></canvas>
+      </div>
+
+      <div class="player-meta">
+        <span id="audio-time" class="player-time mono">0:00 / 0:00</span>
+        <span id="player-bpm" class="player-bpm mono" title="BPM">--</span>
+        <span id="player-key" class="player-key-chip">--</span>
+      </div>
+    </div>
+
+    <!-- SIDEBAR + CONTENT ROW -->
+    <div class="app-body">
     <!-- SIDEBAR -->
     <nav class="sidebar">
       <!-- Logo -->
@@ -925,6 +960,7 @@
         </div>
       </section>
     </main>
+    </div><!-- /.app-body -->
   </div>
 
   <!-- Track Detail Slide-in Panel -->
@@ -1251,21 +1287,7 @@
   <!-- Toast Notification -->
   <div id="toast" class="toast" style="display: none;"></div>
 
-  <!-- Audio Player (hidden) -->
-  <audio id="audio-player" style="display: none;"></audio>
-
-  <!-- Audio Player Bottom Bar -->
-  <div id="audio-player-bar" class="audio-player-bar hidden">
-    <button id="audio-prev" class="audio-btn" title="Previous">⏮</button>
-    <button id="audio-play-pause" class="audio-btn" title="Play/Pause">▶</button>
-    <button id="audio-next" class="audio-btn" title="Next">⏭</button>
-    <div class="audio-track-info">
-      <span id="audio-track-title">—</span>
-      <span id="audio-track-artist" class="audio-artist">—</span>
-    </div>
-    <input type="range" id="audio-seek" min="0" max="100" value="0" class="audio-seek">
-    <span id="audio-time" class="audio-time">0:00 / 0:00</span>
-  </div>
+  <audio id="audio-player" style="display:none;"></audio>
 
   <!-- Onboarding Modal -->
   <div id="onboarding-modal" class="modal-overlay" style="display:none">
@@ -1468,6 +1490,7 @@
   <script src="/static/modules/classify.js"></script>
   <script src="/static/modules/advisor.js"></script>
   <script src="/static/modules/pipeline.js"></script>
+  <script src="/static/modules/waveform.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>
