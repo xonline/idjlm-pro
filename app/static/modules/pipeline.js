@@ -248,11 +248,16 @@ function energyBar(energy) {
 
 const GENRE_COLORS = ['#8b5cf6','#06b6d4','#f59e0b','#10b981','#ef4444','#ec4899','#6366f1','#14b8a6'];
 
-function genreChip(genre) {
+/**
+ * @param {string} genre
+ * @param {boolean} manual - true if genre was manually edited by user
+ */
+function genreChip(genre, manual) {
   if (!genre) return '—';
-  const hash = [...genre].reduce((a,c)=>a+c.charCodeAt(0),0);
+  const hash = [...genre].reduce(function(a, c) { return a + c.charCodeAt(0); }, 0);
   const color = GENRE_COLORS[hash % GENRE_COLORS.length];
-  return `<span class="genre-chip" style="background:${color}22;color:${color};border:1px solid ${color}44">${escapeHtml(genre)}</span>`;
+  var manualAttr = manual ? ' data-manual="true"' : '';
+  return '<span class="genre-pill" style="--pill-color:' + color + '"' + manualAttr + '>' + escapeHtml(genre) + '</span>';
 }
 
 // ============================================================================

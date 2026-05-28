@@ -226,12 +226,13 @@ function renderTracks() {
 
     // Genre (with color chip)
     const tdGenre = document.createElement('td');
-    tdGenre.innerHTML = genreChip(track.final_genre);
+    const isManual = (track.genre_source === 'manual' || track.genre_edited === true);
+    tdGenre.innerHTML = genreChip(track.final_genre, isManual);
     row.appendChild(tdGenre);
 
     // Sub-genre (with color chip)
     const tdSubgenre = document.createElement('td');
-    tdSubgenre.innerHTML = genreChip(track.final_subgenre);
+    tdSubgenre.innerHTML = genreChip(track.final_subgenre, false);
     row.appendChild(tdSubgenre);
 
     // Confidence (with colored badge)
