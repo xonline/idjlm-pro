@@ -14,12 +14,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest      # Apple Silicon
-            args: '--target aarch64-apple-darwin'
-          - platform: macos-13          # Intel
-            args: '--target x86_64-apple-darwin'
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            py_arch: arm64
+          - platform: macos-13
+            target: x86_64-apple-darwin
+            py_arch: x64
           - platform: windows-latest
-            args: ''
+            target: x86_64-pc-windows-msvc
+            py_arch: x64
 
     runs-on: ${{ matrix.platform }}
 
@@ -30,12 +33,7 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: >-
-            ${{
-              matrix.platform == 'macos-latest' && 'aarch64-apple-darwin' ||
-              matrix.platform == 'macos-13' && 'x86_64-apple-darwin' ||
-              ''
-            }}
+          targets: ${{ matrix.target }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -46,11 +44,34 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          architecture: ${{ matrix.py_arch }}
 
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt
+      - name: Install Python dependencies + PyInstaller
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
 
-      - name: Install Node.js (for Tauri CLI)
+      - name: Build PyInstaller sidecar
+        run: pyinstaller idjlm.spec --clean --distpath src-tauri/binaries/tmp
+        shell: bash
+
+      - name: Stage sidecar binary (macOS / Linux)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p src-tauri/binaries
+          mv src-tauri/binaries/tmp/idjlm-server \
+             src-tauri/binaries/idjlm-server-${{ matrix.target }}
+        shell: bash
+
+      - name: Stage sidecar binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          New-Item -ItemType Directory -Force -Path src-tauri/binaries
+          Move-Item src-tauri/binaries/tmp/idjlm-server.exe `
+            src-tauri/binaries/idjlm-server-${{ matrix.target }}.exe
+        shell: pwsh
+
+      - name: Install Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -58,23 +79,16 @@ jobs:
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli@^2.5.0
 
-      - name: Prepare .env for bundle
-        shell: bash
-        run: |
-          if [ ! -f .env ]; then cp config.example.env .env; fi
-
       - name: Build Tauri app
-        env:
-          BUILD_ARGS: ${{ matrix.args }}
-        run: tauri build $BUILD_ARGS
+        run: tauri build --target ${{ matrix.target }}
 
       - name: Upload macOS .dmg
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
-          name: idjlm-pro-dmg-${{ matrix.platform }}
-          path: src-tauri/target/*/release/bundle/dmg/*.dmg
-          retention-days: 7
+          name: idjlm-pro-dmg-${{ matrix.target }}
+          path: src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          retention-days: 30
 
       - name: Upload Windows .msi
         if: runner.os == 'Windows'
@@ -82,12 +96,12 @@ jobs:
         with:
           name: idjlm-pro-msi
           path: src-tauri/target/release/bundle/msi/*.msi
-          retention-days: 7
+          retention-days: 30
 
-      - name: Upload Windows .exe (NSIS installer)
+      - name: Upload Windows NSIS installer
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: idjlm-pro-nsis
           path: src-tauri/target/release/bundle/nsis/*.exe
-          retention-days: 7
+          retention-days: 30
