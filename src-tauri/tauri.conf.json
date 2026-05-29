@@ -39,16 +39,16 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": {
-      "../run_app.py": "run_app.py",
-      "../app/**/*": "app/",
-      "../templates/**/*": "templates/",
-      "../taxonomy.json": "taxonomy.json"
-    },
+    "externalBin": [
+      "binaries/idjlm-server"
+    ],
     "macOS": {
       "dmg": {
         "background": null,
-        "windowSize": { "width": 660, "height": 400 }
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        }
       },
       "minimumSystemVersion": "11.0",
       "signingIdentity": null,
