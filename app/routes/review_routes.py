@@ -45,7 +45,7 @@ def approve_tracks():
 
         return jsonify({"approved": approved}), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in /api/review/approve")
         return jsonify({"error": str(e)}), 500
 
@@ -72,7 +72,7 @@ def skip_tracks():
 
         return jsonify({"skipped": skipped}), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in /api/review/skip")
         return jsonify({"error": str(e)}), 500
 
@@ -106,7 +106,7 @@ def bulk_approve():
 
         return jsonify({"approved": approved}), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in /api/review/bulk-approve")
         return jsonify({"error": str(e)}), 500
 
@@ -248,13 +248,13 @@ def write_tags():
                 from app.services.session_service import save_session
                 from app import get_track_store, get_current_folder_path
                 save_session(get_track_store(), get_current_folder_path())
-            except Exception:
+            except Exception as e:
                 logger.exception("Session save failed after tag write")
 
         threading.Thread(target=run, daemon=True).start()
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in /api/review/write")
         return jsonify({"error": str(e)}), 500
 
@@ -351,6 +351,6 @@ def bulk_edit():
 
         return jsonify({"updated": updated}), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in /api/review/bulk-edit")
         return jsonify({"error": str(e)}), 500

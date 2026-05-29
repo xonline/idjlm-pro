@@ -33,7 +33,7 @@ def pick_folder():
             return jsonify({"error": "Folder picker only supported on macOS"}), 400
     except subprocess.TimeoutExpired:
         return jsonify({"cancelled": True}), 200
-    except Exception:
+    except Exception as e:
         logger.exception("Error in /api/pick-folder")
         return jsonify({"error": str(e)}), 500
 
@@ -86,7 +86,7 @@ def import_tracks():
             "tracks": [t.to_dict() for t in tracks]
         }), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in /api/import")
         return jsonify({"error": str(e)}), 500
 
@@ -166,7 +166,7 @@ def analyze_tracks():
         threading.Thread(target=run, daemon=True).start()
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in /api/analyze")
         return jsonify({"error": str(e)}), 500
 
@@ -278,13 +278,13 @@ def classify_tracks():
                 from app.services.session_service import save_session
                 from app import get_current_folder_path
                 save_session(track_store, get_current_folder_path())
-            except Exception:
+            except Exception as e:
                 logger.exception("Session save failed after classification")
             _classify_lock.release()
 
         threading.Thread(target=run, daemon=True).start()
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in /api/classify")
         return jsonify({"error": str(e)}), 500

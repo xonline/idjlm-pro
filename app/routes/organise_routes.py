@@ -116,7 +116,7 @@ def library_health():
             }
         })
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in organise routes endpoint")
         return jsonify({"error": str(e)}), 500
 
@@ -185,7 +185,7 @@ def parse_filenames():
 
         return jsonify(results)
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in organise routes endpoint")
         return jsonify({"error": str(e)}), 500
 
@@ -240,7 +240,7 @@ def apply_filename_tags():
             "errors": errors
         })
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in organise routes endpoint")
         return jsonify({"error": str(e)}), 500
 
@@ -344,6 +344,6 @@ def organise_folders():
                 "errors": errors
             })
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in organise routes endpoint")
         return jsonify({"error": str(e)}), 500

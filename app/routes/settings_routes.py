@@ -47,7 +47,7 @@ def get_env_path():
             try:
                 import shutil
                 shutil.copy2(legacy_path, new_path)
-            except Exception:
+            except Exception as e:
                 pass
 
     return new_path
@@ -77,7 +77,7 @@ def load_env():
                         if "=" in line:
                             key, value = line.split("=", 1)
                             env_dict[key.strip()] = value.strip()
-        except Exception:
+        except Exception as e:
             pass
 
     return env_dict
@@ -93,7 +93,7 @@ def write_env(env_dict):
         try:
             with open(env_path, "r") as f:
                 existing_lines = f.readlines()
-        except Exception:
+        except Exception as e:
             pass
 
     # Build new content
@@ -207,7 +207,7 @@ def list_models():
         body = ""
         try:
             body = e.read().decode()
-        except Exception:
+        except Exception as e:
             pass
         logger.exception("HTTP error listing models for %s: %s %s", provider, e.code, body)
         return jsonify({"error": f"Failed to fetch models from {provider} (HTTP {e.code})"}), 502
@@ -513,7 +513,7 @@ def get_settings():
             "beatport_enrich_enabled": env_dict.get("BEATPORT_ENRICH_ENABLED", "false").lower() == "true",
         }), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in /api/settings GET")
         return jsonify({"error": str(e)}), 500
 
@@ -653,7 +653,7 @@ def save_settings():
 
         return jsonify({"saved": True}), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in /api/settings POST")
         return jsonify({"error": str(e)}), 500
 

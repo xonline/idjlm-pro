@@ -55,7 +55,7 @@ def list_tracks():
                 key=lambda t: (getattr(t, sort_attr) or (0 if is_numeric else "")),
                 reverse=reverse
             )
-        except Exception:
+        except Exception as e:
             # Fallback to filename if sort fails
             tracks.sort(key=lambda t: t.filename, reverse=reverse)
 
@@ -64,7 +64,7 @@ def list_tracks():
             "total": len(tracks)
         }), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in /api/tracks GET")
         return jsonify({"error": str(e)}), 500
 
@@ -110,7 +110,7 @@ def search_tracks():
             "query": q
         }), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in /api/tracks/search GET")
         return jsonify({"error": str(e)}), 500
 
@@ -132,7 +132,7 @@ def get_track(file_path):
         track = track_store[file_path]
         return jsonify(track.to_dict()), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception(f"Error in /api/tracks/{file_path} PUT")
         return jsonify({"error": str(e)}), 500
 

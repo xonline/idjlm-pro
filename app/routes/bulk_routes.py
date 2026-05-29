@@ -30,7 +30,7 @@ def _atomic_write_json(path: str, data: dict) -> None:
         with os.fdopen(fd, "w") as f:
             json.dump(data, f, indent=2)
         os.replace(tmp_path, path)
-    except Exception:
+    except Exception as e:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
         raise
@@ -47,7 +47,7 @@ def get_taxonomy():
 
         return jsonify(get_taxonomy()), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in bulk routes endpoint")
         return jsonify({"error": str(e)}), 500
 
@@ -80,7 +80,7 @@ def update_taxonomy():
 
         return jsonify({"ok": True}), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in bulk routes endpoint")
         return jsonify({"error": str(e)}), 500
 
@@ -119,7 +119,7 @@ def add_genre():
 
         return jsonify(taxonomy), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in bulk routes endpoint")
         return jsonify({"error": str(e)}), 500
 
@@ -148,7 +148,7 @@ def delete_genre(name):
 
         return jsonify({"ok": True}), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in bulk routes endpoint")
         return jsonify({"error": str(e)}), 500
 
@@ -183,7 +183,7 @@ def get_stats():
             "errors": errors
         }), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in bulk routes endpoint")
         return jsonify({"error": str(e)}), 500
 
@@ -302,7 +302,7 @@ def get_stats_age():
             "median_year": median_year
         }), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in stats/age endpoint")
         return jsonify({"error": str(e)}), 500
 
@@ -343,7 +343,7 @@ def export_taxonomy():
             download_name="idjlm_taxonomy.json"
         )
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in taxonomy export endpoint")
         return jsonify({"error": "Export failed. Check server logs."}), 500
 
@@ -433,7 +433,7 @@ def import_taxonomy():
                 "taxonomy": taxonomy
             }), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in taxonomy import endpoint")
         return jsonify({"error": "Import failed. Check server logs."}), 500
 
@@ -462,7 +462,7 @@ def list_templates():
             }
         return jsonify(result), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in taxonomy templates list endpoint")
         return jsonify({"error": "Failed to list templates. Check server logs."}), 500
 
@@ -545,7 +545,7 @@ def apply_template(name):
             "taxonomy": taxonomy
         }), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in apply template endpoint")
         return jsonify({"error": "Failed to apply template. Check server logs."}), 500
 

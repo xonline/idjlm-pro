@@ -31,7 +31,7 @@ def save_session_endpoint():
             "saved_at": session_data.get("saved_at")
         }), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in /api/session/save")
         return jsonify({"error": str(e)}), 500
 
@@ -71,7 +71,7 @@ def load_session_endpoint():
             "metadata": metadata
         }), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in /api/session/load")
         return jsonify({"error": str(e)}), 500
 
@@ -104,6 +104,6 @@ def session_exists():
             "folder_path": metadata.get("folder_path")
         }), 200
 
-    except Exception:
+    except Exception as e:
         logger.exception("Error in /api/session/exists")
         return jsonify({"error": str(e)}), 500
