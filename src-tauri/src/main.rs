@@ -13,7 +13,7 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 /// Port Flask listens on. Must match FLASK_PORT env var (or run_app.py default).
 const FLASK_PORT: u16 = 5050;
 /// Seconds to wait for Flask before giving up and showing an error.
-const FLASK_TIMEOUT_SECS: u64 = 60;
+const FLASK_TIMEOUT_SECS: u64 = 90;
 
 /// Shared handle to the Flask child process so we can kill it on app exit.
 struct FlaskProcess(Arc<Mutex<Option<Child>>>);
@@ -32,19 +32,35 @@ fn wait_for_flask(timeout: Duration) -> bool {
     false
 }
 
-/// Resolve the path to `run_app.py` relative to the Tauri resource dir.
-/// In dev mode this is the project root; in production it is inside the bundle.
-fn find_run_app(app: &AppHandle) -> PathBuf {
-    let resource_dir = app.path().resource_dir().expect("resource dir not found");
-    let candidate = resource_dir.join("run_app.py");
-    if candidate.exists() {
-        return candidate;
+/// Resolve path to the `idjlm-server` sidecar binary.
+/// Production: Tauri places it in resource_dir (triple suffix stripped).
+/// Dev: src-tauri/binaries/idjlm-server-{triple} (built locally via PyInstaller).
+fn find_sidecar(app: &AppHandle) -> PathBuf {
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let candidate = resource_dir.join("idjlm-server");
+        if candidate.exists() {
+            return candidate;
+        }
     }
-    // Fallback: relative to binary location
+
+    let triple = if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        "aarch64-apple-darwin"
+    } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+        "x86_64-apple-darwin"
+    } else if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
+        "x86_64-pc-windows-msvc"
+    } else if cfg!(target_arch = "aarch64") {
+        "aarch64-unknown-linux-gnu"
+    } else {
+        "x86_64-unknown-linux-gnu"
+    };
+
     std::env::current_exe()
         .ok()
-        .and_then(|p| p.parent().map(|d| d.join("run_app.py")))
-        .unwrap_or_else(|| PathBuf::from("run_app.py"))
+        .and_then(|p| p.parent().and_then(|d| d.parent()).and_then(|d| d.parent())
+            .map(|root| root.join("src-tauri").join("binaries")
+                .join(format!("idjlm-server-{}", triple))))
+        .unwrap_or_else(|| PathBuf::from(format!("idjlm-server-{}", triple)))
 }
 
 /// Tauri command exposed to JS: opens a native folder picker and returns the path.
@@ -144,25 +160,15 @@ border-radius:2px;animation:slide 1.8s ease-in-out infinite;}
             .center()
             .build()?;
 
-            // Spawn Flask in a background thread; navigate window once ready
+            // Spawn sidecar in a background thread; navigate window once ready
             thread::spawn(move || {
-                let run_app_path = find_run_app(&app_handle);
+                let sidecar_path = find_sidecar(&app_handle);
 
-                // python3 on macOS/Linux, python on Windows
-                let python_bin = if cfg!(target_os = "windows") { "python" } else { "python3" };
-
-                let child = Command::new(python_bin)
-                    .arg(&run_app_path)
+                let child = Command::new(&sidecar_path)
                     .env("FLASK_PORT", FLASK_PORT.to_string())
                     .env("FLASK_ENV", "production")
                     .env("PYTHONDONTWRITEBYTECODE", "1")
-                    // Disable pywebview inside run_app.py — Tauri is the window host
                     .env("IDJLM_HEADLESS", "1")
-                    .current_dir(
-                        run_app_path
-                            .parent()
-                            .unwrap_or_else(|| std::path::Path::new(".")),
-                    )
                     .spawn();
 
                 match child {
@@ -170,8 +176,8 @@ border-radius:2px;animation:slide 1.8s ease-in-out infinite;}
                         *flask_arc.lock().unwrap() = Some(c);
                     }
                     Err(e) => {
-                        eprintln!("[idjlm] Failed to start Flask: {e}");
-                        show_splash_error(&window, &format!("Error starting Flask: {e}"));
+                        eprintln!("[idjlm] Failed to start sidecar at {:?}: {e}", sidecar_path);
+                        show_splash_error(&window, &format!("Error starting app: {e}"));
                         return;
                     }
                 }
