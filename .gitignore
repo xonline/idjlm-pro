@@ -14,3 +14,4 @@ build/
 *.tmp
 .superpowers/
 src-tauri/target/
+src-tauri/binaries/
