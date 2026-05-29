@@ -55,7 +55,7 @@ def list_tracks():
                 key=lambda t: (getattr(t, sort_attr) or (0 if is_numeric else "")),
                 reverse=reverse
             )
-        except Exception as e:
+        except Exception:
             # Fallback to filename if sort fails
             tracks.sort(key=lambda t: t.filename, reverse=reverse)
 

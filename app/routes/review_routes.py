@@ -248,7 +248,7 @@ def write_tags():
                 from app.services.session_service import save_session
                 from app import get_track_store, get_current_folder_path
                 save_session(get_track_store(), get_current_folder_path())
-            except Exception as e:
+            except Exception:
                 logger.exception("Session save failed after tag write")
 
         threading.Thread(target=run, daemon=True).start()

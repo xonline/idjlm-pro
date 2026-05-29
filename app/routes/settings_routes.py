@@ -47,7 +47,7 @@ def get_env_path():
             try:
                 import shutil
                 shutil.copy2(legacy_path, new_path)
-            except Exception as e:
+            except Exception:
                 pass
 
     return new_path
@@ -77,7 +77,7 @@ def load_env():
                         if "=" in line:
                             key, value = line.split("=", 1)
                             env_dict[key.strip()] = value.strip()
-        except Exception as e:
+        except Exception:
             pass
 
     return env_dict
@@ -93,7 +93,7 @@ def write_env(env_dict):
         try:
             with open(env_path, "r") as f:
                 existing_lines = f.readlines()
-        except Exception as e:
+        except Exception:
             pass
 
     # Build new content

@@ -278,7 +278,7 @@ def classify_tracks():
                 from app.services.session_service import save_session
                 from app import get_current_folder_path
                 save_session(track_store, get_current_folder_path())
-            except Exception as e:
+            except Exception:
                 logger.exception("Session save failed after classification")
             _classify_lock.release()
 
