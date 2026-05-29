@@ -205,27 +205,34 @@ class TestStaticFiles:
         )
 
     def test_js_has_no_obvious_syntax_errors(self):
-        """JS file should not have obvious issues like 'undefined' string comparisons."""
-        js_path = os.path.join(
-            os.path.dirname(__file__), "..", "app", "static", "app.js"
+        """JS modules should not have obvious issues."""
+        modules_dir = os.path.join(
+            os.path.dirname(__file__), "..", "app", "static", "modules"
         )
-        if not os.path.exists(js_path):
-            pytest.skip("JS file not found")
 
-        with open(js_path) as f:
-            content = f.read()
+        classify_js = os.path.join(modules_dir, "classify.js")
+        if not os.path.exists(classify_js):
+            pytest.skip("classify.js not found")
+        with open(classify_js) as f:
+            classify_content = f.read()
+
+        tracks_js = os.path.join(modules_dir, "tracks.js")
+        if not os.path.exists(tracks_js):
+            pytest.skip("tracks.js not found")
+        with open(tracks_js) as f:
+            tracks_content = f.read()
 
         # Check that handleBulkEdit sends track_paths (not file_paths)
-        assert "track_paths: Array.from(window.selectedTracks)" in content, (
+        assert "track_paths: Array.from(window.selectedTracks)" in classify_content, (
             "handleBulkEdit must send 'track_paths' not 'file_paths'"
         )
 
         # Check that confidence uses 'confidence-mid' (not 'confidence-medium')
-        assert "'confidence-mid'" in content, (
+        assert "'confidence-mid'" in tracks_content, (
             "getConfidenceBadgeClass must return 'confidence-mid'"
         )
         # Make sure the old buggy string is gone
-        assert "'confidence-medium'" not in content, (
+        assert "'confidence-medium'" not in tracks_content, (
             "'confidence-medium' should have been renamed to 'confidence-mid'"
         )
 
