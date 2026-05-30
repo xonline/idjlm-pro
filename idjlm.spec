@@ -1,6 +1,16 @@
 # idjlm.spec
 import sys
+import platform
 from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules
+
+# Stable extraction dir: PyInstaller reuses extracted files when dir exists with matching CRC.
+# runtime_tmpdir=None (default) creates a NEW temp dir every launch -> 15-20s startup every time.
+if platform.system() == 'Darwin':
+    _runtime_tmpdir = '/tmp/.idjlm-runtime'  # persists across launches; survives reboots on macOS
+elif platform.system() == 'Windows':
+    _runtime_tmpdir = None  # Windows stable-dir needs a user-writable path without USERPROFILE expansion
+else:
+    _runtime_tmpdir = '/tmp/.idjlm-runtime'
 
 block_cipher = None
 
@@ -66,6 +76,6 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    runtime_tmpdir=None,
+    runtime_tmpdir=_runtime_tmpdir,
     console=True,
 )

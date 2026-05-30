@@ -18,6 +18,11 @@ const FLASK_TIMEOUT_SECS: u64 = 90;
 /// Shared handle to the Flask child process so we can kill it on app exit.
 struct FlaskProcess(Arc<Mutex<Option<Child>>>);
 
+/// Check if something is ALREADY bound to FLASK_PORT before we launch (port conflict).
+fn port_already_in_use() -> bool {
+    TcpStream::connect(format!("127.0.0.1:{}", FLASK_PORT)).is_ok()
+}
+
 /// Poll TCP connect to 127.0.0.1:FLASK_PORT until successful or timeout.
 fn wait_for_flask(timeout: Duration) -> bool {
     let deadline = Instant::now() + timeout;
@@ -162,6 +167,15 @@ border-radius:2px;animation:slide 1.8s ease-in-out infinite;}
 
             // Spawn sidecar in a background thread; navigate window once ready
             thread::spawn(move || {
+                // Fail fast if port is already in use — don't wait 90s for timeout
+                if port_already_in_use() {
+                    show_splash_error(
+                        &window,
+                        &format!("Port {} is already in use. Quit another app using that port and relaunch.", FLASK_PORT),
+                    );
+                    return;
+                }
+
                 let sidecar_path = find_sidecar(&app_handle);
 
                 let child = Command::new(&sidecar_path)
@@ -193,7 +207,7 @@ border-radius:2px;animation:slide 1.8s ease-in-out infinite;}
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Kill Flask when the main window closes
+            // Kill Flask when the main window closes (covers normal close)
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 if let Some(state) = window.try_state::<FlaskProcess>() {
                     if let Ok(mut guard) = state.0.lock() {
@@ -205,6 +219,18 @@ border-radius:2px;animation:slide 1.8s ease-in-out infinite;}
             }
         })
         .invoke_handler(tauri::generate_handler![pick_folder])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // Also kill Flask on Cmd+Q / force-quit (ExitRequested fires before process exit)
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                if let Some(state) = app_handle.try_state::<FlaskProcess>() {
+                    if let Ok(mut guard) = state.0.lock() {
+                        if let Some(mut child) = guard.take() {
+                            let _ = child.kill();
+                        }
+                    }
+                }
+            }
+        });
 }
