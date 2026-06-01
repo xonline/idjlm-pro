@@ -2,6 +2,9 @@
 // Tracks Tab
 // ============================================================================
 
+// Module-level: tracks last-clicked row index for shift-click range selection
+let lastClickedRowIdx = null;
+
 function initTracksTab() {
   const filterGenre = document.getElementById('filter-genre');
   const filterStatus = document.getElementById('filter-status');
@@ -151,6 +154,7 @@ function renderTracks() {
   const sorted = sortTracks(filtered);
 
   tbody.innerHTML = '';
+  lastClickedRowIdx = null;
 
   // Reset to page 1 when filter/sort changes
   window.currentPage = 1;
@@ -190,7 +194,53 @@ function renderTracks() {
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.dataset.filePath = track.file_path;
-    checkbox.addEventListener('click', (e) => e.stopPropagation());
+
+    // Re-apply row-selected if this track is already in selectedTracks
+    if (window.selectedTracks && window.selectedTracks.has(track.file_path)) {
+      checkbox.checked = true;
+      row.classList.add('row-selected');
+    }
+
+    checkbox.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const tbody = document.getElementById('tracks-tbody');
+      const allRows = Array.from(tbody.querySelectorAll('tr'));
+      const currentIdx = allRows.indexOf(row);
+
+      if (e.shiftKey && lastClickedRowIdx !== null) {
+        // Range selection: select all rows between lastClickedRowIdx and currentIdx
+        const lo = Math.min(lastClickedRowIdx, currentIdx);
+        const hi = Math.max(lastClickedRowIdx, currentIdx);
+        const targetChecked = checkbox.checked; // the checkbox was just toggled by the click
+        for (let i = lo; i <= hi; i++) {
+          const r = allRows[i];
+          if (!r) continue;
+          const cb = r.querySelector('input[type="checkbox"]');
+          if (!cb) continue;
+          cb.checked = targetChecked;
+          if (targetChecked) {
+            window.selectedTracks.add(cb.dataset.filePath);
+            r.classList.add('row-selected');
+          } else {
+            window.selectedTracks.delete(cb.dataset.filePath);
+            r.classList.remove('row-selected');
+          }
+        }
+        // Do NOT update lastClickedRowIdx after shift-click
+      } else {
+        // Normal single click
+        if (checkbox.checked) {
+          window.selectedTracks.add(track.file_path);
+          row.classList.add('row-selected');
+        } else {
+          window.selectedTracks.delete(track.file_path);
+          row.classList.remove('row-selected');
+        }
+        lastClickedRowIdx = currentIdx;
+      }
+      updateBulkActionsBar();
+    });
+
     tdCheckbox.appendChild(checkbox);
     row.appendChild(tdCheckbox);
 
@@ -416,6 +466,17 @@ function renderTracks() {
     });
     tdAction.appendChild(btnEdit);
     row.appendChild(tdAction);
+
+    // Row click (anywhere except buttons/checkboxes) toggles selection
+    row.addEventListener('click', (e) => {
+      // Ignore clicks on buttons, inputs, and other interactive elements
+      if (e.target.closest('button') || e.target.closest('input')) return;
+      const cb = row.querySelector('input[type="checkbox"]');
+      if (!cb) return;
+      cb.checked = !cb.checked;
+      // Dispatch a synthetic click so the checkbox handler runs (handles shift, range, selectedTracks, etc.)
+      cb.dispatchEvent(new MouseEvent('click', { bubbles: false, shiftKey: e.shiftKey }));
+    });
 
     tbody.appendChild(row);
   });

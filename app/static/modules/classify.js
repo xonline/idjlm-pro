@@ -20,10 +20,13 @@ function initBulkSelectFeature() {
 
   trackTableBody.addEventListener('change', (e) => {
     if (e.target.type === 'checkbox') {
+      const tr = e.target.closest('tr');
       if (e.target.checked) {
         window.selectedTracks.add(e.target.dataset.filePath);
+        if (tr) tr.classList.add('row-selected');
       } else {
         window.selectedTracks.delete(e.target.dataset.filePath);
+        if (tr) tr.classList.remove('row-selected');
       }
       updateBulkActionsBar();
     }

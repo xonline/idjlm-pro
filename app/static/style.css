@@ -2840,6 +2840,14 @@ body.light .taxonomy-subgenres {
   cursor: pointer;
 }
 
+/* Row selection highlight (shift-click range select) */
+tr.row-selected {
+  background: rgba(99,102,241,0.10) !important;
+}
+tr.row-selected:hover {
+  background: rgba(99,102,241,0.16) !important;
+}
+
 /* ============================================================================
    Sync Button with Tooltip
    ============================================================================ */
