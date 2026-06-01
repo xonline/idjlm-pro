@@ -438,11 +438,13 @@ def analyze_track(track: Track) -> Track:
                 dance_min, dance_max = 110, 145
             elif "kizomba" in genre or "zouk" in genre:
                 dance_min, dance_max = 80, 110
+            elif "cha cha" in genre or "chacha" in genre:
+                dance_min, dance_max = 108, 132  # natural range — no 4/3 correction
             elif "reggaeton" in genre:
                 dance_min, dance_max = 90, 110
             elif "merengue" in genre:
                 dance_min, dance_max = 150, 170
-            else:  # Salsa, Cha Cha, default — librosa detects double for salsa
+            else:  # Salsa, son, timba — clave causes 4/3 over-detection
                 dance_min, dance_max = 75, 110
 
             # If raw BPM is roughly double the dance range, halve it
