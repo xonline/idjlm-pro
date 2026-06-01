@@ -4,6 +4,25 @@
 
 // Module-level: tracks last-clicked row index for shift-click range selection
 let lastClickedRowIdx = null;
+let keyCompatTrack = null; // currently selected for key compatibility display
+
+function getCamelotCompatibleKeys(key) {
+  if (!key) return new Set();
+  // Camelot wheel: keys A (minor) and B (major), 1-12
+  const match = key.match(/^(\d+)([AB])$/i);
+  if (!match) return new Set();
+  const num = parseInt(match[1]);
+  const mode = match[2].toUpperCase();
+  const compatible = new Set();
+  // Same key (exact)
+  compatible.add(key.toUpperCase());
+  // +-1 on same mode (adjacent on wheel)
+  compatible.add(`${((num - 2 + 12) % 12) + 1}${mode}`);
+  compatible.add(`${(num % 12) + 1}${mode}`);
+  // Relative (same number, opposite mode)
+  compatible.add(`${num}${mode === 'A' ? 'B' : 'A'}`);
+  return compatible;
+}
 
 function initTracksTab() {
   const filterGenre = document.getElementById('filter-genre');
@@ -20,6 +39,11 @@ function initTracksTab() {
   filterGenre.addEventListener('change', renderTracks);
   filterStatus.addEventListener('change', renderTracks);
   // Search input — handled by initSearchFeature() to avoid duplicate listeners
+
+  const filterBpmMin = document.getElementById('filter-bpm-min');
+  const filterBpmMax = document.getElementById('filter-bpm-max');
+  if (filterBpmMin) filterBpmMin.addEventListener('input', renderTracks);
+  if (filterBpmMax) filterBpmMax.addEventListener('input', renderTracks);
 
   // Sortable headers
   document.querySelectorAll('.tracks-table th.sortable').forEach(header => {
@@ -72,6 +96,24 @@ function getFilteredTracks() {
   const statusFilter = statusEl ? statusEl.value : '';
   if (statusFilter) {
     filtered = filtered.filter(t => t.review_status === statusFilter);
+  }
+
+  // BPM range filter
+  const bpmMinEl = document.getElementById('filter-bpm-min');
+  const bpmMaxEl = document.getElementById('filter-bpm-max');
+  const bpmMin = bpmMinEl ? parseFloat(bpmMinEl.value) : NaN;
+  const bpmMax = bpmMaxEl ? parseFloat(bpmMaxEl.value) : NaN;
+  if (!isNaN(bpmMin)) {
+    filtered = filtered.filter(t => {
+      const bpm = parseFloat(t.final_bpm) || parseFloat(t.analyzed_bpm) || 0;
+      return bpm >= bpmMin;
+    });
+  }
+  if (!isNaN(bpmMax)) {
+    filtered = filtered.filter(t => {
+      const bpm = parseFloat(t.final_bpm) || parseFloat(t.analyzed_bpm) || 0;
+      return bpm <= bpmMax;
+    });
   }
 
   return filtered;
@@ -474,6 +516,20 @@ function renderTracks() {
       showTrackContextMenu(track, e.clientX, e.clientY);
     });
 
+    // Single-click: key compatibility highlight (not on checkbox/button/shift)
+    row.addEventListener('click', (e) => {
+      if (e.target.type === 'checkbox' || e.target.closest('.approve-btn, .col-approve, .col-action')) return;
+      if (e.shiftKey) return;
+      // Don't intercept button clicks
+      if (e.target.closest('button')) return;
+      if (keyCompatTrack && keyCompatTrack.file_path === track.file_path) {
+        keyCompatTrack = null;
+      } else {
+        keyCompatTrack = track;
+      }
+      renderTracks();
+    });
+
     // Row click (anywhere except buttons/checkboxes) toggles selection
     row.addEventListener('click', (e) => {
       // Ignore clicks on buttons, inputs, and other interactive elements
@@ -484,6 +540,20 @@ function renderTracks() {
       // Dispatch a synthetic click so the checkbox handler runs (handles shift, range, selectedTracks, etc.)
       cb.dispatchEvent(new MouseEvent('click', { bubbles: false, shiftKey: e.shiftKey }));
     });
+
+    // Apply key compatibility highlight classes if a track is active
+    if (keyCompatTrack) {
+      const compatKeys = getCamelotCompatibleKeys(keyCompatTrack.final_key || keyCompatTrack.estimated_key);
+      const trackKey = (track.final_key || track.estimated_key || '').toUpperCase();
+      const isSelf = track.file_path === keyCompatTrack.file_path;
+      if (isSelf) {
+        row.classList.add('key-compat-self');
+      } else if (trackKey && compatKeys.has(trackKey)) {
+        row.classList.add('key-compat-match');
+      } else {
+        row.classList.add('key-compat-dim');
+      }
+    }
 
     tbody.appendChild(row);
   });
@@ -644,7 +714,11 @@ function showTrackContextMenu(track, x, y) {
     { icon: '\u{1F3B5}', label: 'Play', action: () => playTrackInBrowser(track) },
     { icon: '\u270F\uFE0F', label: 'Edit Tags', action: () => openSingleTrackEdit(track) },
     { icon: '\u{1F4C1}', label: 'Show File Path', action: () => { showToast(track.file_path, 'info'); } },
-    { icon: '\u{1F504}', label: 'Re-classify', action: () => reclassifySingleTrack(track) },
+    { icon: '\u{1F504}', label: (() => {
+        const n = window.selectedTracks?.size || 0;
+        const inSel = window.selectedTracks?.has(track.file_path);
+        return (inSel && n > 1) ? `Re-classify ${n} tracks` : 'Re-classify';
+      })(), action: () => reclassifySingleTrack(track) },
   ];
 
   items.forEach(item => {
@@ -723,18 +797,22 @@ function openSingleTrackEdit(track) {
 }
 
 function reclassifySingleTrack(track) {
-  // Select just this track and open the reclassify modal
-  if (!window.selectedTracks) window.selectedTracks = new Set();
-  window.selectedTracks.clear();
-  window.selectedTracks.add(track.file_path);
-  // Update checkbox to reflect selection
-  const cb = document.querySelector('input[data-file-path="' + CSS.escape(track.file_path) + '"]');
-  if (cb) {
-    cb.checked = true;
-    const tr = cb.closest('tr');
-    if (tr) tr.classList.add('row-selected');
+  // If multiple tracks are selected AND the right-clicked track is in the selection,
+  // keep the full selection. Otherwise select just this track.
+  const inSelection = window.selectedTracks && window.selectedTracks.has(track.file_path);
+  const multiSelected = window.selectedTracks && window.selectedTracks.size > 1;
+  if (!(inSelection && multiSelected)) {
+    if (!window.selectedTracks) window.selectedTracks = new Set();
+    window.selectedTracks.clear();
+    window.selectedTracks.add(track.file_path);
+    const cb = document.querySelector('input[data-file-path="' + CSS.escape(track.file_path) + '"]');
+    if (cb) {
+      cb.checked = true;
+      const tr = cb.closest('tr');
+      if (tr) tr.classList.add('row-selected');
+    }
+    if (typeof updateBulkActionsBar === 'function') updateBulkActionsBar();
   }
-  if (typeof updateBulkActionsBar === 'function') updateBulkActionsBar();
   if (typeof showReclassifyModal === 'function') {
     showReclassifyModal();
   } else {

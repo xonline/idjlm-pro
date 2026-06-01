@@ -2869,6 +2869,21 @@ tr.row-selected:hover {
   background: rgba(99,102,241,0.16) !important;
 }
 
+/* Key compatibility highlighting */
+tr.key-compat-self {
+  background: rgba(251, 146, 60, 0.18) !important;
+  border-left: 3px solid #fb923c;
+}
+tr.key-compat-match {
+  background: rgba(34, 197, 94, 0.10) !important;
+  border-left: 3px solid rgba(34, 197, 94, 0.6);
+}
+tr.key-compat-dim {
+  opacity: 0.45;
+}
+tr.key-compat-self:hover { background: rgba(251, 146, 60, 0.25) !important; }
+tr.key-compat-match:hover { background: rgba(34, 197, 94, 0.18) !important; }
+
 /* ============================================================================
    Sync Button with Tooltip
    ============================================================================ */
@@ -3422,6 +3437,20 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
 
 .filter-select:focus {
   border-color: var(--acc);
+}
+
+.filter-input-sm {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  padding: 6px 8px;
+  width: 80px;
+}
+.filter-input-sm:focus {
+  outline: none;
+  border-color: var(--accent-purple, #8b5cf6);
 }
 
 /* General input text reset — covers folder-input, form inputs, Settings inputs */
