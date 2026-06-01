@@ -1,3 +1,4 @@
+import re as _re
 import numpy as np
 import librosa
 
@@ -253,8 +254,6 @@ _KEY_NAME_TO_CAMELOT = {
     ('Gb', True): '10A', ('A#', True): '3A', ('D#', True): '6A',
     ('C#', True): '12A', ('F#', True): '11A', ('G#', True): '1A',
 }
-
-import re as _re
 
 
 def _normalize_key_to_camelot(raw_key: str):
