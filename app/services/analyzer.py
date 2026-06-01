@@ -235,6 +235,105 @@ def _compute_lufs(y: np.ndarray, sr: int) -> tuple:
         return None, None, None
 
 
+
+# Standard music key → Camelot wheel mapping for _normalize_key_to_camelot
+_KEY_NAME_TO_CAMELOT = {
+    # Major keys
+    ('C', False): '8B',  ('D', False): '10B', ('E', False): '12B',
+    ('F', False): '7B',  ('G', False): '9B',  ('A', False): '11B',
+    ('B', False): '1B',  ('Db', False): '3B', ('Eb', False): '5B',
+    ('Gb', False): '2B', ('Ab', False): '4B', ('Bb', False): '6B',
+    ('C#', False): '3B', ('D#', False): '5B', ('F#', False): '2B',
+    ('G#', False): '4B', ('A#', False): '6B',
+    # Minor keys
+    ('A', True): '8A',  ('B', True): '2A',  ('C', True): '5A',
+    ('D', True): '7A',  ('E', True): '9A',  ('F', True): '4A',
+    ('G', True): '11A', ('Ab', True): '1A', ('Bb', True): '3A',
+    ('Db', True): '12A', ('Eb', True): '6A',
+    ('Gb', True): '10A', ('A#', True): '3A', ('D#', True): '6A',
+    ('C#', True): '12A', ('F#', True): '11A', ('G#', True): '1A',
+}
+
+import re as _re
+
+
+def _normalize_key_to_camelot(raw_key: str):
+    """
+    Convert various key notations to Camelot format (e.g. "8A", "11B").
+    Handles:
+    - Already Camelot: "8A", "11B" — returned as-is
+    - OpenKey: "6m" / "6d" — "6A" / "6B"
+    - Standard: "C major", "Am", "F# minor", "Ebm" etc.
+    Returns None if unrecognizable.
+    """
+    if not raw_key:
+        return None
+    s = raw_key.strip()
+
+    # Already Camelot notation (1-12 + A/B)
+    if _re.match(r'^\d{1,2}[ABab]$', s):
+        return s[:-1] + s[-1].upper()
+
+    # OpenKey: "6m" (minor=A) / "6d" (major=B)
+    m = _re.match(r'^(\d{1,2})([mMdD])$', s)
+    if m:
+        num, mode = m.group(1), m.group(2).lower()
+        return f"{num}A" if mode == 'm' else f"{num}B"
+
+    # Try "C# minor", "Bb Major" with full mode word
+    m = _re.match(r'^([A-Ga-g][#b]?)\s+(major|minor|maj|min)\s*$', s, _re.IGNORECASE)
+    if m:
+        root_raw, mode_word = m.group(1), m.group(2).lower()
+        is_minor = mode_word in ('minor', 'min')
+        root = root_raw[0].upper() + root_raw[1:] if len(root_raw) > 1 else root_raw.upper()
+        return _KEY_NAME_TO_CAMELOT.get((root, is_minor))
+
+    # Try compact: "C", "Am", "C#m", "Ebm", "F#"
+    m = _re.match(r'^([A-Ga-g])([#b]?)(m|M)?$', s)
+    if m:
+        note, acc, mode_char = m.group(1).upper(), m.group(2), m.group(3) or ''
+        root = note + acc
+        is_minor = mode_char.lower() == 'm'
+        return _KEY_NAME_TO_CAMELOT.get((root, is_minor))
+
+    return None
+
+
+def _read_tags_bpm_key(file_path: str):
+    """
+    Read BPM and key from existing audio tags via mutagen.
+    Returns (bpm_float, camelot_key_str) or (None, None).
+    """
+    try:
+        import mutagen
+        audio = mutagen.File(file_path, easy=True)
+        if audio is None:
+            return None, None
+
+        bpm = None
+        key = None
+
+        bpm_tag = audio.get('bpm') or audio.get('tempo')
+        key_tag = audio.get('initialkey') or audio.get('key')
+
+        if bpm_tag:
+            try:
+                bpm = round(float(str(bpm_tag[0]).strip()), 1)
+                if bpm < 40 or bpm > 300:  # sanity check
+                    bpm = None
+            except (ValueError, IndexError):
+                bpm = None
+
+        if key_tag:
+            raw_key = str(key_tag[0]).strip()
+            if raw_key:
+                key = _normalize_key_to_camelot(raw_key)
+
+        return bpm, key
+    except Exception:
+        return None, None
+
+
 def analyze_track(track: Track) -> Track:
     """
     Analyze audio features: BPM, key (Camelot), energy (1-10), LUFS loudness.
@@ -242,65 +341,100 @@ def analyze_track(track: Track) -> Track:
                analyzed_lufs_range, analyzed_true_peak, analysis_done=True
     Applies BPM correction: if > 160, halve it; if < 70, double it.
     Sets bpm_corrected=True if a correction was applied.
+    Sets bpm_from_tags=True when BPM was read from existing file tags.
     Sets track.error on exception.
+
+    Optimization: reads existing BPM/key tags first (mutagen). If both are
+    present and valid, skips librosa BPM+key detection entirely. LUFS/energy
+    analysis always runs regardless.
     """
     if track.error:
         return track
 
     try:
-        # Load audio
-        y, sr = librosa.load(track.file_path, sr=22050, mono=True)
+        # ------------------------------------------------------------------ #
+        # Step 1: Try to read existing BPM / key from file tags               #
+        # ------------------------------------------------------------------ #
+        existing_bpm, existing_key = _read_tags_bpm_key(track.file_path)
 
-        # BPM detection
-        onset_env = librosa.onset.onset_strength(y=y, sr=sr)
-        bpm, _ = librosa.beat.beat_track(y=y, sr=sr, onset_envelope=onset_env)
-        # librosa returns ndarray; handle empty, single, and multi-element arrays
-        bpm_arr = np.asarray(bpm)
-        if bpm_arr.size == 0:
-            raise ValueError("No BPM detected — audio may be silent or corrupt")
-        track.analyzed_bpm = round(float(bpm_arr.item() if bpm_arr.ndim > 0 else bpm_arr), 1)
+        skip_bpm = existing_bpm is not None
+        skip_key = existing_key is not None
+        skip_librosa_load = skip_bpm and skip_key
 
-        # BPM confidence — based on onset strength peak clarity
-        onset_ratio = np.max(onset_env) / (np.mean(onset_env) + 1e-6)
-        track.bpm_confidence = min(100, int(onset_ratio * 15))
+        # ------------------------------------------------------------------ #
+        # Step 2: Load audio (required for energy/LUFS/waveform, and for any #
+        #         BPM or key that couldn't be read from tags)                 #
+        # ------------------------------------------------------------------ #
+        y = None
+        sr = None
+        if not skip_librosa_load:
+            y, sr = librosa.load(track.file_path, sr=22050, mono=True)
 
-        # Genre-aware BPM half/double correction for Latin dance tempos
-        # librosa detects the raw beat frequency, which for salsa is typically
-        # double what DJs think of as the BPM (e.g. 189 detected → 95 dance BPM)
-        bpm_raw = track.analyzed_bpm
-        genre = (track.proposed_genre or track.existing_genre or "").lower()
+        # ------------------------------------------------------------------ #
+        # Step 3: BPM — use tag value if available, else run librosa          #
+        # ------------------------------------------------------------------ #
+        if skip_bpm:
+            track.analyzed_bpm = existing_bpm
+            track.bpm_from_tags = True
+            track.bpm_confidence = 100  # tag-sourced is authoritative
+        else:
+            onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+            bpm, _ = librosa.beat.beat_track(y=y, sr=sr, onset_envelope=onset_env)
+            # librosa returns ndarray; handle empty, single, and multi-element arrays
+            bpm_arr = np.asarray(bpm)
+            if bpm_arr.size == 0:
+                raise ValueError("No BPM detected — audio may be silent or corrupt")
+            track.analyzed_bpm = round(float(bpm_arr.item() if bpm_arr.ndim > 0 else bpm_arr), 1)
 
-        # Expected DJ dance BPM ranges (what the final result should be)
-        if "bachata" in genre:
-            dance_min, dance_max = 110, 145
-        elif "kizomba" in genre or "zouk" in genre:
-            dance_min, dance_max = 80, 110
-        elif "reggaeton" in genre:
-            dance_min, dance_max = 90, 110
-        elif "merengue" in genre:
-            dance_min, dance_max = 150, 170
-        else:  # Salsa, Cha Cha, default — librosa detects double for salsa
-            dance_min, dance_max = 75, 110
+            # BPM confidence — based on onset strength peak clarity
+            onset_ratio = np.max(onset_env) / (np.mean(onset_env) + 1e-6)
+            track.bpm_confidence = min(100, int(onset_ratio * 15))
 
-        # If raw BPM is roughly double the dance range, halve it
-        if bpm_raw > dance_max * 1.5:
-            track.analyzed_bpm = bpm_raw / 2
-            track.bpm_corrected = True
-        # If raw BPM is roughly half the dance range, double it
-        elif bpm_raw < dance_min * 0.7:
-            track.analyzed_bpm = bpm_raw * 2
-            track.bpm_corrected = True
+            # Genre-aware BPM half/double correction for Latin dance tempos
+            # librosa detects the raw beat frequency, which for salsa is typically
+            # double what DJs think of as the BPM (e.g. 189 detected → 95 dance BPM)
+            bpm_raw = track.analyzed_bpm
+            genre = (track.proposed_genre or track.existing_genre or "").lower()
 
-        # Fallback: absolute correction for edge cases
-        if not track.bpm_corrected:
-            if track.analyzed_bpm > 200:
-                track.analyzed_bpm = track.analyzed_bpm / 2
+            # Expected DJ dance BPM ranges (what the final result should be)
+            if "bachata" in genre:
+                dance_min, dance_max = 110, 145
+            elif "kizomba" in genre or "zouk" in genre:
+                dance_min, dance_max = 80, 110
+            elif "reggaeton" in genre:
+                dance_min, dance_max = 90, 110
+            elif "merengue" in genre:
+                dance_min, dance_max = 150, 170
+            else:  # Salsa, Cha Cha, default — librosa detects double for salsa
+                dance_min, dance_max = 75, 110
+
+            # If raw BPM is roughly double the dance range, halve it
+            if bpm_raw > dance_max * 1.5:
+                track.analyzed_bpm = bpm_raw / 2
                 track.bpm_corrected = True
-            elif track.analyzed_bpm < 50:
-                track.analyzed_bpm = track.analyzed_bpm * 2
+            # If raw BPM is roughly half the dance range, double it
+            elif bpm_raw < dance_min * 0.7:
+                track.analyzed_bpm = bpm_raw * 2
                 track.bpm_corrected = True
 
-        # Tempo category based on genre + BPM
+            # Check 4/3 correction (librosa sometimes detects at 4/3 speed for syncopated Latin rhythms)
+            # e.g. salsa 112 * 0.75 = 84 BPM (expected ~85)
+            if not track.bpm_corrected and bpm_raw > dance_max:
+                candidate_4_3 = bpm_raw * 0.75
+                if dance_min * 0.9 <= candidate_4_3 <= dance_max * 1.1:
+                    track.analyzed_bpm = round(candidate_4_3, 1)
+                    track.bpm_corrected = True
+
+            # Fallback: absolute correction for edge cases
+            if not track.bpm_corrected:
+                if track.analyzed_bpm > 200:
+                    track.analyzed_bpm = track.analyzed_bpm / 2
+                    track.bpm_corrected = True
+                elif track.analyzed_bpm < 50:
+                    track.analyzed_bpm = track.analyzed_bpm * 2
+                    track.bpm_corrected = True
+
+        # Tempo category based on genre + BPM (always derived from final BPM)
         bpm = track.analyzed_bpm
         genre = (track.proposed_genre or track.existing_genre or "").lower()
 
@@ -324,9 +458,23 @@ def analyze_track(track: Track) -> Track:
                 else: tempo_cat = "fast"
             track.tempo_category = tempo_cat
 
-        # Key detection via chroma features
-        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
-        track.analyzed_key, track.key_confidence = _detect_key_from_chroma(chroma)
+        # ------------------------------------------------------------------ #
+        # Step 4: Key — use tag value if available, else run librosa chroma   #
+        # ------------------------------------------------------------------ #
+        if skip_key:
+            track.analyzed_key = existing_key
+            track.key_confidence = 100  # tag-sourced is authoritative
+        else:
+            chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+            track.analyzed_key, track.key_confidence = _detect_key_from_chroma(chroma)
+
+        # ------------------------------------------------------------------ #
+        # Step 5: Energy, vocals, LUFS — always run (these are our value-add  #
+        #         and not stored in standard tags)                             #
+        # ------------------------------------------------------------------ #
+        # If we skipped librosa.load above, load now for energy/vocal/LUFS
+        if y is None:
+            y, sr = librosa.load(track.file_path, sr=22050, mono=True)
 
         # Energy score
         # Compute RMS directly from waveform (compatible with all librosa versions)

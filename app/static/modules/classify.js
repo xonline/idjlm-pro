@@ -81,12 +81,13 @@ function updateBulkActionsBar() {
   if (window.selectedTracks.size > 0) {
     bar.style.display = 'flex';
     bar.innerHTML = `
-      <span class="bulk-actions-count">${window.selectedTracks.size} selected</span>
+      <span class="bulk-actions-count">${window.selectedTracks.size} tracks selected</span>
       <button class="btn btn-accent btn-small" id="bulk-analyze-btn">Analyse</button>
       <button class="btn btn-primary btn-small" id="bulk-edit-btn">Bulk Edit</button>
-      <button class="btn btn-secondary btn-small" id="bulk-export-btn">Export</button>
+      <button class="btn btn-accent btn-small" id="bulk-approve-selected-btn">Approve All Selected</button>
       <button class="btn btn-secondary btn-small" id="bulk-add-setlist-btn">Add to Setlist</button>
-      <button class="btn btn-warning btn-small" id="bulk-reclassify-btn">Re-classify</button>
+      <button class="btn btn-outline btn-small" id="bulk-export-btn">Export</button>
+      <button class="btn btn-warning btn-small" id="bulk-reclassify-btn">Re-classify Selected</button>
     `;
 
     const bulkAnalyzeBtn = document.getElementById('bulk-analyze-btn');
@@ -139,6 +140,35 @@ function updateBulkActionsBar() {
     if (bulkReclassifyBtn) {
       bulkReclassifyBtn.addEventListener('click', () => {
         showReclassifyModal();
+      });
+    }
+
+    const bulkApproveSelectedBtn = document.getElementById('bulk-approve-selected-btn');
+    if (bulkApproveSelectedBtn) {
+      bulkApproveSelectedBtn.addEventListener('click', async () => {
+        const paths = Array.from(window.selectedTracks);
+        if (!paths.length) return;
+        bulkApproveSelectedBtn.disabled = true;
+        try {
+          const result = await apiFetch('/api/review/bulk-approve', {
+            method: 'POST',
+            body: JSON.stringify({ track_paths: paths })
+          });
+          const count = result && result.approved !== undefined ? result.approved : paths.length;
+          showToast(`Approved ${count} track${count !== 1 ? 's' : ''}`, 'success');
+          apiFetch('/api/tracks').then(d => {
+            window.tracks = d.tracks || [];
+            window.searchResults = null;
+            renderTracks();
+            updateStats();
+          });
+          window.selectedTracks.clear();
+          updateBulkActionsBar();
+          updateToolbarButtonStates();
+        } catch (e) {
+          showToast('Approve failed: ' + e.message, 'error');
+          bulkApproveSelectedBtn.disabled = false;
+        }
       });
     }
   } else {

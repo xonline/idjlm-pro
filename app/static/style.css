@@ -18,6 +18,7 @@
   --t3:  #8888a8;   /*  4.7:1 contrast */
   --t4:  #55556a;   /* decorative only  */
   /* Semantic aliases — used by legacy CSS below during migration */
+  --font-scale: 1;
   --bg-page:          var(--bg0);
   --bg-panel:         var(--bg1);
   --bg-subtle:        var(--bg2);
@@ -204,6 +205,7 @@ html, body {
 
 body {
   font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: calc(13px * var(--font-scale));
   background-color: var(--bg-page);
   color: var(--text-primary);
   line-height: 1.5;
@@ -410,6 +412,37 @@ body {
   border-color: var(--acc);
   color: var(--t1);
 }
+
+/* ─── Settings: Font Size Adjuster ─────────────────────────────────────────── */
+.font-size-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.font-size-btn {
+  min-width: 36px;
+  padding: 5px 10px;
+  border: 1px solid var(--ln);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--t2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+
+.font-size-btn:hover {
+  border-color: var(--t3);
+  color: var(--t1);
+}
+
+.font-size-btn.active {
+  border-color: var(--acc);
+  color: var(--acc);
+  background: var(--acc-dim);
+}
+
 
 .theme-option input,
 .accent-option input {
@@ -861,7 +894,7 @@ textarea.input-text {
 .tracks-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: calc(12px * var(--font-scale));
 }
 
 .tracks-table thead th {
@@ -2000,19 +2033,7 @@ body.light .taxonomy-subgenres {
   text-overflow: ellipsis;
 }
 
-.player-waveform-wrap {
-  flex: 1;
-  position: relative;
-  height: 40px;
-  min-width: 0;
-}
 
-.player-waveform {
-  width: 100%;
-  height: 100%;
-  display: block;
-  border-radius: 4px;
-}
 
 .player-seek-overlay {
   position: absolute;
