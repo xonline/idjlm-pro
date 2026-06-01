@@ -467,6 +467,13 @@ function renderTracks() {
     tdAction.appendChild(btnEdit);
     row.appendChild(tdAction);
 
+    // Double-click: show context menu
+    row.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showTrackContextMenu(track, e.clientX, e.clientY);
+    });
+
     // Row click (anywhere except buttons/checkboxes) toggles selection
     row.addEventListener('click', (e) => {
       // Ignore clicks on buttons, inputs, and other interactive elements
@@ -616,3 +623,121 @@ function toggleAudioPlay(btn, filePath) {
   }
 }
 
+
+// ============================================================================
+// Track Context Menu (double-click)
+// ============================================================================
+
+function showTrackContextMenu(track, x, y) {
+  // Remove any existing menu
+  const existing = document.getElementById('track-ctx-menu');
+  if (existing) existing.remove();
+
+  const menu = document.createElement('div');
+  menu.id = 'track-ctx-menu';
+  menu.style.cssText = `position:fixed;left:${x}px;top:${y}px;z-index:9999;
+    background:var(--bg-secondary);border:1px solid var(--border-color);
+    border-radius:8px;padding:4px 0;min-width:180px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.4);font-size:13px;`;
+
+  const items = [
+    { icon: '\u{1F3B5}', label: 'Play', action: () => playTrackInBrowser(track) },
+    { icon: '\u270F\uFE0F', label: 'Edit Tags', action: () => openSingleTrackEdit(track) },
+    { icon: '\u{1F4C1}', label: 'Show File Path', action: () => { showToast(track.file_path, 'info'); } },
+    { icon: '\u{1F504}', label: 'Re-classify', action: () => reclassifySingleTrack(track) },
+  ];
+
+  items.forEach(item => {
+    const el = document.createElement('div');
+    el.style.cssText = 'padding:8px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;';
+    el.innerHTML = '<span>' + item.icon + '</span><span>' + item.label + '</span>';
+    el.addEventListener('mouseenter', () => el.style.background = 'var(--bg-hover, rgba(255,255,255,0.06))');
+    el.addEventListener('mouseleave', () => el.style.background = '');
+    el.addEventListener('click', () => { menu.remove(); item.action(); });
+    menu.appendChild(el);
+  });
+
+  document.body.appendChild(menu);
+
+  // Reposition if menu would overflow viewport
+  requestAnimationFrame(() => {
+    const rect = menu.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+      menu.style.left = Math.max(0, x - rect.width) + 'px';
+    }
+    if (rect.bottom > window.innerHeight) {
+      menu.style.top = Math.max(0, y - rect.height) + 'px';
+    }
+  });
+
+  // Dismiss on click outside
+  setTimeout(() => {
+    document.addEventListener('click', () => menu.remove(), { once: true });
+  }, 0);
+}
+
+function playTrackInBrowser(track) {
+  // Remove existing player
+  const existing = document.getElementById('inline-audio-player');
+  if (existing) existing.remove();
+
+  const player = document.createElement('div');
+  player.id = 'inline-audio-player';
+  player.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9000;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:10px;padding:12px 16px;display:flex;flex-direction:column;gap:8px;box-shadow:0 4px 20px rgba(0,0,0,0.4);max-width:340px;';
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;gap:8px;';
+
+  const title = document.createElement('div');
+  title.style.cssText = 'font-size:12px;color:var(--text-secondary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+  const filename = track.file_path ? track.file_path.split('/').pop() : 'Unknown';
+  title.textContent = track.display_title || filename;
+
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'X';
+  closeBtn.style.cssText = 'background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px;flex-shrink:0;';
+  closeBtn.addEventListener('click', () => player.remove());
+
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+
+  const audio = document.createElement('audio');
+  audio.controls = true;
+  audio.style.cssText = 'width:100%;height:32px;';
+  // Use existing /api/audio route (audio_routes.py) which supports range requests
+  audio.src = '/api/audio?path=' + encodeURIComponent(track.file_path);
+
+  player.appendChild(header);
+  player.appendChild(audio);
+  document.body.appendChild(player);
+  audio.play().catch(() => {});
+}
+
+function openSingleTrackEdit(track) {
+  // Use openEditModal from editor.js (takes file_path)
+  if (typeof openEditModal === 'function') {
+    openEditModal(track.file_path);
+  } else {
+    showToast('Edit modal not available', 'error');
+  }
+}
+
+function reclassifySingleTrack(track) {
+  // Select just this track and open the reclassify modal
+  if (!window.selectedTracks) window.selectedTracks = new Set();
+  window.selectedTracks.clear();
+  window.selectedTracks.add(track.file_path);
+  // Update checkbox to reflect selection
+  const cb = document.querySelector('input[data-file-path="' + CSS.escape(track.file_path) + '"]');
+  if (cb) {
+    cb.checked = true;
+    const tr = cb.closest('tr');
+    if (tr) tr.classList.add('row-selected');
+  }
+  if (typeof updateBulkActionsBar === 'function') updateBulkActionsBar();
+  if (typeof showReclassifyModal === 'function') {
+    showReclassifyModal();
+  } else {
+    showToast('Re-classify modal not available', 'error');
+  }
+}
