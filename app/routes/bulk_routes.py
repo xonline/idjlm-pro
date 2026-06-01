@@ -45,7 +45,7 @@ def get_taxonomy():
     try:
         from app import get_taxonomy
 
-        return jsonify(get_taxonomy()), 200
+        return jsonify({"genres": get_taxonomy()}), 200
 
     except Exception as e:
         logger.exception("Error in bulk routes endpoint")
