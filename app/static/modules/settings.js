@@ -38,6 +38,9 @@ function initSettingsTab() {
 
   // Load settings on init
   loadSettings();
+
+  // Font size
+  initFontSize();
   loadLearningStats();
 
   // Reset learning button
@@ -413,3 +416,29 @@ function initThemeSwatches() {
   });
 }
 
+
+// ============================================================================
+// Font Size Adjuster
+// ============================================================================
+
+function initFontSize() {
+  const savedScale = localStorage.getItem('idjlm-font-scale');
+  if (savedScale) {
+    document.documentElement.style.setProperty('--font-scale', savedScale);
+    // Mark the matching button active
+    document.querySelectorAll('.font-size-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.scale === savedScale);
+    });
+  }
+
+  document.querySelectorAll('.font-size-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const scale = btn.dataset.scale;
+      document.documentElement.style.setProperty('--font-scale', scale);
+      localStorage.setItem('idjlm-font-scale', scale);
+      document.querySelectorAll('.font-size-btn').forEach(b => {
+        b.classList.toggle('active', b === btn);
+      });
+    });
+  });
+}

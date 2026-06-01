@@ -107,6 +107,9 @@ class Track:
     analyzed_lufs_range: Optional[float] = None    # LRA (10th-90th percentile)
     analyzed_true_peak: Optional[float] = None     # True Peak in dBFS
 
+    # Tag-sourced analysis
+    bpm_from_tags: bool = False                    # True if BPM was read from existing tags
+
     # Key accuracy
     key_mismatch: Optional[bool] = None       # True if analyzed_key differs significantly from final_key
     key_mismatch_detail: Optional[str] = None # e.g. "Stored: 8A, Detected: 7B"
