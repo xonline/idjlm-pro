@@ -36,7 +36,7 @@ function connectToProgress(opId, total, onProgress, onComplete, onError) {
 
 
 // Track detail panel
-function renderTrackWaveform(peaks) {
+function renderTrackWaveform(peaks, position = 0) {
   const canvas = document.getElementById('track-waveform-canvas');
   if (!canvas || !peaks || !peaks.length) return;
   // Use rAF to ensure canvas has rendered dimensions
@@ -57,6 +57,12 @@ function renderTrackWaveform(peaks) {
       ctx.fillStyle = `rgb(${r},${g},${b})`;
       ctx.fillRect(x, y, Math.max(1, barW - 0.5), barH);
     });
+    // Draw playhead
+    if (position > 0) {
+      const px = Math.floor(position * W);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fillRect(px - 1, 0, 2, H);
+    }
   });
 }
 
@@ -197,6 +203,46 @@ function openTrackDetail(track) {
   // Render high-resolution waveform if peaks data is available
   renderTrackWaveform(track.waveform_peaks);
 
+  // Playhead: update waveform as audio plays, seek on click
+  const waveCanvas = document.getElementById('track-waveform-canvas');
+  if (waveCanvas && track.waveform_peaks && track.waveform_peaks.length) {
+    // Use the floating audio player if open, or the audio element in the detail panel
+    function getAudioEl() {
+      const floating = document.getElementById('inline-audio-player');
+      if (floating) return floating.querySelector('audio');
+      return null;
+    }
+
+    let _waveRafId = null;
+    function animatePlayhead() {
+      const audio = getAudioEl();
+      if (audio && !audio.paused && audio.duration) {
+        renderTrackWaveform(track.waveform_peaks, audio.currentTime / audio.duration);
+      }
+      _waveRafId = requestAnimationFrame(animatePlayhead);
+    }
+    // Cancel any prior animation loop
+    if (window._waveRafId) cancelAnimationFrame(window._waveRafId);
+    window._waveRafId = null;
+    _waveRafId = requestAnimationFrame(animatePlayhead);
+    window._waveRafId = _waveRafId;
+
+    // Click to seek
+    waveCanvas.style.cursor = 'pointer';
+    const seekHandler = (e) => {
+      const rect = waveCanvas.getBoundingClientRect();
+      const ratio = (e.clientX - rect.left) / rect.width;
+      const audio = getAudioEl();
+      if (audio && audio.duration) {
+        audio.currentTime = ratio * audio.duration;
+      }
+    };
+    // Remove old listener if any, then add
+    waveCanvas.removeEventListener('click', waveCanvas._seekHandler);
+    waveCanvas._seekHandler = seekHandler;
+    waveCanvas.addEventListener('click', seekHandler);
+  }
+
   // Attach event listeners for track detail buttons
   const cueAnalysisBtn = panel.querySelector('[data-action="analyze-cue-points"]');
   const mixMatchesBtn = panel.querySelector('[data-action="find-mix-matches"]');
@@ -290,6 +336,12 @@ function closeTrackDetail() {
 
   if (overlay) overlay.style.display = 'none';
   if (panel) panel.style.display = 'none';
+
+  // Cancel playhead animation loop
+  if (window._waveRafId) {
+    cancelAnimationFrame(window._waveRafId);
+    window._waveRafId = null;
+  }
 }
 
 // Setlist builder
