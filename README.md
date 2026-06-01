@@ -178,23 +178,33 @@ Press `?` anytime to see the full reference.
 
 ## Version History
 
-### v3.2.0 — Latest
+### v4.1.0 — Latest
+- **BPM range filter** — filter library by BPM min/max in real time
+- **Key compatibility highlighting** — click a track to see Camelot-compatible matches (green) and the selected track (orange); everything else dims
+- **Waveform playhead** — live scrubbing line on the DJ waveform; click to seek
+- **Multi-select context menu** — right-click with N tracks selected → "Re-classify N tracks"
+- **Cha cha BPM fix** — cha cha no longer gets the salsa 4/3 correction
+
+### v4.0.0
+- **Real DJ waveform** — amplitude peak visualisation in the track detail panel (purple → cyan gradient)
+- **Double-click context menu** — Play, Edit Tags, Show File Path, Re-classify
+- **Shift-click range select** — Excel-style multi-row selection
+- **Font size adjuster** — S / M / L / XL presets in Settings → Display
+- **Auto-resume** — previous library loads automatically on startup (no onboarding on second launch)
+- **Skip re-analysis** — existing BPM/key tags read from file; librosa only runs when tags are missing
+- **Salsa 4/3 BPM correction** — fixes librosa over-detecting salsa at 112 when true BPM is 85
+
+### v3.5.0
+- JS modularisation — 7,462-line monolith split into 15 focused modules
+
+### v3.4.0
+- DeepSeek + Groq AI providers added
+- Multi-enricher (Deezer, Last.fm, Beatport) now runs during Classify phase
+
+### v3.2.0
 - **Test your AI keys** with one click — see response time instantly
 - **Undo after Write Tags** — one click restores your previous tags
-- **BPM transition ratings** in Set Planner — see where your risky mixes are
-- **Beatport integration** — fixed scraper, now more reliable
-
-### v3.1.0
-- Visual workflow stepper so you always know what stage you're at
-- Onboarding wizard for first-time users
-- Next Track Advisor — harmonic + BPM + energy matching
-- rekordbox library integration
-- Security hardening + automated testing
-
-### v3.0.0
-- 6 AI providers (was 4) — added OpenAI GPT + Qwen
-- 4 enrichment sources — Deezer, Last.fm, Beatport + Spotify
-- Multi-source enrichment chain — fills in missing metadata automatically
+- **BPM transition ratings** in Set Planner
 
 [See full changelog →](CHANGELOG.md)
 

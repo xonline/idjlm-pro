@@ -4,6 +4,35 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [4.1.0] — 2026-06-02
+
+### New Features
+- **BPM range filter** — Two number inputs in the library toolbar (BPM min / BPM max) filter the track list in real time. Pair with genre filter to find "Salsa between 88–98 BPM" instantly.
+- **Key compatibility highlighting** — Click any track row to highlight Camelot-compatible tracks: orange for the selected track, green tint for ±1 adjacent and relative key matches, dimmed to 45% for everything else. Click again to clear. Essential for harmonic mixing.
+- **Multi-select context menu** — Right-clicking when multiple tracks are shift-selected now shows "Re-classify N tracks" and keeps the full selection. Previously it cleared the selection and only reclassified one track.
+- **Waveform playhead** — The DJ waveform in the track detail panel now shows a live white vertical playhead that moves as the audio plays. Click anywhere on the waveform to seek to that position.
+- **Cha cha BPM correction** — Cha cha is no longer grouped with salsa for the 4/3 BPM correction. Cha cha's natural range (108–132) is handled separately; the 4/3 clave correction only applies to salsa, son, and timba.
+
+---
+
+## [4.0.0] — 2026-05-28
+
+### New Features
+- **DJ waveform** — Real track waveform (amplitude peaks, not volume envelope) rendered as a purple-to-cyan gradient in the track detail panel. Computed via numpy during analysis, stored on the track model.
+- **Double-click context menu** — Double-clicking any track row opens a fixed-position overlay menu: Play (floating audio player), Edit Tags, Show File Path, Re-classify.
+- **Shift-click range select** — Hold Shift and click a second row to select the entire range, Excel-style. Selection highlighted with `.row-selected` CSS class.
+- **Font size adjuster** — S / M / L / XL preset buttons in Settings → Display. Scales all body and table text via `--font-scale` CSS variable, persisted to localStorage.
+- **Auto-resume session** — On startup, if a previous session exists it loads automatically without the onboarding prompt. The onboarding only shows when there is truly no prior library.
+- **Read existing BPM/key tags** — Before running librosa, existing mutagen tags are checked. If both BPM and key are already present (e.g. tagged by djay or Rekordbox), the librosa pass is skipped entirely — only LUFS/energy still runs. Massive time saving on pre-tagged libraries.
+- **Camelot key normalisation** — All key formats (standard names, OpenKey 6m/6d, existing Camelot strings) are converted to uniform Camelot notation before storage.
+- **Salsa 4/3 BPM correction** — When librosa returns a BPM > 110 for salsa (e.g. 112), the 4/3 ratio correction (112 × 0.75 = 84) is applied to recover the true dance BPM (~85).
+- **Taxonomy GET fix** — `GET /api/taxonomy` now returns `{genres: {...}}` wrapper that the frontend expected. Taxonomy settings tab now loads correctly.
+
+### Breaking Changes
+- The amplitude waveform canvas on the library tab has been removed. The waveform now lives in the track detail panel as a proper DJ waveform.
+
+---
+
 ## [3.5.0] — 2026-04-16
 
 ### Refactor
