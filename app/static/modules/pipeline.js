@@ -2306,9 +2306,44 @@ function completeOnboarding() {
   }
 }
 
+
+/** Auto-resume previous session on startup; show onboarding only on true first launch */
+async function autoResumeOrOnboard() {
+  try {
+    const sessionInfo = await apiFetch('/api/session/exists');
+    if (sessionInfo && sessionInfo.exists && sessionInfo.track_count > 0) {
+      // Auto-resume: load without prompting
+      const result = await apiFetch('/api/session/load', { method: 'POST' });
+      if (result && result.tracks) {
+        window.tracks = result.tracks;
+        window.searchResults = null;
+        renderTracks();
+        updateStats();
+        updatePipelineStepper();
+        updateToolbarButtonStates();
+        const count = result.count || result.tracks.length;
+        const folder = result.metadata && result.metadata.folder_path ? ' from ' + (result.metadata.folder_path.split('/').pop() || result.metadata.folder_path) : '';
+        showToast('Resumed: ' + count + ' tracks' + folder, 'success');
+        // Update folder display if metadata has it
+        if (result.metadata && result.metadata.folder_path) {
+          const folderDisplay = document.getElementById('folder-display');
+          if (folderDisplay) folderDisplay.textContent = result.metadata.folder_path;
+        }
+      }
+      return; // Don't show onboarding
+    }
+  } catch (e) {
+    // session/exists failed (network error etc.) — fall through to onboarding check
+  }
+  // No session or failed to load — show onboarding if first launch
+  showOnboardingIfNeeded();
+}
+
 function initOnboarding() {
-  var closeBtn = document.getElementById('onboarding-close');
-  if (closeBtn) closeBtn.addEventListener('click', completeOnboarding);
+  // Bind ALL close buttons (there are two elements with id="onboarding-close")
+  document.querySelectorAll('#onboarding-close, .onboarding-close').forEach(function(btn) {
+    btn.addEventListener('click', completeOnboarding);
+  });
 
   var chooseBtn = document.getElementById('onboard-choose-folder');
   if (chooseBtn) {
@@ -2383,7 +2418,7 @@ function initOnboarding() {
     });
   }
 
-  showOnboardingIfNeeded();
+  autoResumeOrOnboard();
 }
 
 /* ============================================================
