@@ -110,6 +110,9 @@ class Track:
     # Tag-sourced analysis
     bpm_from_tags: bool = False                    # True if BPM was read from existing tags
 
+    # High-resolution waveform for detail panel (600 normalised amplitude points 0.0–1.0)
+    waveform_peaks: Optional[list] = None
+
     # Key accuracy
     key_mismatch: Optional[bool] = None       # True if analyzed_key differs significantly from final_key
     key_mismatch_detail: Optional[str] = None # e.g. "Stored: 8A, Detected: 7B"

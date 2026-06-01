@@ -7,6 +7,30 @@ from app.models.track import Track
 
 # Camelot wheel mapping: pitch class (0-11) to major/minor keys
 # Index corresponds to chromatic scale: C=0, C#=1, D=2, D#=3, E=4, F=5, F#=6, G=7, G#=8, A=9, A#=10, B=11
+
+def compute_waveform_peaks(file_path: str, num_samples: int = 600) -> list:
+    """Compute peak amplitude per segment for waveform visualization.
+    Returns num_samples normalised floats (0.0-1.0) using librosa.
+    Skips loading if audio is already available via analyze_track integration.
+    """
+    try:
+        y, sr = librosa.load(file_path, sr=22050, mono=True)
+        mono = np.abs(y)
+        chunk_size = max(1, len(mono) // num_samples)
+        peaks = []
+        for i in range(num_samples):
+            start = i * chunk_size
+            end = start + chunk_size
+            chunk = mono[start:end]
+            peaks.append(float(chunk.max()) if len(chunk) > 0 else 0.0)
+        max_val = max(peaks) if peaks else 1.0
+        if max_val > 0:
+            peaks = [p / max_val for p in peaks]
+        return peaks
+    except Exception:
+        return []
+
+
 CAMELOT_MAJOR = {
     0: "8B",    # C major
     1: "3B",    # C#/Db major
@@ -100,6 +124,11 @@ def detect_vocal_flag(y: np.ndarray, sr: int) -> tuple:
     Returns: (vocal_flag: str, confidence: int)
     vocal_flag one of: "vocal", "instrumental", "mostly_instrumental"
     confidence: 0-100
+
+    Bias: default to "vocal" when uncertain. Latin dance music (salsa, bachata,
+    merengue, cumbia) has heavy percussion which suppresses harmonic_ratio even
+    when vocals are clearly present — so thresholds are intentionally permissive.
+    Only classify "instrumental" when there is strong evidence of no vocals.
     """
     # 1. Harmonic/percussive separation
     y_harmonic, y_percussive = librosa.effects.hpss(y)
@@ -117,23 +146,32 @@ def detect_vocal_flag(y: np.ndarray, sr: int) -> tuple:
     # 4. Zero crossing rate (vocals have moderate ZCR)
     zcr = float(np.mean(librosa.feature.zero_crossing_rate(y)))
 
-    # Scoring heuristic:
-    # Vocals tend to: high harmonic ratio, low-moderate flatness, high mfcc_var
+    # Scoring heuristic — biased toward "vocal":
+    # Vocals tend to: moderate-high harmonic ratio, low flatness, high mfcc_var
+    # Thresholds are loosened vs. pure-instrument detection to avoid false negatives
+    # on Latin dance tracks where percussion competes with harmonic content.
     vocal_score = 0
-    if harmonic_ratio > 0.55:
+    if harmonic_ratio > 0.45:   # was 0.55 — Latin percussion lowers this significantly
         vocal_score += 35
-    if flatness < 0.015:
+    elif harmonic_ratio > 0.35:
+        vocal_score += 20
+    if flatness < 0.025:        # was 0.015 — loosen to catch vocal tracks with rich instrumentation
         vocal_score += 25
-    if mfcc_var > 300:
+    elif flatness < 0.04:
+        vocal_score += 12
+    if mfcc_var > 200:          # was 300 — salsa vocals generate ~200-350 range
         vocal_score += 25
-    elif mfcc_var > 150:
+    elif mfcc_var > 100:        # was 150
         vocal_score += 10
-    if 0.05 < zcr < 0.15:
+    if 0.04 < zcr < 0.20:      # was 0.05-0.15 — slightly wider range
         vocal_score += 15
 
-    if vocal_score >= 70:
+    # Decision thresholds — biased toward "vocal":
+    # ≥55 → vocal (was 70), 30-54 → mostly_instrumental (was 45-69), <30 → instrumental (was <45)
+    # This means: only call "instrumental" when multiple features strongly suggest no vocals.
+    if vocal_score >= 55:
         return "vocal", min(100, vocal_score)
-    elif vocal_score >= 45:
+    elif vocal_score >= 30:
         return "mostly_instrumental", min(100, 100 - vocal_score + 30)
     else:
         return "instrumental", min(100, 100 - vocal_score)
@@ -505,6 +543,21 @@ def analyze_track(track: Track) -> Track:
             points.append(float(np.max(np.abs(segment))) if len(segment) else 0.0)
         max_amp = max(points) if max(points) > 0 else 1.0
         track.waveform_data = [round(p / max_amp, 3) for p in points]
+
+        # High-resolution waveform peaks: 600 amplitude points for detail panel
+        if not track.waveform_peaks:
+            num_peaks = 600
+            mono_abs = np.abs(y)
+            peak_chunk = max(1, len(mono_abs) // num_peaks)
+            raw_peaks = []
+            for i in range(num_peaks):
+                seg = mono_abs[i * peak_chunk:(i + 1) * peak_chunk]
+                raw_peaks.append(float(seg.max()) if len(seg) > 0 else 0.0)
+            peak_max = max(raw_peaks) if raw_peaks else 1.0
+            if peak_max > 0:
+                track.waveform_peaks = [round(p / peak_max, 4) for p in raw_peaks]
+            else:
+                track.waveform_peaks = raw_peaks
 
         track.analysis_done = True
 

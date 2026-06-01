@@ -36,6 +36,30 @@ function connectToProgress(opId, total, onProgress, onComplete, onError) {
 
 
 // Track detail panel
+function renderTrackWaveform(peaks) {
+  const canvas = document.getElementById('track-waveform-canvas');
+  if (!canvas || !peaks || !peaks.length) return;
+  // Use rAF to ensure canvas has rendered dimensions
+  requestAnimationFrame(() => {
+    canvas.width = canvas.offsetWidth || 600;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    const barW = Math.max(1, W / peaks.length);
+    peaks.forEach((amp, i) => {
+      const x = i * barW;
+      const barH = Math.max(1, amp * H * 0.9);
+      const y = (H - barH) / 2;
+      // Gradient: low energy = purple, high energy = cyan
+      const r = Math.round(139 * (1 - amp) + 6 * amp);
+      const g = Math.round(92 * (1 - amp) + 182 * amp);
+      const b = Math.round(246 * (1 - amp) + 212 * amp);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(x, y, Math.max(1, barW - 0.5), barH);
+    });
+  });
+}
+
 function openTrackDetail(track) {
   window._currentDetailTrack = track;
   const overlay = document.getElementById('track-detail-overlay');
@@ -97,6 +121,12 @@ function openTrackDetail(track) {
       <div class="track-detail-artist">${escapeHtml(track.display_artist || 'Unknown')}</div>
       <div class="track-detail-album">${escapeHtml(track.album || '')}</div>
     </div>
+
+    ${track.waveform_peaks && track.waveform_peaks.length ? `
+    <div class="track-detail-section" style="padding-bottom:4px;">
+      <canvas id="track-waveform-canvas" height="60" style="width:100%;border-radius:6px;background:#0f0f13;display:block;"></canvas>
+    </div>
+    ` : ''}
 
     <div class="track-detail-section">
       <h4>Metadata</h4>
@@ -163,6 +193,9 @@ function openTrackDetail(track) {
 
   overlay.style.display = 'block';
   panel.style.display = 'block';
+
+  // Render high-resolution waveform if peaks data is available
+  renderTrackWaveform(track.waveform_peaks);
 
   // Attach event listeners for track detail buttons
   const cueAnalysisBtn = panel.querySelector('[data-action="analyze-cue-points"]');
