@@ -9,22 +9,100 @@ on:
     branches: [main]
 
 jobs:
-  build-tauri:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: macos-latest
-            target: aarch64-apple-darwin
-            py_arch: arm64
-          - platform: macos-13
-            target: x86_64-apple-darwin
-            py_arch: x64
-          - platform: windows-latest
-            target: x86_64-pc-windows-msvc
-            py_arch: x64
+  # Single arm64 runner builds both macOS targets.
+  # x86_64 Python is installed via Rosetta 2 (actions/setup-python architecture: x64
+  # on arm64 runners installs an x86_64 Python that runs under Rosetta), so we get
+  # a native x86_64 sidecar binary without needing the deprecated macos-13 runner.
+  build-tauri-macos:
+    name: Build macOS (Apple Silicon + Intel via Rosetta)
+    runs-on: macos-latest
 
-    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable (both macOS targets)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      # ── arm64 sidecar ──────────────────────────────────────────────────────
+      - name: Install Python 3.12 (arm64)
+        uses: actions/setup-python@v5
+        id: py-arm64
+        with:
+          python-version: '3.12'
+          architecture: arm64
+
+      - name: Install Python dependencies + PyInstaller (arm64)
+        run: |
+          "${{ steps.py-arm64.outputs.python-path }}" -m pip install -r requirements.txt
+          "${{ steps.py-arm64.outputs.python-path }}" -m pip install pyinstaller
+
+      - name: Build PyInstaller sidecar (arm64)
+        run: |
+          "${{ steps.py-arm64.outputs.python-path }}" -m PyInstaller idjlm.spec --clean \
+            --distpath src-tauri/binaries/tmp-arm64
+          mkdir -p src-tauri/binaries
+          mv src-tauri/binaries/tmp-arm64/idjlm-server \
+             src-tauri/binaries/idjlm-server-aarch64-apple-darwin
+
+      # ── x86_64 sidecar (Rosetta 2) ─────────────────────────────────────────
+      - name: Install Python 3.12 (x86_64 via Rosetta)
+        uses: actions/setup-python@v5
+        id: py-x64
+        with:
+          python-version: '3.12'
+          architecture: x64
+
+      - name: Install Python dependencies + PyInstaller (x86_64)
+        run: |
+          "${{ steps.py-x64.outputs.python-path }}" -m pip install -r requirements.txt
+          "${{ steps.py-x64.outputs.python-path }}" -m pip install pyinstaller
+
+      - name: Build PyInstaller sidecar (x86_64 via Rosetta)
+        run: |
+          "${{ steps.py-x64.outputs.python-path }}" -m PyInstaller idjlm.spec --clean \
+            --distpath src-tauri/binaries/tmp-x86
+          mv src-tauri/binaries/tmp-x86/idjlm-server \
+             src-tauri/binaries/idjlm-server-x86_64-apple-darwin
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Tauri CLI
+        run: npm install -g @tauri-apps/cli@^2.5.0
+
+      - name: Build Tauri app (Apple Silicon)
+        run: tauri build --target aarch64-apple-darwin
+
+      - name: Build Tauri app (Intel)
+        run: tauri build --target x86_64-apple-darwin
+
+      - name: Upload macOS Apple Silicon .dmg
+        uses: actions/upload-artifact@v4
+        with:
+          name: idjlm-pro-dmg-aarch64-apple-darwin
+          path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          retention-days: 30
+
+      - name: Upload macOS Intel .dmg
+        uses: actions/upload-artifact@v4
+        with:
+          name: idjlm-pro-dmg-x86_64-apple-darwin
+          path: src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
+          retention-days: 30
+
+  build-tauri-windows:
+    name: Build Windows (x86_64)
+    runs-on: windows-latest
 
     steps:
       - name: Checkout
@@ -33,7 +111,7 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: x86_64-pc-windows-msvc
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -44,7 +122,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          architecture: ${{ matrix.py_arch }}
+          architecture: x64
 
       - name: Install Python dependencies + PyInstaller
         run: |
@@ -55,20 +133,11 @@ jobs:
         run: pyinstaller idjlm.spec --clean --distpath src-tauri/binaries/tmp
         shell: bash
 
-      - name: Stage sidecar binary (macOS / Linux)
-        if: runner.os != 'Windows'
-        run: |
-          mkdir -p src-tauri/binaries
-          mv src-tauri/binaries/tmp/idjlm-server \
-             src-tauri/binaries/idjlm-server-${{ matrix.target }}
-        shell: bash
-
-      - name: Stage sidecar binary (Windows)
-        if: runner.os == 'Windows'
+      - name: Stage sidecar binary
         run: |
           New-Item -ItemType Directory -Force -Path src-tauri/binaries
           Move-Item src-tauri/binaries/tmp/idjlm-server.exe `
-            src-tauri/binaries/idjlm-server-${{ matrix.target }}.exe
+            src-tauri/binaries/idjlm-server-x86_64-pc-windows-msvc.exe
         shell: pwsh
 
       - name: Install Node.js
@@ -80,18 +149,9 @@ jobs:
         run: npm install -g @tauri-apps/cli@^2.5.0
 
       - name: Build Tauri app
-        run: tauri build --target ${{ matrix.target }}
-
-      - name: Upload macOS .dmg
-        if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
-        with:
-          name: idjlm-pro-dmg-${{ matrix.target }}
-          path: src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
-          retention-days: 30
+        run: tauri build --target x86_64-pc-windows-msvc
 
       - name: Upload Windows .msi
-        if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: idjlm-pro-msi
@@ -99,7 +159,6 @@ jobs:
           retention-days: 30
 
       - name: Upload Windows NSIS installer
-        if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: idjlm-pro-nsis
