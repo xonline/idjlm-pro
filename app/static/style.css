@@ -3842,6 +3842,10 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
   text-align: left;
 }
 
+#camelot-wheel-modal svg {
+  display: block;
+}
+
 #camelot-wheel-stats {
   margin-top: 12px;
 }
