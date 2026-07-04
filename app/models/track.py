@@ -21,7 +21,9 @@ class Track:
     # Audio analysis (librosa)
     analyzed_bpm: Optional[float] = None
     analyzed_key: Optional[str] = None       # Camelot notation e.g. "8B"
-    analyzed_energy: Optional[int] = None    # 1-10
+    analyzed_energy: Optional[int] = None    # 1-10 (library-relative percentile)
+    raw_rms: Optional[float] = None          # mean RMS energy (0..1) before normalization
+    duration: Optional[float] = None         # seconds (from mutagen / librosa)
     waveform_data: Optional[list] = None     # 60 normalised amplitude points (0.0–1.0)
     bpm_corrected: bool = False              # True if BPM was half/doubled for correction
     bpm_confidence: Optional[int] = None     # 0-100

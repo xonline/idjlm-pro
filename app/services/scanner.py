@@ -109,6 +109,25 @@ def _read_tags_universal(file_path: str) -> dict:
     return tags
 
 
+def _read_duration_seconds(file_path: str, suffix: str) -> Optional[float]:
+    """
+    Read track duration in seconds from mutagen. Returns None on failure.
+    """
+    try:
+        if suffix == '.mp3':
+            audio = MP3(file_path)
+        else:
+            audio = MutagenFile(file_path)
+        if audio is None:
+            return None
+        length = getattr(audio.info, 'length', None)
+        if length is None or length <= 0:
+            return None
+        return round(float(length), 2)
+    except Exception:
+        return None
+
+
 def scan_folder(folder_path: str) -> list[Track]:
     """
     Recursively scan folder for supported audio files (MP3, FLAC, WAV, M4A, AAC, OGG)
@@ -149,6 +168,7 @@ def scan_folder(folder_path: str) -> list[Track]:
                     existing_comment=audio_tags['comment'],
                     existing_bpm=audio_tags['bpm'],
                     existing_key=audio_tags['key'],
+                    duration=_read_duration_seconds(file_path, suffix),
                 )
                 tracks.append(track)
 

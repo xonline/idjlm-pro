@@ -103,19 +103,63 @@ def _detect_key_from_chroma(chroma: np.ndarray) -> tuple:
 
 def _normalize_energy(rms: np.ndarray) -> int:
     """
-    Normalize RMS energy to 1-10 scale.
-    rms shape: (1, time_frames)
+    Per-track fallback normalization. Only invoked when the library has fewer
+    than two analyzed RMS samples (so library-relative percentile cannot be
+    computed yet). Uses the natural log of the RMS mean compressed into the
+    1-10 scale — independent of any hardcoded ceiling.
     """
-    rms_mean = np.mean(rms)
+    rms_mean = max(1e-6, float(np.mean(rms)))
 
-    # Normalize to 0-1 range (empirical: typical audio RMS ranges 0.01-0.5)
-    normalized = min(1.0, rms_mean / 0.35)  # raised from 0.2 — salsa tracks clustered at 9-10 in calibration testing
+    # log10(rms) typically spans -3.5 to -0.2 (-70 dBFS to -2 dBFS).
+    # Map [-3.5, -0.2] -> [1, 10]. Values outside clamp to the bounds.
+    log_rms = np.log10(rms_mean)
+    score = 1 + (log_rms + 3.5) * 9 / 3.3  # -3.5 -> 1, -0.2 -> 10
+    score = max(1, min(10, int(round(score))))
 
-    # Scale to 1-10
-    energy_score = max(1, int(normalized * 10))
-    energy_score = min(10, energy_score)
+    return score
 
-    return energy_score
+
+def apply_library_percentile_normalization(tracks: list) -> int:
+    """
+    Reassign ``analyzed_energy`` for every analyzed track using the library's own
+    RMS distribution. Track RMS means are mapped to percentile rank inside *this*
+    collection, then percentile -> 1-10 scale.
+
+    Returns the number of tracks rescaled.
+    Tracks without ``raw_rms`` (or with non-positive RMS) are left untouched.
+    """
+    rms_by_track = [(t, float(t.raw_rms)) for t in tracks if t.raw_rms is not None and t.raw_rms > 0]
+    if not rms_by_track:
+        return 0
+
+    sorted_rms = sorted(rms for _, rms in rms_by_track)
+    n = len(sorted_rms)
+
+    if n < 2:
+        # Single track — force-score to 5 so the UI has something usable.
+        for track, _ in rms_by_track:
+            track.analyzed_energy = 5
+        return n
+
+    for track, raw in rms_by_track:
+        # Count values strictly below, plus half the ties.
+        below = 0
+        equal = 0
+        for v in sorted_rms:
+            if v < raw:
+                below += 1
+            elif v == raw:
+                equal += 1
+            else:
+                break
+        # Average of the tied ranks keeps the mapping monotonic.
+        percentile = (below + (equal - 1) / 2.0) / (n - 1)
+        percentile = max(0.0, min(1.0, percentile))
+
+        score = int(round(1 + percentile * 9))
+        track.analyzed_energy = max(1, min(10, score))
+
+    return n
 
 
 def detect_vocal_flag(y: np.ndarray, sr: int) -> tuple:
@@ -177,12 +221,91 @@ def detect_vocal_flag(y: np.ndarray, sr: int) -> tuple:
         return "instrumental", min(100, 100 - vocal_score)
 
 
+_PYLOUDNORM_AVAILABLE = None
+
+
+def _pyloudnorm_ready() -> bool:
+    """Lazy import of pyloudnorm; returns False if not installed/usable."""
+    global _PYLOUDNORM_AVAILABLE
+    if _PYLOUDNORM_AVAILABLE is not None:
+        return _PYLOUDNORM_AVAILABLE
+    try:
+        import pyloudnorm as pyln  # noqa: F401
+        _PYLOUDNORM_AVAILABLE = True
+    except Exception:
+        _PYLOUDNORM_AVAILABLE = False
+    return _PYLOUDNORM_AVAILABLE
+
+
 def _compute_lufs(y: np.ndarray, sr: int) -> tuple:
     """
-    Compute Integrated LUFS, LUFS Range (LRA), and True Peak approximation.
-    Uses only numpy/librosa — no pyloudnorm.
+    Compute Integrated LUFS (ITU-R BS.1770), LUFS Range (LRA), and True Peak (dBTP).
 
-    Returns: (integrated_lufs, lra, true_peak) or (None, None, None) on failure.
+    Primary path: ``pyloudnorm`` which implements BS.1770-4 gating + K-weighting.
+    Fallback: legacy RMS/percentile approximation (kept for environments where
+    pyloudnorm is unavailable or the signal is too short for BS.1770 gating).
+
+    Returns: (integrated_lufs, lra, true_peak) or (None, None, None) on total failure.
+    """
+    if y.ndim > 1:
+        y_mono = np.mean(y, axis=1)
+    else:
+        y_mono = y
+
+    # Try pyloudnorm (BS.1770) first.
+    if _pyloudnorm_ready():
+        try:
+            import pyloudnorm as pyln
+
+            # pyloudnorm expects float in [-1, 1]; librosa.load produces that.
+            meter = pyln.Meter(sr)
+            integrated = float(meter.integrated_loudness(y_mono))
+            if np.isnan(integrated) or np.isinf(integrated):
+                raise ValueError("pyloudnorm returned non-finite integrated LUFS")
+
+            # True peak via pyloudnorm's own helper (4x oversample).
+            try:
+                true_peak = float(pyln.metrics.true_peak(sr, y_mono))
+            except Exception:
+                # Approximate from raw sample peak if true_peak helper unavailable
+                peak = float(np.max(np.abs(y_mono)))
+                true_peak = 20.0 * np.log10(peak) if peak > 0 else -70.0
+
+            # LRA — pyloudnorm expects a BS.1770 momentary loudness array. Cheapest
+            # correct path: compute integrated on each 3-second window.
+            try:
+                window_size = int(sr * 3.0)
+                if len(y_mono) >= window_size:
+                    short_term = []
+                    for start in range(0, len(y_mono) - window_size + 1, window_size):
+                        s_val = float(meter.integrated_loudness(y_mono[start:start + window_size]))
+                        if not (np.isnan(s_val) or np.isinf(s_val)):
+                            short_term.append(s_val)
+                    if len(short_term) >= 2:
+                        short_term = np.array(short_term)
+                        p10 = float(np.percentile(short_term, 10))
+                        p95 = float(np.percentile(short_term, 95))
+                        lra = round(p95 - p10, 1)
+                    else:
+                        lra = None
+                else:
+                    lra = None
+            except Exception:
+                lra = None
+
+            return round(integrated, 1), lra, round(true_peak, 1)
+
+        except Exception:
+            # Fall through to legacy path.
+            pass
+
+    return _compute_lufs_legacy(y_mono, sr)
+
+
+def _compute_lufs_legacy(y: np.ndarray, sr: int) -> tuple:
+    """
+    Legacy LUFS approximation using only numpy/librosa. Provided as a fallback
+    when pyloudnorm is unavailable or rejects the signal.
     """
     try:
         # Ensure mono
@@ -518,7 +641,25 @@ def analyze_track(track: Track) -> Track:
         # Energy score
         # Compute RMS directly from waveform (compatible with all librosa versions)
         rms = librosa.feature.rms(y=y)
-        track.analyzed_energy = _normalize_energy(rms)
+        rms_mean = float(np.mean(rms))
+        track.raw_rms = round(rms_mean, 6)
+
+        # Capture track duration if not already set (librosa-loaded length)
+        if track.duration is None:
+            track.duration = round(float(len(y)) / float(sr), 2)
+
+        # Library-relative percentile normalization (replaces the old 0.35 hardcoded fallback).
+        # Falls back to the per-track fallback when library has fewer than 2 analyzed tracks.
+        try:
+            from app import get_track_store
+            track_store = get_track_store()
+            all_tracks = list(track_store.values()) if isinstance(track_store, dict) else list(track_store)
+        except Exception:
+            all_tracks = [track]
+
+        rescaled = apply_library_percentile_normalization(all_tracks)
+        if rescaled == 0:
+            track.analyzed_energy = _normalize_energy(rms)
 
         # Vocal detection
         vocal_flag, vocal_confidence = detect_vocal_flag(y, sr)

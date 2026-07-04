@@ -2,6 +2,8 @@
 Set planner: auto-generate DJ sets with shaped energy arcs.
 """
 import io
+from statistics import mean
+
 from flask import Blueprint, request, jsonify, send_file
 
 bp = Blueprint("setplan", __name__, url_prefix="/api")
@@ -14,6 +16,24 @@ ARC_TEMPLATES = {
     "cooldown": [8, 8, 7, 7, 6, 5, 4, 3],
     "full_night": [3, 4, 5, 6, 7, 8, 9, 9, 8, 7, 8, 9],
 }
+
+
+# Default average track duration used when real durations are unavailable.
+# Real Latin tracks cluster 3-5 minutes; we fall back to 4 only for empty libs.
+_DEFAULT_TRACK_DURATION_MIN = 4.0
+
+
+def _mean_track_duration_min(tracks: list) -> float:
+    """
+    Mean track duration in minutes. Uses each track's real ``duration`` field
+    (populated by scanner from mutagen, refreshed by analyzer from audio length).
+    Tracks without duration are excluded from the average.
+    """
+    durations = [t.duration for t in tracks if t.duration and t.duration > 0]
+    if not durations:
+        return _DEFAULT_TRACK_DURATION_MIN
+    avg_sec = mean(durations)
+    return max(1.0, avg_sec / 60.0)
 
 
 def _interpolate_arc(arc_template: list, num_tracks: int) -> list:
@@ -138,8 +158,9 @@ def generate_setplan():
                 error_detail = f"No analyzed tracks found for genre '{genre}'. Run Analyse All or try a different genre."
             return jsonify({"error": error_detail}), 400
 
-        # Calculate number of tracks needed (assume 4 min average)
-        num_tracks = max(8, duration_minutes // 4)
+        # Calculate number of tracks needed (use actual library mean duration, not a 4-min constant)
+        avg_track_min = _mean_track_duration_min(tracks)
+        num_tracks = max(8, round(duration_minutes / avg_track_min))
 
         # Get energy targets
         arc_template = ARC_TEMPLATES[arc]
@@ -204,6 +225,17 @@ def generate_setplan():
             genre_name = track.final_genre or "Unknown"
             genres[genre_name] = genres.get(genre_name, 0) + 1
 
+        # Estimated total duration uses each track's real length when available,
+        # otherwise falls back to the library's mean duration in minutes.
+        per_track_seconds = []
+        for t in selected_tracks:
+            if t.duration and t.duration > 0:
+                per_track_seconds.append(float(t.duration))
+        if per_track_seconds:
+            estimated_minutes = round(sum(per_track_seconds) / 60.0, 1)
+        else:
+            estimated_minutes = round(len(selected_tracks) * avg_track_min, 1)
+
         # BPM transition analysis
         transitions = []
         for i in range(len(selected_tracks) - 1):
@@ -233,6 +265,7 @@ def generate_setplan():
         response = {
             "arc": arc,
             "duration_minutes": duration_minutes,
+            "avg_track_duration_minutes": round(avg_track_min, 2),
             "tracks": [
                 {
                     "file_path": t.file_path,
@@ -251,7 +284,8 @@ def generate_setplan():
             "transitions": transitions,
             "stats": {
                 "total_tracks": len(selected_tracks),
-                "estimated_duration_minutes": len(selected_tracks) * 4,
+                "estimated_duration_minutes": estimated_minutes,
+                "avg_track_duration_minutes": round(avg_track_min, 2),
                 "bpm_range": [int(min(bpms)), int(max(bpms))] if bpms else [0, 0],
                 "energy_range": [min(energies), max(energies)] if energies else [0, 0],
                 "genres": genres,
