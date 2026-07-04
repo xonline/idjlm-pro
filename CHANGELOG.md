@@ -6,6 +6,14 @@ All notable changes to IDJLM Pro are documented here.
 
 ## [4.2.0] — 2026-07-04
 
+### Frontend UI (Phase 0)
+
+- **Pipeline.js split into cohesive modules** (Phase 0.3) — extracted six 201–471 line modules from the 2,466-line `app/static/modules/pipeline.js` with no behaviour change. New modules: `player.js` (audio bar + render-template helpers — must load before `tracks.js`), `duplicates.js` (scan / render / merge / remove), `playlists-export.js` (Playlists tab + Smart Playlist Builder + Organise helpers), `updater.js` (GitHub release check + download + install), `shortcuts.js` (track-table nav IIFE + review/global hotkeys reference modal), `keygraph.js` (Key Compatibility Graph + prev unused Camelot wheel code). `pipeline.js` shrank to 516 lines (init glue + Organise tab fs ops + stepper + onboarding + API-key test). `<script>` order in `templates/index.html` updated to load the six new modules before their consumers. All five tabs (Library / Playlists / Organise / Set Planner / Settings) activate cleanly with zero new console errors. Pre-existing bug at `shortcuts.js:127` (`reviewTab.classList` when no `#tab-review` exists) confirmed pre-existing on clean HEAD — not caused by extraction.
+
+### Frontend UI (Phase 0.2)
+
+- **Fixed duplicate DOM id `camelot-wheel-container`** — `templates/index.html` originally declared the id at both line 419 and line 1295. Renamed the second instance to `camelot-wheel-svg` (its actual intent — the second element holds the SVG, not a container), and updated all four JS touch-points to use the new id. Wheel code lives in `app/static/modules/player.js` (`_renderCamelotWheelUnused` — function exists but is currently inert because the wheel tab is not rendered in the active UI).
+
 ### Frontend UI (Phase 1)
 
 - **Persistent status bar for background ops** (`apps/static/modules/opsbar.js`) — each cancellable streaming operation now owns its own chip in the library stats bar instead of clobbering a single shared progress slot. Concurrent background work is now visible simultaneously (e.g. classify + write + cue analysis all running at once). Each chip has its own kind-coloured accent, progress fill, current/total counter, and per-op `✕` cancel button that POSTs to `/api/progress/<op_id>/cancel`. Auto-remove after success/cancel/error flash.
