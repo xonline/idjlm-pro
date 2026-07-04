@@ -5,7 +5,7 @@ Persisted to playlists.json in project root.
 import json
 import os
 import io
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, send_file
 
 bp = Blueprint("playlists", __name__, url_prefix="/api")
@@ -113,13 +113,13 @@ def list_playlists():
 def create_playlist():
     body = request.get_json(silent=True) or {}
     data = _load_playlists()
-    pid = body.get("id") or f"pl_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+    pid = body.get("id") or f"pl_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
     playlist = {
         "id": pid,
         "name": body.get("name", "Untitled"),
         "filters": body.get("filters", {}),
         "tracks": body.get("tracks", []),
-        "created": datetime.utcnow().isoformat()
+        "created": datetime.now(timezone.utc).isoformat()
     }
     data["playlists"].append(playlist)
     _save_playlists(data)

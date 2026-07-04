@@ -30,13 +30,8 @@ def get_env_path():
     On first call, migrates any existing .env from the legacy bundle-relative
     path so users don't lose previously saved keys.
     """
-    import platform
-    if platform.system() == "Darwin":
-        settings_dir = os.path.expanduser("~/Library/Application Support/IDJLM Pro")
-    else:
-        settings_dir = os.path.expanduser("~/.idjlm-pro")
-
-    os.makedirs(settings_dir, exist_ok=True)
+    from ..utils import paths
+    settings_dir = paths.ensure_app_user_dir()
     new_path = os.path.join(settings_dir, ".env")
 
     # One-time migration from legacy bundle-relative .env

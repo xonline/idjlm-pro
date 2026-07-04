@@ -12,15 +12,16 @@ logger = logging.getLogger(__name__)
 
 def _find_rekordbox_db() -> Optional[str]:
     """Find rekordbox master.db in common locations."""
-    import platform
-    candidates = []
+    from ..utils import paths
+    candidates: list[str] = []
 
-    if platform.system() == "Darwin":
+    if paths.is_darwin():
+        home = os.path.expanduser("~")
         candidates = [
-            os.path.expanduser("~/Library/Pioneer/rekordbox/master.db"),
-            os.path.expanduser("~/Library/Pioneer/rekordbox3/master.db"),
+            os.path.join(home, "Library/Pioneer/rekordbox/master.db"),
+            os.path.join(home, "Library/Pioneer/rekordbox3/master.db"),
         ]
-    elif platform.system() == "Windows":
+    elif paths.is_windows():
         appdata = os.environ.get("APPDATA", "")
         candidates = [
             os.path.join(appdata, "Pioneer", "rekordbox", "master.db"),

@@ -1,22 +1,17 @@
 import os
 import json
 import logging
-import platform
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Tuple
 from app.models.track import Track
+from app.utils import paths
 
 logger = logging.getLogger(__name__)
 
 
 def _get_session_path() -> str:
     """Return user-writable path for session.json (never the read-only bundle)."""
-    if platform.system() == "Darwin":
-        d = os.path.expanduser("~/Library/Application Support/IDJLM Pro")
-    else:
-        d = os.path.expanduser("~/.idjlm-pro")
-    os.makedirs(d, exist_ok=True)
-    return os.path.join(d, "session.json")
+    return paths.user_data_path("session.json")
 
 
 SESSION_FILE = _get_session_path()
@@ -39,7 +34,7 @@ def save_session(track_store: dict, folder_path: Optional[str] = None) -> dict:
 
         # Build session object
         session_data = {
-            "saved_at": datetime.utcnow().isoformat() + "Z",
+            "saved_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "folder_path": folder_path,
             "track_count": len(tracks_data),
             "tracks": tracks_data

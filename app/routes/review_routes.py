@@ -1,17 +1,16 @@
 from flask import Blueprint, request, jsonify
 import logging
 import threading
-import platform
 import os
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 _log_lock = threading.Lock()
 
 
 def _get_data_dir() -> str:
-    if platform.system() == "Darwin":
-        return os.path.expanduser("~/Library/Application Support/IDJLM Pro")
-    return os.path.expanduser("~/.idjlm-pro")
+    from ..utils import paths
+    return paths.app_user_dir()
 
 bp = Blueprint("review", __name__, url_prefix="/api")
 
@@ -210,7 +209,7 @@ def write_tags():
                     # Log approval if there are overrides (thread-safe)
                     if track.override_genre or track.override_subgenre or track.override_bpm or track.override_key or track.override_year:
                         entry = {
-                            'ts': datetime.datetime.utcnow().isoformat(),
+                            'ts': datetime.now(timezone.utc).isoformat(),
                             'title': track.display_title,
                             'artist': track.display_artist,
                             'ai_genre': track.proposed_genre,

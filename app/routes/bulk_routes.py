@@ -1,7 +1,6 @@
 import os
 import json
 import logging
-import platform
 import tempfile
 from collections import defaultdict
 from flask import Blueprint, request, jsonify, send_file
@@ -14,11 +13,8 @@ bp = Blueprint("bulk", __name__, url_prefix="/api")
 
 def _get_taxonomy_write_path() -> str:
     """Return user-writable path for taxonomy.json (never the read-only bundle)."""
-    if platform.system() == "Darwin":
-        d = os.path.expanduser("~/Library/Application Support/IDJLM Pro")
-    else:
-        d = os.path.expanduser("~/.idjlm-pro")
-    os.makedirs(d, exist_ok=True)
+    from ..utils import paths
+    d = paths.ensure_app_user_dir()
     return os.path.join(d, "taxonomy.json")
 
 

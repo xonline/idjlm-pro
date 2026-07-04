@@ -1,15 +1,13 @@
 """AI Learning from Corrections — remembers DJ edits and uses them in future prompts."""
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def _get_data_dir():
     """User-writable data directory (same location as settings)."""
-    import platform
-    if platform.system() == "Darwin":
-        return os.path.expanduser("~/Library/Application Support/IDJLM Pro")
-    return os.path.expanduser("~/.idjlm-pro")
+    from app.utils import paths
+    return paths.app_user_dir()
 
 
 def _get_corrections_path():
@@ -61,7 +59,7 @@ def save_correction(track):
         same_artist = c.get("pattern", {}).get("artist_contains") == pattern.get("artist_contains")
         if same_genre and same_sub and same_artist:
             c["count"] = c.get("count", 1) + 1
-            c["last_seen"] = datetime.utcnow().isoformat()
+            c["last_seen"] = datetime.now(timezone.utc).isoformat()
             found = True
             break
 
@@ -71,7 +69,7 @@ def save_correction(track):
             "corrected_genre": genre,
             "corrected_subgenre": subgenre or "Unknown",
             "count": 1,
-            "last_seen": datetime.utcnow().isoformat()
+            "last_seen": datetime.now(timezone.utc).isoformat()
         })
 
     # Keep max 100 entries — keep highest count

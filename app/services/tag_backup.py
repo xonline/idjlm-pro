@@ -17,11 +17,8 @@ logger = logging.getLogger(__name__)
 
 def _get_backup_dir() -> str:
     """Get user-writable backup directory."""
-    import platform
-    if platform.system() == "Darwin":
-        base = os.path.expanduser("~/Library/Application Support/IDJLM Pro")
-    else:
-        base = os.path.expanduser("~/.idjlm-pro")
+    from ..utils import paths
+    base = paths.app_user_dir()
     backup_dir = os.path.join(base, "tag-backups")
     os.makedirs(backup_dir, exist_ok=True)
     return backup_dir

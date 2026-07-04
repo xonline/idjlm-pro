@@ -3,7 +3,6 @@ import ssl
 import json
 import logging
 import subprocess
-import platform
 import urllib.request
 import urllib.error
 import threading
@@ -139,7 +138,8 @@ def check_for_updates():
     current = _read_version()
 
     # On non-macOS, only offer git-pull (no .dmg updates)
-    is_macos = platform.system() == "Darwin"
+    from ..utils import paths
+    is_macos = paths.is_darwin()
 
     try:
         req = urllib.request.Request(GITHUB_RELEASES_URL)
