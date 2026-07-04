@@ -3324,30 +3324,103 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
 .stat-item { color: var(--text-primary); font-weight: 500; }
 .stat-item span { font-weight: 700; color: var(--accent); }
 .stat-sep { color: var(--text-secondary); }
-.stat-progress-wrap { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-primary); }
-.stat-progress-bar {
-  width: 140px;
-  height: 6px;
+
+/* ─── OpsBar (persistent multi-op status bar) ────────────────────────── */
+.opsbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+  align-items: center;
+}
+.opsbar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
   background: var(--bg-subtle);
-  border-radius: 3px;
+  font-size: 12px;
+  color: var(--text-primary);
+  min-width: 0;
+  max-width: 320px;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.3s ease;
+}
+.opsbar-chip-label {
+  font-weight: 500;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
-.stat-progress-fill {
-  height: 100%;
+.opsbar-chip-track {
+  position: relative;
+  width: 80px;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.opsbar-chip-fill {
+  position: absolute;
+  inset: 0;
+  width: 0;
   background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.25s ease;
+}
+.opsbar-chip-count {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.opsbar-chip-cancel {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 2px;
+  line-height: 1;
   border-radius: 3px;
-  transition: width 0.3s ease;
-  width: 0%;
+  flex-shrink: 0;
 }
-.stat-progress-fill.progress-analyze {
-  background: var(--blue);
+.opsbar-chip-cancel:hover {
+  color: var(--red);
+  background: rgba(255, 80, 80, 0.10);
 }
-.stat-progress-fill.progress-classify {
-  background: var(--green);
+.opsbar-chip-cancel:disabled { opacity: 0.4; cursor: default; }
+
+/* Kind-coloured accents on the chip border + fill */
+.opsbar-kind-analyze   .opsbar-chip-fill { background: var(--blue); }
+.opsbar-kind-analyze                    { border-color: rgba(96, 165, 250, 0.45); }
+.opsbar-kind-classify  .opsbar-chip-fill { background: var(--green); }
+.opsbar-kind-classify                   { border-color: rgba(74, 222, 128, 0.45); }
+.opsbar-kind-write     .opsbar-chip-fill { background: var(--amber); }
+.opsbar-kind-write                      { border-color: rgba(251, 191, 36, 0.45); }
+.opsbar-kind-cue       .opsbar-chip-fill { background: var(--purple, #a78bfa); }
+.opsbar-kind-cue                        { border-color: rgba(167, 139, 250, 0.45); }
+
+/* Brief flash on success, then auto-remove */
+.opsbar-chip-done {
+  background: rgba(74, 222, 128, 0.15);
+  border-color: var(--green);
 }
-.stat-progress-fill.progress-write {
-  background: var(--amber);
+.opsbar-chip-error {
+  background: rgba(255, 80, 80, 0.15);
+  border-color: var(--red);
 }
+
+/* Backwards-compat: keep old class alive for brief transition */
+.stat-progress-wrap { display: none; }
+.stat-progress-sep  { display: none; }
+.stat-progress-bar { width: 140px; height: 6px; background: var(--bg-subtle); border-radius: 3px; overflow: hidden; }
+.stat-progress-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.3s ease; width: 0%; }
+.stat-progress-fill.progress-analyze  { background: var(--blue); }
+.stat-progress-fill.progress-classify { background: var(--green); }
+.stat-progress-fill.progress-write    { background: var(--amber); }
 .stat-cancel-btn {
   margin-left: 8px;
   padding: 2px 8px;
@@ -3360,10 +3433,7 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
   cursor: pointer;
   transition: all 0.15s ease;
 }
-.stat-cancel-btn:hover {
-  background: var(--red);
-  color: #fff;
-}
+.stat-cancel-btn:hover { background: var(--red); color: #fff; }
 
 /* Brighter placeholder text for API key fields */
 .input-text::placeholder,

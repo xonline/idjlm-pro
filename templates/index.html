@@ -196,12 +196,8 @@
           <span class="stat-item"><span id="stat-classified">0</span> classified</span>
           <span class="stat-sep">•</span>
           <span class="stat-item"><span id="stat-approved">0</span> approved</span>
-          <span class="stat-sep stat-progress-sep" id="stat-progress-sep" style="display:none;">•</span>
-          <span class="stat-progress-wrap" id="stat-progress-wrap" style="display:none;">
-            <span id="stat-progress-text"></span>
-            <div class="stat-progress-bar"><div class="stat-progress-fill" id="stat-progress-fill"></div></div>
-            <button class="stat-cancel-btn" id="stat-cancel-btn" style="display:none;">✕ Cancel</button>
-          </span>
+          <!-- OpsBar container: rendered dynamically by modules/opsbar.js -->
+          <div class="opsbar" id="opsbar"></div>
         </div>
 
         <!-- Session resume banner -->
@@ -1534,6 +1530,7 @@
   <!-- Application modules — loaded in dependency order, globals only, no ES6 imports -->
   <script src="/static/modules/core.js"></script>
   <script src="/static/modules/navigation.js"></script>
+  <script src="/static/modules/opsbar.js"></script>
   <script src="/static/modules/library.js"></script>
   <script src="/static/modules/stats.js"></script>
   <script src="/static/modules/tracks.js"></script>

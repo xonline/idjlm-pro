@@ -90,46 +90,36 @@ function initLibraryToolbar() {
   }
 
   if (btnAnalyze) {
-    let currentAnalyzeOpId = null;
     btnAnalyze.addEventListener('click', async () => {
       btnAnalyze.disabled = true;
       try {
         const result = await apiFetch('/api/analyze', { method: 'POST' });
         if (result && result.op_id) {
-          currentAnalyzeOpId = result.op_id;
           const total = result.total || 0;
-          // Show started toast
           showToast('Analysis started — ' + total + ' tracks to go', 'info');
-          showProgressInStatsBar('Analysing audio...', 'analyze');
-          // Show cancel button
-          const cancelBtn = document.getElementById('stat-cancel-btn');
-          if (cancelBtn) cancelBtn.style.display = 'inline-block';
-          cancelBtn.onclick = async () => {
-            await apiFetch('/api/progress/' + currentAnalyzeOpId + '/cancel', { method: 'POST' });
-            hideProgressInStatsBar();
-            showToast('Analysis cancelled', 'info');
-            btnAnalyze.disabled = false;
-            if (cancelBtn) cancelBtn.style.display = 'none';
-          };
+          const opHandle = window.opsbar.registerOp({
+            id: 'analyze:' + result.op_id,
+            label: 'Analysing audio',
+            kind: 'analyze',
+            onCancel: async () => {
+              await apiFetch('/api/progress/' + result.op_id + '/cancel', { method: 'POST' });
+            },
+          });
           // Stream progress via SSE
           connectToProgress(
             result.op_id,
             result.total,
             (current, total, message) => {
-              const pct = Math.round((current / total) * 100);
-              showProgressInStatsBar(current + ' / ' + total + ' analysing...', 'analyze');
-              const fill = document.getElementById('stat-progress-fill');
-              if (fill) fill.style.width = pct + '%';
+              window.opsbar.progress(opHandle, current, total, message);
             },
             (data) => {
-              // SSE complete event
-              hideProgressInStatsBar();
-              if (cancelBtn) cancelBtn.style.display = 'none';
               if (data.cancelled) {
+                window.opsbar.error(opHandle, 'cancelled');
                 showToast('Analysis cancelled', 'info');
                 btnAnalyze.disabled = false;
                 return;
               }
+              window.opsbar.complete(opHandle, data);
               // Refetch fresh track data from server
               apiFetch('/api/tracks').then(d => {
                 window.tracks = d.tracks || [];
@@ -140,21 +130,15 @@ function initLibraryToolbar() {
               updateToolbarButtonStates();
               showToast('Analysis complete', 'success');
               btnAnalyze.disabled = false;
-              currentAnalyzeOpId = null;
             },
             (err) => {
-              hideProgressInStatsBar();
-              if (cancelBtn) cancelBtn.style.display = 'none';
+              window.opsbar.error(opHandle, err.message || 'stream error');
               showToast('Analysis stream error: ' + err.message, 'error');
               btnAnalyze.disabled = false;
-              currentAnalyzeOpId = null;
             }
           );
         }
       } catch (e) {
-        hideProgressInStatsBar();
-        const cancelBtn = document.getElementById('stat-cancel-btn');
-        if (cancelBtn) cancelBtn.style.display = 'none';
         showToast('Analysis failed: ' + e.message, 'error');
         btnAnalyze.disabled = false;
       }
@@ -162,42 +146,35 @@ function initLibraryToolbar() {
   }
 
   if (btnClassify) {
-    let currentClassifyOpId = null;
     btnClassify.addEventListener('click', async () => {
       btnClassify.disabled = true;
       try {
         const result = await apiFetch('/api/classify', { method: 'POST' });
         if (result && result.op_id) {
-          currentClassifyOpId = result.op_id;
           showToast('Classification started — this may take a few minutes', 'info');
-          showProgressInStatsBar('Classifying genres...', 'classify');
-          const cancelBtn = document.getElementById('stat-cancel-btn');
-          if (cancelBtn) cancelBtn.style.display = 'inline-block';
-          cancelBtn.onclick = async () => {
-            await apiFetch('/api/progress/' + currentClassifyOpId + '/cancel', { method: 'POST' });
-            hideProgressInStatsBar();
-            showToast('Classification cancelled', 'info');
-            btnClassify.disabled = false;
-            if (cancelBtn) cancelBtn.style.display = 'none';
-          };
+          const opHandle = window.opsbar.registerOp({
+            id: 'classify:' + result.op_id,
+            label: 'Classifying genres',
+            kind: 'classify',
+            onCancel: async () => {
+              await apiFetch('/api/progress/' + result.op_id + '/cancel', { method: 'POST' });
+            },
+          });
           // Stream progress via SSE
           connectToProgress(
             result.op_id,
             result.total,
             (current, total, message) => {
-              const pct = Math.round((current / total) * 100);
-              showProgressInStatsBar(current + ' / ' + total + ' classifying...', 'classify');
-              const fill = document.getElementById('stat-progress-fill');
-              if (fill) fill.style.width = pct + '%';
+              window.opsbar.progress(opHandle, current, total, message);
             },
             (data) => {
-              hideProgressInStatsBar();
-              if (cancelBtn) cancelBtn.style.display = 'none';
               if (data.cancelled) {
+                window.opsbar.error(opHandle, 'cancelled');
                 showToast('Classification cancelled', 'info');
                 btnClassify.disabled = false;
                 return;
               }
+              window.opsbar.complete(opHandle, data);
               apiFetch('/api/tracks').then(d => {
                 window.tracks = d.tracks || [];
                 window.searchResults = null;
@@ -207,21 +184,15 @@ function initLibraryToolbar() {
               updateToolbarButtonStates();
               showToast('Classification complete', 'success');
               btnClassify.disabled = false;
-              currentClassifyOpId = null;
             },
             (err) => {
-              hideProgressInStatsBar();
-              if (cancelBtn) cancelBtn.style.display = 'none';
+              window.opsbar.error(opHandle, err.message || 'stream error');
               showToast('Classification stream error: ' + err.message, 'error');
               btnClassify.disabled = false;
-              currentClassifyOpId = null;
             }
           );
         }
       } catch (e) {
-        hideProgressInStatsBar();
-        const cancelBtn = document.getElementById('stat-cancel-btn');
-        if (cancelBtn) cancelBtn.style.display = 'none';
         showToast('Classification failed: ' + e.message, 'error');
         btnClassify.disabled = false;
       }
@@ -254,43 +225,36 @@ function initLibraryToolbar() {
   }
 
   if (btnWriteTags) {
-    let currentWriteOpId = null;
     btnWriteTags.addEventListener('click', async () => {
       btnWriteTags.disabled = true;
       try {
         const result = await apiFetch('/api/review/write', { method: 'POST' });
         if (result && result.op_id) {
-          currentWriteOpId = result.op_id;
           const total = result.total || 0;
           showToast('Writing tags to ' + total + ' files — do not close the app', 'info');
-          showProgressInStatsBar('Writing tags...', 'write');
-          const cancelBtn = document.getElementById('stat-cancel-btn');
-          if (cancelBtn) cancelBtn.style.display = 'inline-block';
-          cancelBtn.onclick = async () => {
-            await apiFetch('/api/progress/' + currentWriteOpId + '/cancel', { method: 'POST' });
-            hideProgressInStatsBar();
-            showToast('Write cancelled', 'info');
-            btnWriteTags.disabled = false;
-            if (cancelBtn) cancelBtn.style.display = 'none';
-          };
+          const opHandle = window.opsbar.registerOp({
+            id: 'write:' + result.op_id,
+            label: 'Writing tags',
+            kind: 'write',
+            onCancel: async () => {
+              await apiFetch('/api/progress/' + result.op_id + '/cancel', { method: 'POST' });
+            },
+          });
           // Stream progress via SSE
           connectToProgress(
             result.op_id,
             result.total,
             (current, total, message) => {
-              const pct = Math.round((current / total) * 100);
-              showProgressInStatsBar(current + ' / ' + total + ' writing...', 'write');
-              const fill = document.getElementById('stat-progress-fill');
-              if (fill) fill.style.width = pct + '%';
+              window.opsbar.progress(opHandle, current, total, message);
             },
             (data) => {
-              hideProgressInStatsBar();
-              if (cancelBtn) cancelBtn.style.display = 'none';
               if (data.cancelled) {
+                window.opsbar.error(opHandle, 'cancelled');
                 showToast('Write cancelled', 'info');
                 btnWriteTags.disabled = false;
                 return;
               }
+              window.opsbar.complete(opHandle, data);
               // Refetch fresh track data from server
               apiFetch('/api/tracks').then(d => {
                 window.tracks = d.tracks || [];
@@ -341,21 +305,17 @@ function initLibraryToolbar() {
               }
 
               btnWriteTags.disabled = false;
-              currentWriteOpId = null;
             },
             (err) => {
-              hideProgressInStatsBar();
-              if (cancelBtn) cancelBtn.style.display = 'none';
+              window.opsbar.error(opHandle, err.message || 'stream error');
               showToast('Write stream error: ' + err.message, 'error');
               btnWriteTags.disabled = false;
-              currentWriteOpId = null;
             }
           );
+        } else {
+          btnWriteTags.disabled = false;
         }
       } catch (e) {
-        hideProgressInStatsBar();
-        const cancelBtn = document.getElementById('stat-cancel-btn');
-        if (cancelBtn) cancelBtn.style.display = 'none';
         showToast('Write failed: ' + e.message, 'error');
         btnWriteTags.disabled = false;
       }
@@ -384,34 +344,9 @@ function updateToolbarButtonStates(stats) {
   if (btnWriteTags)   btnWriteTags.disabled     = approved   === 0;
 }
 
-function showProgressInStatsBar(text, opType) {
-  const sep  = document.getElementById('stat-progress-sep');
-  const wrap = document.getElementById('stat-progress-wrap');
-  const txt  = document.getElementById('stat-progress-text');
-  const fill = document.getElementById('stat-progress-fill');
-  if (sep)  sep.style.display  = 'inline';
-  if (wrap) wrap.style.display = 'flex';
-  if (txt)  txt.textContent    = text;
-  // Apply color class based on operation type
-  if (fill) {
-    fill.classList.remove('progress-analyze', 'progress-classify', 'progress-write');
-    if (opType === 'analyze')      fill.classList.add('progress-analyze');
-    else if (opType === 'classify') fill.classList.add('progress-classify');
-    else if (opType === 'write')    fill.classList.add('progress-write');
-  }
-}
+// showProgressInStatsBar / hideProgressInStatsBar shims live in opsbar.js
+// (loaded before this file). Local definitions removed in v4.2.0 phase1.2.
 
-function hideProgressInStatsBar() {
-  const sep  = document.getElementById('stat-progress-sep');
-  const wrap = document.getElementById('stat-progress-wrap');
-  const fill = document.getElementById('stat-progress-fill');
-  if (sep)  sep.style.display  = 'none';
-  if (wrap) wrap.style.display = 'none';
-  if (fill) {
-    fill.style.width = '0%';
-    fill.classList.remove('progress-analyze', 'progress-classify', 'progress-write');
-  }
-}
 
 function checkResumeSession() {
   apiFetch('/api/session/exists').then(data => {

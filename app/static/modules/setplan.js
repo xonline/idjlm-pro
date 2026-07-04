@@ -253,39 +253,107 @@ function openTrackDetail(track) {
       const currentTrack = window.tracks.find(t => t.file_path === filePath);
       if (!currentTrack) return;
 
-      showSpinner('Analysing cue points...');
+      // Non-blocking: this endpoint returns op_id and we stream progress via
+      // the shared opsbar. No more full-screen spinner for cue analysis.
+      cueAnalysisBtn.disabled = true;
       try {
-        const result = await apiFetch('/api/analyze/latin', {
+        const preamble = await apiFetch('/api/analyze/latin', {
           method: 'POST',
           body: JSON.stringify({ paths: [filePath] }),
         });
+        if (preamble && preamble.op_id) {
+          const opHandle = window.opsbar.registerOp({
+            id: 'cue:' + preamble.op_id,
+            label: 'Analysing cue points',
+            kind: 'cue',
+            onCancel: async () => {
+              await apiFetch('/api/progress/' + preamble.op_id + '/cancel', { method: 'POST' });
+            },
+          });
+          showToast('Cue analysis started', 'info');
+          connectToProgress(
+            preamble.op_id,
+            preamble.total || 1,
+            (current, total, message) => {
+              window.opsbar.progress(opHandle, current, total, message);
+            },
+            async (data) => {
+              if (data.cancelled) {
+                window.opsbar.error(opHandle, 'cancelled');
+                showToast('Cue analysis cancelled', 'info');
+                cueAnalysisBtn.disabled = false;
+                return;
+              }
+              window.opsbar.complete(opHandle, data);
+              // Re-fetch the result payload via /analyze/latin doesn't support GET,
+              // so we refetch the track and read back from window.tracks.
+              try {
+                const refreshed = await apiFetch('/api/tracks');
+                if (refreshed && Array.isArray(refreshed.tracks)) {
+                  const fresh = refreshed.tracks.find(t => t.file_path === filePath);
+                  if (fresh) {
+                    currentTrack.clave_pattern = fresh.clave_pattern;
+                    currentTrack.clave_confidence = fresh.clave_confidence;
+                    currentTrack.suggested_cues = fresh.suggested_cues || [];
+                    currentTrack.latin_analysis_done = fresh.latin_analysis_done;
+                  }
+                }
+              } catch (_) { /* best-effort */ }
 
-        // Update track with cue analysis results
-        if (result.analyzed && result.analyzed.length > 0) {
-          const analyzed = result.analyzed[0];
-          currentTrack.clave_pattern = analyzed.clave_pattern;
-          currentTrack.clave_confidence = analyzed.clave_confidence;
-          currentTrack.suggested_cues = analyzed.suggested_cues || [];
-          currentTrack.latin_analysis_done = true;
-
-          // Update the cue points list in the panel
-          const cueList = panel.querySelector('#cue-points-list');
-          if (cueList && currentTrack.suggested_cues.length > 0) {
-            cueList.innerHTML = currentTrack.suggested_cues.map(cue => `
-              <div class="cue-point-item">
-                <span class="cue-point-dot ${cue.hot_cue ? 'cue-point-dot-hot' : cue.loop ? 'cue-point-dot-loop' : ''}"></span>
-                <span class="cue-time">${formatTime(cue.time)}</span>
-                <span class="cue-label">${escapeHtml(cue.label || 'Cue Point')}</span>
-              </div>
-            `).join('');
+              // Update the cue points list in the panel
+              const cueList = panel.querySelector('#cue-points-list');
+              if (cueList && currentTrack.suggested_cues && currentTrack.suggested_cues.length > 0) {
+                cueList.innerHTML = currentTrack.suggested_cues.map(cue => `
+                  <div class="cue-point-item">
+                    <span class="cue-point-dot ${cue.hot_cue ? 'cue-point-dot-hot' : cue.loop ? 'cue-point-dot-loop' : ''}"></span>
+                    <span class="cue-time">${formatTime(cue.time)}</span>
+                    <span class="cue-label">${escapeHtml(cue.label || 'Cue Point')}</span>
+                  </div>
+                `).join('');
+              }
+              showToast('Cue points analyzed', 'success');
+              cueAnalysisBtn.disabled = false;
+            },
+            (err) => {
+              window.opsbar.error(opHandle, err.message || 'stream error');
+              showToast('Cue analysis error: ' + (err.message || 'unknown'), 'error');
+              cueAnalysisBtn.disabled = false;
+            }
+          );
+        } else {
+          // Synchronous fallback (no op_id) — restore spinner for legacy path
+          showSpinner('Analysing cue points...');
+          try {
+            const result = await apiFetch('/api/analyze/latin', {
+              method: 'POST',
+              body: JSON.stringify({ paths: [filePath] }),
+            });
+            if (result.analyzed && result.analyzed.length > 0) {
+              const analyzed = result.analyzed[0];
+              currentTrack.clave_pattern = analyzed.clave_pattern;
+              currentTrack.clave_confidence = analyzed.clave_confidence;
+              currentTrack.suggested_cues = analyzed.suggested_cues || [];
+              currentTrack.latin_analysis_done = true;
+              const cueList = panel.querySelector('#cue-points-list');
+              if (cueList && currentTrack.suggested_cues.length > 0) {
+                cueList.innerHTML = currentTrack.suggested_cues.map(cue => `
+                  <div class="cue-point-item">
+                    <span class="cue-point-dot ${cue.hot_cue ? 'cue-point-dot-hot' : cue.loop ? 'cue-point-dot-loop' : ''}"></span>
+                    <span class="cue-time">${formatTime(cue.time)}</span>
+                    <span class="cue-label">${escapeHtml(cue.label || 'Cue Point')}</span>
+                  </div>
+                `).join('');
+              }
+            }
+            showToast('Cue points analyzed', 'success');
+          } finally {
+            hideSpinner();
+            cueAnalysisBtn.disabled = false;
           }
         }
-
-        showToast('Cue points analyzed', 'success');
       } catch (error) {
-        // Error already shown
-      } finally {
-        hideSpinner();
+        showToast('Cue analysis failed: ' + (error.message || 'unknown'), 'error');
+        cueAnalysisBtn.disabled = false;
       }
     });
   }
@@ -296,6 +364,9 @@ function openTrackDetail(track) {
       const currentTrack = window.tracks.find(t => t.file_path === filePath);
       if (!currentTrack) return;
 
+      // /api/mixes/compatible/ is synchronous (no op_id) — keep the spinner
+      // here. Per issue 1.2 scope, we only migrate streaming ops to the
+      // opsbar; this stays as-is until that endpoint is converted.
       showSpinner('Finding compatible tracks...');
       try {
         const result = await apiFetch(`/api/mixes/compatible/${encodeURIComponent(filePath)}`, {

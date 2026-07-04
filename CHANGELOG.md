@@ -4,6 +4,17 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [4.2.0] — 2026-07-04
+
+### Frontend UI (Phase 1)
+
+- **Persistent status bar for background ops** (`apps/static/modules/opsbar.js`) — each cancellable streaming operation now owns its own chip in the library stats bar instead of clobbering a single shared progress slot. Concurrent background work is now visible simultaneously (e.g. classify + write + cue analysis all running at once). Each chip has its own kind-coloured accent, progress fill, current/total counter, and per-op `✕` cancel button that POSTs to `/api/progress/<op_id>/cancel`. Auto-remove after success/cancel/error flash.
+- **Migrated streaming flows to opsbar:** library toolbar (Analyze / Classify / Write Tags), review tab (Write Tags), and track-detail panel (Cue point analysis via `/api/analyze/latin`). Each of these was previously a blocking full-screen spinner (`core.js:83-93`); they are now non-blocking and co-runnable.
+- **Sync quick paths still use the spinner by design** — saving settings/taxonomy/bulk duplicates scan use `showSpinner` because they resolve in <2s and have no streaming endpoint. Block / async split is documented in `core.js`.
+- `showProgressInStatsBar` / `hideProgressInStatsBar` are now deprecated shims in `opsbar.js` (kept for the few remaining migration candidates); new code uses `window.opsbar.registerOp()` etc.
+
+---
+
 ## [4.1.0] — 2026-06-02
 
 ### New Features

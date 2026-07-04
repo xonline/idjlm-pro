@@ -80,6 +80,30 @@ async function apiFetch(url, options = {}) {
 // UI Utilities
 // ============================================================================
 
+// showSpinner / hideSpinner
+// ----------------------------------------------------------------------------
+// UI utilities: synchronous-blocking-only.
+//
+// Use showSpinner ONLY for fast synchronous calls (<2s perceived) where the
+// user is waiting on the resolution before the next interaction makes sense.
+// Examples that legitimately use it:
+//   - Saving settings / taxonomy (editor.js, taxonomy.js, settings.js,
+//     classify.js)
+//   - Scanning for duplicates (pipeline.js 1322) — sync on session
+//   - Removing a single duplicate (pipeline.js 1506) — single track op
+//
+// For LONG-RUNNING STREAMING OPERATIONS (analysis, classification, tag write,
+// cue analysis, setplan generation) use the opsbar:
+//   window.opsbar.registerOp({ id, label, kind, onCancel });     // start chip
+//   window.opsbar.progress(handle, current, total, message?);    // stream
+//   window.opsbar.complete(handle, summary?);                    // success
+//   window.opsbar.error(handle, message);                        // failure
+//
+// See modules/opsbar.js for the full API. The legacy shims
+// showProgressInStatsBar / hideProgressInStatsBar are preserved there for
+// callers that haven't migrated yet.
+// ----------------------------------------------------------------------------
+
 function showSpinner(message = 'Processing...') {
   const overlay = document.getElementById('spinner-overlay');
   const msg = document.getElementById('spinner-message');

@@ -119,33 +119,28 @@ function initReviewTab() {
       if (result && result.op_id) {
         const total = result.total || 0;
         showToast('Writing tags to ' + total + ' files — do not close the app', 'info');
-        showProgressInStatsBar('Writing tags...', 'write');
-        const cancelBtn = document.getElementById('stat-cancel-btn');
-        if (cancelBtn) cancelBtn.style.display = 'inline-block';
-        cancelBtn.onclick = async () => {
-          await apiFetch('/api/progress/' + result.op_id + '/cancel', { method: 'POST' });
-          hideProgressInStatsBar();
-          showToast('Write cancelled', 'info');
-          btnWriteTags.disabled = false;
-          if (cancelBtn) cancelBtn.style.display = 'none';
-        };
+        const opHandle = window.opsbar.registerOp({
+          id: 'write:' + result.op_id,
+          label: 'Writing tags',
+          kind: 'write',
+          onCancel: async () => {
+            await apiFetch('/api/progress/' + result.op_id + '/cancel', { method: 'POST' });
+          },
+        });
         connectToProgress(
           result.op_id,
           result.total,
           (current, total, message) => {
-            const pct = Math.round((current / total) * 100);
-            showProgressInStatsBar(current + ' / ' + total + ' writing...', 'write');
-            const fill = document.getElementById('stat-progress-fill');
-            if (fill) fill.style.width = pct + '%';
+            window.opsbar.progress(opHandle, current, total, message);
           },
           (data) => {
-            hideProgressInStatsBar();
-            if (cancelBtn) cancelBtn.style.display = 'none';
             if (data.cancelled) {
+              window.opsbar.error(opHandle, 'cancelled');
               showToast('Write cancelled', 'info');
               btnWriteTags.disabled = false;
               return;
             }
+            window.opsbar.complete(opHandle, data);
             apiFetch('/api/tracks').then(d => {
               window.tracks = d.tracks || [];
               window.searchResults = null;
@@ -156,8 +151,15 @@ function initReviewTab() {
             showToast(`Tags written to ${written} file${written !== 1 ? 's' : ''}`, 'success');
             renderReview();
             btnWriteTags.disabled = false;
+          },
+          (err) => {
+            window.opsbar.error(opHandle, err.message || 'stream error');
+            showToast('Write stream error: ' + err.message, 'error');
+            btnWriteTags.disabled = false;
           }
         );
+      } else {
+        btnWriteTags.disabled = false;
       }
     } catch (error) {
       // Error shown in apiFetch
