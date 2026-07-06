@@ -119,6 +119,9 @@ class Track:
     key_mismatch: Optional[bool] = None       # True if analyzed_key differs significantly from final_key
     key_mismatch_detail: Optional[str] = None # e.g. "Stored: 8A, Detected: 7B"
 
+    # Custom tags (user-defined key-value pairs, stored as TXXX frames)
+    custom_tags: dict = field(default_factory=dict)
+
     def to_dict(self) -> dict:
         d = asdict(self)
         # asdict() only serialises dataclass fields — add @property values explicitly

@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import threading
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 
@@ -28,6 +29,9 @@ def _setup_file_logging():
 
 # In-memory session store: { file_path: Track }
 _track_store: dict = {}
+# Reentrant lock protecting _track_store from concurrent mutations
+# (import clear vs background analyse/classify iteration race — issue #199)
+_track_store_lock = threading.RLock()
 # Taxonomy loaded from taxonomy.json (mutable at runtime)
 _taxonomy: dict = {}
 # Progress queues: { op_id: queue.Queue }
@@ -123,6 +127,7 @@ def create_app() -> Flask:
     from app.routes.advisor_routes import bp as advisor_bp
     from app.routes.rekordbox_routes import bp as rekordbox_bp
     from app.routes.backup_routes import bp as backup_bp
+    from app.routes.tag_routes import bp as tag_bp
 
     app.register_blueprint(import_bp)
     app.register_blueprint(track_bp)
@@ -147,6 +152,7 @@ def create_app() -> Flask:
     app.register_blueprint(advisor_bp)
     app.register_blueprint(rekordbox_bp)
     app.register_blueprint(backup_bp)
+    app.register_blueprint(tag_bp)
 
     @app.route("/")
     def index():

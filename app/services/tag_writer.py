@@ -113,6 +113,21 @@ def write_tags(track: Track) -> Track:
                 # Log image fetch failure but don't fail the entire tag write
                 logger.warning("Failed to fetch/write album art for %s: %s", track.filename, img_err)
 
+        # Custom tags: sync track.custom_tags to TXXX frames
+        # First, remove any TXXX frames that are no longer in custom_tags
+        existing_txxx_descs = set()
+        for txxx in tags.getall('TXXX'):
+            if hasattr(txxx, 'desc') and txxx.desc:
+                existing_txxx_descs.add(txxx.desc)
+                if txxx.desc != 'INITIALKEY' and txxx.desc not in track.custom_tags:
+                    del tags[f"TXXX:{txxx.desc}"]
+
+        # Write each custom tag as a TXXX frame
+        for key, value in track.custom_tags.items():
+            if value is not None:
+                txxx_frame = TXXX(encoding=3, desc=key, text=[str(value)])
+                tags[f"TXXX:{key}"] = txxx_frame
+
         # Latin metadata to COMM frames
         # Clave pattern (e.g. "2-3", "3-2")
         if track.clave_pattern:

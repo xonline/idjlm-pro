@@ -34,6 +34,7 @@ def test_expected_blueprint_routes_registered():
         "/api/analyze/latin",
         "/api/library/health",
         "/api/validate/keys",
+        "/api/tags",                # custom tags CRUD (TXXX backend)
     ]
 
     for route in expected_routes:

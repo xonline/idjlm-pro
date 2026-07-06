@@ -363,6 +363,34 @@ class TestOrganiseRoutes:
 
 
 # ---------------------------------------------------------------------------
+# Tag routes  (app/routes/tag_routes.py)
+# ---------------------------------------------------------------------------
+class TestTagRoutes:
+    def test_list_tag_keys(self, client):
+        resp = client.get("/api/tags")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "keys" in data
+        assert "counts" in data
+
+    def test_get_tracks_by_tag(self, client):
+        resp = client.get("/api/tags/NonExistent")
+        assert resp.status_code == 200
+
+    def test_get_track_tags(self, client):
+        resp = client.get("/api/tracks/nonexistent%2Ffile.mp3/tags")
+        assert resp.status_code == 404
+
+    def test_set_track_tag(self, client):
+        resp = client.put("/api/tracks/nonexistent%2Ffile.mp3/tags", json={"key": "X", "value": "Y"})
+        assert resp.status_code == 404
+
+    def test_delete_track_tag(self, client):
+        resp = client.delete("/api/tracks/nonexistent%2Ffile.mp3/tags/X")
+        assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
 # AppleScript routes  (app/routes/applescript_routes.py)
 # Blueprint is NOT registered in create_app() -- routes return 404.
 # Tests verify this so it isn't accidental.

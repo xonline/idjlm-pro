@@ -24,8 +24,9 @@ def _extract_id3_text(frame) -> Optional[str]:
 def _read_id3_tags(file_path: str) -> dict:
     """
     Read ID3 tags from MP3 file.
-    Returns dict with keys: title, artist, album, year, genre, comment, bpm, key
+    Returns dict with keys: title, artist, album, year, genre, comment, bpm, key, custom_tags
     All values are Optional[str] or None if tag missing/unreadable.
+    custom_tags is a dict of user-defined TXXX frame descriptions -> values.
     """
     tags = {
         'title': None,
@@ -36,6 +37,7 @@ def _read_id3_tags(file_path: str) -> dict:
         'comment': None,
         'bpm': None,
         'key': None,
+        'custom_tags': {},
     }
 
     try:
@@ -65,6 +67,13 @@ def _read_id3_tags(file_path: str) -> dict:
     if comm_frame and hasattr(comm_frame, 'text') and comm_frame.text:
         tags['comment'] = str(comm_frame.text[0])
 
+    # Read TXXX custom tags (skip INITIALKEY which is managed internally)
+    for txxx in audio.tags.getall('TXXX'):
+        if hasattr(txxx, 'desc') and hasattr(txxx, 'text') and txxx.text:
+            desc = txxx.desc
+            if desc and desc != 'INITIALKEY':
+                tags['custom_tags'][desc] = str(txxx.text[0])
+
     return tags
 
 
@@ -72,7 +81,7 @@ def _read_tags_universal(file_path: str) -> dict:
     """
     Read tags from audio files using mutagen's format-agnostic API.
     Used for FLAC, WAV, M4A, AAC, OGG, and other formats.
-    Returns dict with keys: title, artist, album, year, genre, comment, bpm, key
+    Returns dict with keys: title, artist, album, year, genre, comment, bpm, key, custom_tags
     """
     tags = {
         'title': None,
@@ -83,6 +92,7 @@ def _read_tags_universal(file_path: str) -> dict:
         'comment': None,
         'bpm': None,
         'key': None,
+        'custom_tags': {},
     }
 
     try:
@@ -103,6 +113,32 @@ def _read_tags_universal(file_path: str) -> dict:
         tags['comment'] = get('comment')
         tags['bpm'] = get('bpm')
         tags['key'] = get('initialkey')
+
+        # Read custom tags: open with full (non-easy) API to access TXXX-like frames
+        try:
+            audio_full = MutagenFile(file_path)
+            if audio_full and audio_full.tags:
+                # For MP3/ID3 files caught here (edge case) read TXXX frames
+                for txxx in audio_full.tags.getall('TXXX'):
+                    if hasattr(txxx, 'desc') and hasattr(txxx, 'text') and txxx.text:
+                        desc = txxx.desc
+                        if desc and desc != 'INITIALKEY':
+                            tags['custom_tags'][desc] = str(txxx.text[0])
+                # For Vorbis/FLAC: all keys not in the standard set are custom
+                if hasattr(audio_full.tags, 'get'):
+                    standard_keys = {'title', 'artist', 'album', 'date', 'genre',
+                                     'comment', 'bpm', 'initialkey', 'tracknumber',
+                                     'discnumber', 'composer', 'performer', 'copyright',
+                                     'encodedby', 'encoding', 'vendor', 'description',
+                                     'mimetype'}
+                    if hasattr(audio_full.tags, 'keys'):
+                        for key in audio_full.tags.keys():
+                            if key.lower() not in standard_keys:
+                                vals = audio_full.tags.get(key)
+                                if vals:
+                                    tags['custom_tags'][key] = str(vals[0])
+        except Exception:
+            pass
     except Exception:
         pass
 
@@ -168,6 +204,7 @@ def scan_folder(folder_path: str) -> list[Track]:
                     existing_comment=audio_tags['comment'],
                     existing_bpm=audio_tags['bpm'],
                     existing_key=audio_tags['key'],
+                    custom_tags=audio_tags.get('custom_tags', {}),
                     duration=_read_duration_seconds(file_path, suffix),
                 )
                 tracks.append(track)

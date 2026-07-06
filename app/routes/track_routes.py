@@ -23,6 +23,17 @@ def list_tracks():
         if status != "all":
             tracks = [t for t in tracks if t.review_status == status]
 
+        # Filter by custom tag key/value
+        tag_key = request.args.get("tag_key", "").strip()
+        if tag_key:
+            tag_value = request.args.get("tag_value", "").strip() or None
+            tracks = [
+                t for t in tracks
+                if hasattr(t, 'custom_tags') and t.custom_tags
+                and tag_key in t.custom_tags
+                and (tag_value is None or t.custom_tags[tag_key] == tag_value)
+            ]
+
         # Sort
         sort_by = request.args.get("sort_by", "filename").lower()
         sort_dir = request.args.get("sort_dir", "asc").lower()
@@ -102,6 +113,13 @@ def search_tracks():
                     if value and q.lower() in str(value).lower():
                         matched.append(track)
                         break
+                else:
+                    # Also search custom_tags values
+                    if hasattr(track, 'custom_tags') and track.custom_tags:
+                        for val in track.custom_tags.values():
+                            if val and q.lower() in str(val).lower():
+                                matched.append(track)
+                                break
             tracks = matched
 
         return jsonify({
