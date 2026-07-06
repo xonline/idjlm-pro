@@ -102,6 +102,15 @@ def import_tracks():
         for track in tracks:
             track_store[track.file_path] = track
 
+        # Restore cached analysis for unchanged files (B.3 — analysis cache)
+        from app.services.analysis_cache import restore
+        restored_count = 0
+        for track in tracks:
+            if restore(track):
+                restored_count += 1
+        if restored_count:
+            logger.info("Restored analysis from cache for %d tracks", restored_count)
+
         # Normalize genres from existing tags (e.g. "Salsa Romántica" → "Salsa")
         from app import get_taxonomy
         from app.services.genre_normalizer import normalize_track_genres

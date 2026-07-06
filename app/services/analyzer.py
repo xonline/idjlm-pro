@@ -511,6 +511,9 @@ def analyze_track(track: Track) -> Track:
     if track.error:
         return track
 
+    if track.analysis_done:
+        return track
+
     try:
         # ------------------------------------------------------------------ #
         # Step 1: Try to read existing BPM / key from file tags               #
@@ -703,6 +706,9 @@ def analyze_track(track: Track) -> Track:
                 track.waveform_peaks = raw_peaks
 
         track.analysis_done = True
+
+        from app.services.analysis_cache import put as cache_put
+        cache_put(track)
 
     except Exception as e:
         track.error = f"Audio analysis failed: {str(e)}"

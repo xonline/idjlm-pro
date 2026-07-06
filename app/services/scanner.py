@@ -193,6 +193,8 @@ def scan_folder(folder_path: str) -> list[Track]:
                 else:
                     audio_tags = _read_tags_universal(file_path)
 
+                from app.services.analysis_cache import compute_hash
+                content_hash = compute_hash(file_path)
                 track = Track(
                     file_path=file_path,
                     filename=filename,
@@ -206,6 +208,7 @@ def scan_folder(folder_path: str) -> list[Track]:
                     existing_key=audio_tags['key'],
                     custom_tags=audio_tags.get('custom_tags', {}),
                     duration=_read_duration_seconds(file_path, suffix),
+                    content_hash=content_hash,
                 )
                 tracks.append(track)
 

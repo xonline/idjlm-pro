@@ -119,6 +119,9 @@ class Track:
     key_mismatch: Optional[bool] = None       # True if analyzed_key differs significantly from final_key
     key_mismatch_detail: Optional[str] = None # e.g. "Stored: 8A, Detected: 7B"
 
+    # Content hash (SHA-256 of first 1MB) for change detection / analysis cache
+    content_hash: Optional[str] = None
+
     # Custom tags (user-defined key-value pairs, stored as TXXX frames)
     custom_tags: dict = field(default_factory=dict)
 
