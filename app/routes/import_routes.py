@@ -1,6 +1,4 @@
 import os
-import subprocess
-import sys
 import threading
 import logging
 from flask import Blueprint, request, jsonify
@@ -16,26 +14,54 @@ _classify_lock = threading.Lock()
 
 @bp.route("/pick-folder", methods=["GET"])
 def pick_folder():
-    """Open a native folder picker dialog and return the chosen path."""
+    """Open a native folder picker dialog and return the chosen path.
+
+    Cross-platform — uses tkinter on all platforms (macOS, Windows, Linux).
+    Returns a structured payload so the frontend can distinguish a real
+    cancellation from a headless-environment failure:
+      * ``{path: "..."}``           — user selected a folder
+      * ``{cancelled: true}``       — user dismissed the dialog
+      * ``{unavailable: true, ...}`` — no GUI toolkit (headless server /
+        tkinter not installed); the frontend falls back to manual text entry.
+
+    Never returns a 500 on "no display" — that is an expected state, not an
+    error. This route must not shell out to ``osascript`` (the old macOS-only
+    implementation broke the import flow on Windows/Linux); the tkinter path
+    below works everywhere Python runs.
+    """
     try:
-        if sys.platform == "darwin":
-            result = subprocess.run(
-                ["osascript", "-e",
-                 'POSIX path of (choose folder with prompt "Select your music folder:")'],
-                capture_output=True, text=True, timeout=60
-            )
-            if result.returncode != 0:
-                # User cancelled
-                return jsonify({"cancelled": True}), 200
-            path = result.stdout.strip()
-            return jsonify({"path": path}), 200
-        else:
-            return jsonify({"error": "Folder picker only supported on macOS"}), 400
-    except subprocess.TimeoutExpired:
-        return jsonify({"cancelled": True}), 200
-    except Exception as e:
-        logger.exception("Error in /api/pick-folder")
-        return jsonify({"error": str(e)}), 500
+        import tkinter as tk
+        from tkinter import filedialog
+    except ImportError as e:
+        logger.info("/api/pick-folder: tkinter unavailable (%s) — headless", e)
+        return jsonify({
+            "unavailable": True,
+            "message": "No GUI toolkit available on this host",
+        }), 200
+
+    root = None
+    try:
+        root = tk.Tk()
+        root.withdraw()  # Hide the root window
+        root.lift()      # Bring dialog to front on macOS
+        root.attributes('-topmost', True)
+        path = filedialog.askdirectory(title="Select your music folder:")
+    except Exception as e:  # tk.Tk() raises on a display-less host
+        logger.info("/api/pick-folder: no display (%s) — headless", e)
+        return jsonify({
+            "unavailable": True,
+            "message": "No display available for a native dialog",
+        }), 200
+    finally:
+        if root is not None:
+            try:
+                root.destroy()
+            except Exception:
+                pass
+
+    if path:
+        return jsonify({"path": path}), 200
+    return jsonify({"cancelled": True}), 200
 
 
 @bp.route("/import", methods=["POST"])
