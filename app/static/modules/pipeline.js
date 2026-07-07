@@ -514,3 +514,15 @@ async function testApiKey(provider) {
     statusEl.innerHTML = '<span style="color:var(--danger);font-size:12px;">✗ ' + escapeHtml(e.message) + '</span>';
   }
 }
+
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.initOnboarding = initOnboarding;
+window.initOrganiseTab = initOrganiseTab;
+window.initSetPlanTab = initSetPlanTab;
+window.initThresholdPersistence = initThresholdPersistence;
+window.initWorkflowGuide = initWorkflowGuide;
+window.loadSetlistFromStorage = loadSetlistFromStorage;
+window.saveSetlistToStorage = saveSetlistToStorage;
+window.testApiKey = testApiKey;
+window.updatePipelineStepper = updatePipelineStepper;

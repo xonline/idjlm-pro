@@ -162,7 +162,11 @@ def create_app() -> Flask:
             version = open(os.path.join(base, "VERSION")).read().strip()
         except Exception:
             version = ""
-        return render_template("index.html", version=version)
+        # IDJLM 0.4: opt-in flag pointing the page at the Vite dev server
+        # (`npm run dev`, http://localhost:5173) instead of the built
+        # app/static/dist/main.js bundle. Defaults off (prod-safe).
+        dev_mode = os.getenv("IDJLM_VITE_DEV") == "1"
+        return render_template("index.html", version=version, dev_mode=dev_mode)
 
     # Centralised error handlers — A.2 structured-error taxonomy.
     # Any uncaught exception in a route handler is converted to the

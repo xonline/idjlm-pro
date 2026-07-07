@@ -572,3 +572,10 @@ async function handleBulkEdit() {
   }
 }
 
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.initBulkSelectFeature = initBulkSelectFeature;
+window.initReclassifyModal = initReclassifyModal;
+window.saveSettingsRound2 = saveSettingsRound2;
+window.showReclassifyModal = showReclassifyModal;
+window.updateBulkActionsBar = updateBulkActionsBar;

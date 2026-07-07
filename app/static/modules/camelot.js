@@ -134,3 +134,7 @@ function isCompatibleKey(key1, key2) {
   return numDiff === 1;
 }
 
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.createCamelotWheel = createCamelotWheel;
+window.isCompatibleKey = isCompatibleKey;

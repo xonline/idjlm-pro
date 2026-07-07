@@ -28,6 +28,19 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # IDJLM 0.4 — build the Vite frontend bundle once; idjlm.spec's
+      # ('app', 'app') datas entry bundles app/static/dist wholesale into
+      # both sidecar builds below.
+      - name: Build frontend bundle (Vite)
+        run: |
+          npm install
+          npm run build
+
       # ── arm64 sidecar ──────────────────────────────────────────────────────
       - name: Install Python 3.12 (arm64)
         uses: actions/setup-python@v5
@@ -68,11 +81,6 @@ jobs:
             --distpath src-tauri/binaries/tmp-x86
           mv src-tauri/binaries/tmp-x86/idjlm-server \
              src-tauri/binaries/idjlm-server-x86_64-apple-darwin
-
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
 
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli@^2.5.0
@@ -115,6 +123,19 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # IDJLM 0.4 — build the Vite frontend bundle once; idjlm.spec's
+      # ('app', 'app') datas entry bundles app/static/dist wholesale.
+      - name: Build frontend bundle (Vite)
+        run: |
+          npm install
+          npm run build
+        shell: bash
+
       - name: Install Python 3.12
         uses: actions/setup-python@v5
         with:
@@ -136,11 +157,6 @@ jobs:
           Move-Item src-tauri/binaries/tmp/idjlm-server.exe `
             src-tauri/binaries/idjlm-server-x86_64-pc-windows-msvc.exe
         shell: pwsh
-
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
 
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli@^2.5.0

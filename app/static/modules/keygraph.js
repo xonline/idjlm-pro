@@ -407,3 +407,7 @@ function renderKeyCompatibilityGraph(tracks) {
     draw();
   };
 }
+
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.initKeyGraph = initKeyGraph;

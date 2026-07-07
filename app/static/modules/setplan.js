@@ -933,3 +933,13 @@ function populateSetplanGenres() {
   });
 }
 
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.addTrackToSetlist = addTrackToSetlist;
+window.closeTrackDetail = closeTrackDetail;
+window.connectToProgress = connectToProgress;
+window.generateSet = generateSet;
+window.initSetlistTab = initSetlistTab;
+window.loadSetplanArcs = loadSetplanArcs;
+window.openTrackDetail = openTrackDetail;
+window.renderSetlist = renderSetlist;

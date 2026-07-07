@@ -61,6 +61,17 @@ if [ ! -f .env ]; then
     cp config.example.env .env
 fi
 
+# Build frontend bundle (IDJLM 0.4 — Vite). --add-data "app/static:app/static" below
+# bundles app/static/dist wholesale, so it just needs to exist on disk first.
+if ! command -v npm &>/dev/null; then
+    echo ""
+    echo "  ❌  npm not found — install Node.js (https://nodejs.org) to build the frontend bundle."
+    echo ""
+    exit 1
+fi
+npm install
+npm run build
+
 # Build
 pyinstaller \
     --noconfirm \

@@ -6,7 +6,7 @@ function initSearchFeature() {
   if (!searchInput) return;
 
   searchInput.addEventListener('input', (e) => {
-    clearTimeout(searchDebounceTimer);
+    clearTimeout(window.searchDebounceTimer);
     const query = e.target.value;
 
     // Show/hide clear button
@@ -14,7 +14,7 @@ function initSearchFeature() {
       searchClearBtn.style.display = query ? 'block' : 'none';
     }
 
-    searchDebounceTimer = setTimeout(async () => {
+    window.searchDebounceTimer = setTimeout(async () => {
       const trimmed = query.trim();
       if (!trimmed) {
         // Empty query: clear search results, fall back to all tracks
@@ -51,3 +51,6 @@ function initSearchFeature() {
   }
 }
 
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.initSearchFeature = initSearchFeature;

@@ -237,9 +237,9 @@ function renderReview() {
     progressFill.className = 'audio-progress-fill';
     progressContainer.appendChild(progressFill);
     progressContainer.addEventListener('click', (e) => {
-      if (currentAudioPlayer) {
+      if (window.currentAudioPlayer) {
         const percent = e.offsetX / progressContainer.offsetWidth;
-        currentAudioPlayer.currentTime = percent * currentAudioPlayer.duration;
+        window.currentAudioPlayer.currentTime = percent * window.currentAudioPlayer.duration;
       }
     });
     audioContainer.appendChild(progressContainer);
@@ -485,3 +485,6 @@ function showGenreSelector() {
   select.focus();
 }
 
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.renderReview = renderReview;

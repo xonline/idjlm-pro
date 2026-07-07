@@ -650,7 +650,7 @@ function toggleAudioPlay(btn, filePath) {
   // If different file, stop current and play new
   const audioUrl = `/api/audio?path=${encodeURIComponent(filePath)}`;
   const isSameFile = audio.src.endsWith(audioUrl) || audio.src === audioUrl;
-  if (currentAudioPlayer !== audio || !isSameFile) {
+  if (window.currentAudioPlayer !== audio || !isSameFile) {
     // Stop any playing audio
     audio.pause();
 
@@ -662,7 +662,7 @@ function toggleAudioPlay(btn, filePath) {
 
     // Set new source and play — wait for canplay before calling play()
     audio.src = audioUrl;
-    currentAudioPlayer = audio;
+    window.currentAudioPlayer = audio;
     audio.load();
 
     btn.classList.add('playing');
@@ -846,3 +846,8 @@ function reclassifySingleTrack(track) {
     showToast('Re-classify modal not available', 'error');
   }
 }
+
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.renderTracks = renderTracks;
+window.toggleAudioPlay = toggleAudioPlay;

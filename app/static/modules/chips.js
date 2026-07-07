@@ -120,3 +120,8 @@ function toggleChip(chip, group, value) {
   }
   renderTracks();
 }
+
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.initFilterChips = initFilterChips;
+window.updateFilterChips = updateFilterChips;

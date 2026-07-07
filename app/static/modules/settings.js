@@ -442,3 +442,11 @@ function initFontSize() {
     });
   });
 }
+
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.initSettingsTab = initSettingsTab;
+window.initTheme = initTheme;
+window.initThemeSwatches = initThemeSwatches;
+window.loadSettings = loadSettings;
+window.saveSettings = saveSettings;

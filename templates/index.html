@@ -1542,33 +1542,15 @@
     </div>
   </div>
 
-  <!-- Chart.js Library (local) -->
+  <!-- Chart.js Library (local, classic UMD global — outside the Vite module graph) -->
   <script src="/static/vendor/chart.umd.min.js"></script>
 
-  <!-- Application modules — loaded in dependency order, globals only, no ES6 imports -->
-  <script src="/static/modules/core.js"></script>
-  <script src="/static/modules/navigation.js"></script>
-  <script src="/static/modules/opsbar.js"></script>
-  <script src="/static/modules/library.js"></script>
-  <script src="/static/modules/stats.js"></script>
-  <script src="/static/modules/player.js"></script>
-  <script src="/static/modules/tracks.js"></script>
-  <script src="/static/modules/review.js"></script>
-  <script src="/static/modules/taxonomy.js"></script>
-  <script src="/static/modules/camelot.js"></script>
-  <script src="/static/modules/keygraph.js"></script>
-  <script src="/static/modules/editor.js"></script>
-  <script src="/static/modules/settings.js"></script>
-  <script src="/static/modules/setplan.js"></script>
-  <script src="/static/modules/search.js"></script>
-  <script src="/static/modules/chips.js"></script>
-  <script src="/static/modules/classify.js"></script>
-  <script src="/static/modules/advisor.js"></script>
-  <script src="/static/modules/shortcuts.js"></script>
-  <script src="/static/modules/updater.js"></script>
-  <script src="/static/modules/duplicates.js"></script>
-  <script src="/static/modules/playlists-export.js"></script>
-  <script src="/static/modules/pipeline.js"></script>
-  <script src="/static/app.js"></script>
+  <!-- Application bundle (IDJLM 0.4 — Vite ES modules, see vite.config.js / frontend/main.js) -->
+  {% if dev_mode %}
+  <script type="module" src="http://localhost:5173/@vite/client" crossorigin></script>
+  <script type="module" src="http://localhost:5173/main.js" crossorigin></script>
+  {% else %}
+  <script type="module" src="/static/dist/main.js"></script>
+  {% endif %}
 </body>
 </html>

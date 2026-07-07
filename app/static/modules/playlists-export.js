@@ -469,3 +469,7 @@ function exportCustomPlaylist() {
   window.location = `/api/export/m3u?${params.toString()}`;
   showToast('Downloading playlist...', 'info');
 }
+
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.initPlaylistsTab = initPlaylistsTab;

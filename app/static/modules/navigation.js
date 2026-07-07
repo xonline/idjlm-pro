@@ -75,15 +75,21 @@ function updateStats() {
 }
 
 function startStatsPolling() {
-  if (statsInterval) clearInterval(statsInterval);
-  statsInterval = setInterval(updateStats, 5000);
+  if (window.statsInterval) clearInterval(window.statsInterval);
+  window.statsInterval = setInterval(updateStats, 5000);
   updateStats();
 }
 
 function stopStatsPolling() {
-  if (statsInterval) {
-    clearInterval(statsInterval);
-    statsInterval = null;
+  if (window.statsInterval) {
+    clearInterval(window.statsInterval);
+    window.statsInterval = null;
   }
 }
 
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.initNavigation = initNavigation;
+window.startStatsPolling = startStatsPolling;
+window.switchTab = switchTab;
+window.updateStats = updateStats;

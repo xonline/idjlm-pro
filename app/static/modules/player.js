@@ -230,3 +230,12 @@ function statusDot(status) {
   const cls = statusMap[status] || 'pending';
   return `<span class="status-dot status-${cls}" title="${status}"></span>`;
 }
+
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.confidenceBadge = confidenceBadge;
+window.formatTime = formatTime;
+window.genreChip = genreChip;
+window.initAudioPlayer = initAudioPlayer;
+window.initColumnToggle = initColumnToggle;
+window.playTrack = playTrack;

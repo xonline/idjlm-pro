@@ -361,3 +361,7 @@ function initUpdateChecker() {
     });
   }
 }
+
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.initUpdateChecker = initUpdateChecker;

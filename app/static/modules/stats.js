@@ -757,3 +757,6 @@ function renderCamelotWheel(tracks) {
   }
 }
 
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.renderStatsDashboard = renderStatsDashboard;

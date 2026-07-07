@@ -424,3 +424,8 @@ async function pollFolderWatch() {
   }
 }
 
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.checkResumeSession = checkResumeSession;
+window.initLibraryToolbar = initLibraryToolbar;
+window.updateToolbarButtonStates = updateToolbarButtonStates;

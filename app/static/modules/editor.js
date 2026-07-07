@@ -57,7 +57,7 @@ function openEditModal(filePath) {
   const track = window.tracks.find(t => t.file_path === filePath);
   if (!track) return;
 
-  currentEditPath = filePath;
+  window.currentEditPath = filePath;
 
   // Populate current info
   document.getElementById('modal-title').textContent = track.display_title || track.filename;
@@ -135,14 +135,14 @@ function updateSubgenreOptions() {
   }
 
   // Restore current value if available
-  const track = window.tracks.find(t => t.file_path === currentEditPath);
+  const track = window.tracks.find(t => t.file_path === window.currentEditPath);
   if (track && track.final_subgenre) {
     subgenreSelect.value = track.final_subgenre;
   }
 }
 
 async function saveTrackEdits() {
-  if (!currentEditPath) return;
+  if (!window.currentEditPath) return;
 
   const override = {
     override_genre: document.getElementById('modal-genre').value || undefined,
@@ -155,12 +155,12 @@ async function saveTrackEdits() {
 
   showSpinner('Saving changes...');
   try {
-    const result = await apiFetch(`/api/tracks/by-path?path=${encodeURIComponent(currentEditPath)}`, {
+    const result = await apiFetch(`/api/tracks/by-path?path=${encodeURIComponent(window.currentEditPath)}`, {
       method: 'PUT',
       body: JSON.stringify(override),
     });
 
-    const track = window.tracks.find(t => t.file_path === currentEditPath);
+    const track = window.tracks.find(t => t.file_path === window.currentEditPath);
     if (track) {
       Object.assign(track, result);
     }
@@ -199,3 +199,7 @@ function addNewGenre() {
   document.getElementById('new-genre-description').value = '';
 }
 
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.initEditModal = initEditModal;
+window.openEditModal = openEditModal;

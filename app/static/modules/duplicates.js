@@ -224,3 +224,7 @@ async function removeDuplicate(filePath) {
     hideSpinner();
   }
 }
+
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.initDuplicatesTab = initDuplicatesTab;

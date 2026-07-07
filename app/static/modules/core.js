@@ -11,12 +11,12 @@ window.setlist = [];
 window.selectedTracks = new Set();
 window.currentPage = 1;
 const TRACKS_PER_PAGE = 100;
-let statsInterval = null;
-let currentEditPath = null;
-let currentAudioPlayer = null;
+window.statsInterval = null;
+window.currentEditPath = null;
+window.currentAudioPlayer = null;
 let isWatching = false;
 let watchPollInterval = null;
-let searchDebounceTimer = null;
+window.searchDebounceTimer = null;
 let chartInstances = {
   genres: null,
   bpm: null,
@@ -164,3 +164,16 @@ async function undoLastWrite() {
     showToast('Undo failed: ' + e.message, 'error');
   }
 }
+
+
+window.chartInstances = chartInstances;
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.TRACKS_PER_PAGE = TRACKS_PER_PAGE;
+window.apiFetch = apiFetch;
+window.createElement = createElement;
+window.escapeHtml = escapeHtml;
+window.hideSpinner = hideSpinner;
+window.showSpinner = showSpinner;
+window.showToast = showToast;
+window.undoLastWrite = undoLastWrite;

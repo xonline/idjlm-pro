@@ -402,3 +402,7 @@ async function applySelectedTemplate() {
   }
 }
 
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.loadTaxonomy = loadTaxonomy;
+window.renderTaxonomy = renderTaxonomy;
