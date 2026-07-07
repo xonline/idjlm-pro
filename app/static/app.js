@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initColumnToggle();
   initBulkSelectFeature();
   initSearchFeature();
+  initFilterChips();
   initSettingsTab();
   initKeyboardShortcuts();
   initUpdateChecker();
@@ -44,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSetlistFromStorage();
   initSetlistTab();
   renderTracks();
+  updateFilterChips();
   renderSetlist();
   checkResumeSession();
   initThresholdPersistence();

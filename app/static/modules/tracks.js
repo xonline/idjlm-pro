@@ -84,14 +84,14 @@ function getFilteredTracks() {
     ? [...window.searchResults]
     : [...(window.tracks || [])];
 
-  // Genre filter
+  // Genre filter (legacy dropdown)
   const genreEl = document.getElementById('filter-genre');
   const genreFilter = genreEl ? genreEl.value : '';
   if (genreFilter) {
     filtered = filtered.filter(t => t.final_genre === genreFilter);
   }
 
-  // Status filter
+  // Status filter (legacy dropdown)
   const statusEl = document.getElementById('filter-status');
   const statusFilter = statusEl ? statusEl.value : '';
   if (statusFilter) {
@@ -114,6 +114,32 @@ function getFilteredTracks() {
       const bpm = parseFloat(t.final_bpm) || parseFloat(t.analyzed_bpm) || 0;
       return bpm <= bpmMax;
     });
+  }
+
+  // Collection filter chips
+  if (window.activeChips && window.activeChips.size > 0) {
+    const chipFilters = {};
+    window.activeChips.forEach(key => {
+      const colonIdx = key.indexOf(':');
+      if (colonIdx === -1) return;
+      const group = key.substring(0, colonIdx);
+      const value = key.substring(colonIdx + 1);
+      if (!chipFilters[group]) chipFilters[group] = new Set();
+      chipFilters[group].add(value);
+    });
+
+    if (chipFilters.genre) {
+      filtered = filtered.filter(t => chipFilters.genre.has(t.final_genre));
+    }
+    if (chipFilters.year) {
+      filtered = filtered.filter(t => chipFilters.year.has(t.final_year));
+    }
+    if (chipFilters.status) {
+      filtered = filtered.filter(t => chipFilters.status.has(t.review_status));
+    }
+    if (chipFilters.key) {
+      filtered = filtered.filter(t => chipFilters.key.has(t.final_key));
+    }
   }
 
   return filtered;
@@ -563,6 +589,7 @@ function renderTracks() {
     countEl.textContent = `${sorted.length} track${sorted.length !== 1 ? 's' : ''} (page ${window.currentPage})`;
   }
   updatePaginationControls(sorted.length);
+  updateFilterChips();
 }
 
 // Pagination controls

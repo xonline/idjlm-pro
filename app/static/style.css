@@ -3562,6 +3562,84 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
 }
 .approve-btn.skipped { color: var(--text-placeholder); }
 
+/* ─── Collection Filter Chips ───────────────────────────────── */
+.filter-chips-bar {
+  display: none;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 6px 12px;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--ln);
+  flex-shrink: 0;
+}
+.chip-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.chip-group-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--t3);
+  margin-right: 2px;
+  white-space: nowrap;
+}
+.chip-group-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg0);
+  border: 1px solid var(--ln);
+  border-radius: var(--radius-pill);
+  color: var(--t2);
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.filter-chip:hover {
+  border-color: var(--acc);
+  color: var(--t1);
+  background: var(--bg2);
+}
+.filter-chip.active {
+  background: var(--acc-dim);
+  border-color: var(--acc);
+  color: var(--acc);
+}
+.filter-chip.active .filter-chip-count {
+  background: var(--acc);
+  color: var(--bg0);
+}
+.filter-chip-label {
+  line-height: 1;
+}
+.filter-chip-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  font-size: 9px;
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+  background: var(--bg2);
+  color: var(--t3);
+  line-height: 1;
+  font-family: 'Geist Mono', monospace;
+}
+
 /* ─── Table wrap ───────────────────────────────────────────── */
 .table-wrap { flex: 1; overflow-y: auto; overflow-x: auto; }
 

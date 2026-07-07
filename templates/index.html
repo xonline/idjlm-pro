@@ -229,6 +229,26 @@
           <input type="number" id="filter-bpm-max" class="filter-input-sm" placeholder="BPM max" min="40" max="250" />
         </div>
 
+        <!-- Collection filter chips -->
+        <div class="filter-chips-bar" id="filter-chips-bar">
+          <div class="chip-group" data-group="genre">
+            <span class="chip-group-label">Genre</span>
+            <div class="chip-group-items" id="chip-group-genre"></div>
+          </div>
+          <div class="chip-group" data-group="year">
+            <span class="chip-group-label">Year</span>
+            <div class="chip-group-items" id="chip-group-year"></div>
+          </div>
+          <div class="chip-group" data-group="status">
+            <span class="chip-group-label">Status</span>
+            <div class="chip-group-items" id="chip-group-status"></div>
+          </div>
+          <div class="chip-group" data-group="key">
+            <span class="chip-group-label">Key</span>
+            <div class="chip-group-items" id="chip-group-key"></div>
+          </div>
+        </div>
+
         <!-- Track table -->
         <div class="table-wrap">
           <table class="tracks-table" id="tracks-table">
@@ -1541,6 +1561,7 @@
   <script src="/static/modules/settings.js"></script>
   <script src="/static/modules/setplan.js"></script>
   <script src="/static/modules/search.js"></script>
+  <script src="/static/modules/chips.js"></script>
   <script src="/static/modules/classify.js"></script>
   <script src="/static/modules/advisor.js"></script>
   <script src="/static/modules/shortcuts.js"></script>
