@@ -51,4 +51,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initThresholdPersistence();
   initOnboarding();
   initWorkflowGuide();
+  initDetailDock();
 });

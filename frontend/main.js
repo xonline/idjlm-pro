@@ -25,4 +25,5 @@ import '../app/static/modules/updater.js';
 import '../app/static/modules/duplicates.js';
 import '../app/static/modules/playlists-export.js';
 import '../app/static/modules/pipeline.js';
+import '../app/static/modules/detail-dock.js';
 import '../app/static/app.js';

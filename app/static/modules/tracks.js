@@ -495,6 +495,7 @@ function renderTracks() {
     btnDetails.addEventListener('click', (e) => {
       e.stopPropagation();
       openTrackDetail(track);
+      if (window.showInDock) showInDock(track);
     });
     tdAction.appendChild(btnDetails);
 
