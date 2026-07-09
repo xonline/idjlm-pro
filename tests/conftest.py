@@ -56,9 +56,9 @@ def client(app):
 @pytest.fixture(autouse=True)
 def _cleanup_setlist_between_tests(request):
     """Reset setlist.json before and after each test so state doesn't leak."""
-    setlist_path = os.path.join(
-        os.path.dirname(__file__), "..", "..", "setlist.json"
-    )
+    # Canonical setlist.json path: same file the app reads/writes.
+    # Derive from the app's SETLIST_PATH constant so test and app cannot drift.
+    from app.routes.setlist_routes import SETLIST_PATH as setlist_path
     default_content = json.dumps({"tracks": [], "name": "My Set"})
 
     # Read valid original content (only if it has the expected structure)

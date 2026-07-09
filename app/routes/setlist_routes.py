@@ -19,8 +19,8 @@ def _load_setlist():
 
 
 def _save_setlist(data):
-    with open(SETLIST_PATH, 'w') as f:
-        json.dump(data, f, indent=2)
+    from app.utils.paths import atomic_write
+    atomic_write(SETLIST_PATH, data, indent=2)
 
 
 @bp.route("/setlist", methods=["GET"])

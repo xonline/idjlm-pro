@@ -166,6 +166,7 @@
             <button class="btn pipeline-btn pipeline-btn-write" id="btn-write-tags" disabled data-hint="🔒 Approve tracks first. Analyse → Classify → Approve → Write Tags to your files.">✎ Write Tags</button>
           </div>
           <button class="btn btn-secondary btn-sm" id="btn-shortcuts" title="Keyboard shortcuts (?)" style="font-size:16px;padding:6px 10px;">?</button>
+          <button class="btn btn-secondary btn-sm" id="btn-toggle-detail-dock" title="Toggle detail panel (Shift+D)" style="font-size:16px;padding:6px 10px;" aria-pressed="false">▮</button>
         </div>
 
         <!-- How It Works Guide -->
@@ -273,14 +274,89 @@
               </tr>
             </thead>
             <tbody id="tracks-tbody">
-              <tr class="empty-state">
+              <!-- Empty state for first-run -->
+              <tr class="empty-state" id="empty-state-row">
                 <td colspan="16">
                   <div class="empty-state-content">
                     <div class="empty-icon">📁</div>
                     <div class="empty-msg">Pick a folder to get started</div>
+                    <div class="empty-submsg">Select your music folder to import tracks and begin library management</div>
                     <button class="btn btn-primary" id="btn-get-started">Choose Folder</button>
                   </div>
                 </td>
+              </tr>
+              <!-- Skeleton rows for loading state (hidden by default) -->
+              <tr class="skeleton-row" id="skeleton-row-1" style="display:none;">
+                <td><div class="skeleton-cell" style="width:20px;height:20px;"></div></td>
+                <td><div class="skeleton-cell" style="width:40px;height:40px;"></div></td>
+                <td><div class="skeleton-cell"></div></td>
+                <td><div class="skeleton-cell" style="width:80px;"></div></td>
+                <td><div class="skeleton-cell" style="width:90px;"></div></td>
+                <td><div class="skeleton-cell" style="width:50px;"></div></td>
+                <td><div class="skeleton-cell" style="width:60px;"></div></td>
+                <td><div class="skeleton-cell" style="width:50px;"></div></td>
+                <td><div class="skeleton-cell" style="width:70px;"></div></td>
+                <td><div class="skeleton-cell" style="width:60px;"></div></td>
+                <td><div class="skeleton-cell" style="width:70px;"></div></td>
+                <td><div class="skeleton-cell" style="width:60px;"></div></td>
+                <td><div class="skeleton-cell" style="width:50px;"></div></td>
+                <td><div class="skeleton-cell" style="width:80px;"></div></td>
+                <td><div class="skeleton-cell" style="width:70px;"></div></td>
+                <td><div class="skeleton-cell" style="width:60px;"></div></td>
+              </tr>
+              <tr class="skeleton-row" id="skeleton-row-2" style="display:none;">
+                <td><div class="skeleton-cell" style="width:20px;height:20px;"></div></td>
+                <td><div class="skeleton-cell" style="width:40px;height:40px;"></div></td>
+                <td><div class="skeleton-cell"></div></td>
+                <td><div class="skeleton-cell" style="width:80px;"></div></td>
+                <td><div class="skeleton-cell" style="width:90px;"></div></td>
+                <td><div class="skeleton-cell" style="width:50px;"></div></td>
+                <td><div class="skeleton-cell" style="width:60px;"></div></td>
+                <td><div class="skeleton-cell" style="width:50px;"></div></td>
+                <td><div class="skeleton-cell" style="width:70px;"></div></td>
+                <td><div class="skeleton-cell" style="width:60px;"></div></td>
+                <td><div class="skeleton-cell" style="width:70px;"></div></td>
+                <td><div class="skeleton-cell" style="width:60px;"></div></td>
+                <td><div class="skeleton-cell" style="width:50px;"></div></td>
+                <td><div class="skeleton-cell" style="width:80px;"></div></td>
+                <td><div class="skeleton-cell" style="width:70px;"></div></td>
+                <td><div class="skeleton-cell" style="width:60px;"></div></td>
+              </tr>
+              <tr class="skeleton-row" id="skeleton-row-3" style="display:none;">
+                <td><div class="skeleton-cell" style="width:20px;height:20px;"></div></td>
+                <td><div class="skeleton-cell" style="width:40px;height:40px;"></div></td>
+                <td><div class="skeleton-cell"></div></td>
+                <td><div class="skeleton-cell" style="width:80px;"></div></td>
+                <td><div class="skeleton-cell" style="width:90px;"></div></td>
+                <td><div class="skeleton-cell" style="width:50px;"></div></td>
+                <td><div class="skeleton-cell" style="width:60px;"></div></td>
+                <td><div class="skeleton-cell" style="width:50px;"></div></td>
+                <td><div class="skeleton-cell" style="width:70px;"></div></td>
+                <td><div class="skeleton-cell" style="width:60px;"></div></td>
+                <td><div class="skeleton-cell" style="width:70px;"></div></td>
+                <td><div class="skeleton-cell" style="width:60px;"></div></td>
+                <td><div class="skeleton-cell" style="width:50px;"></div></td>
+                <td><div class="skeleton-cell" style="width:80px;"></div></td>
+                <td><div class="skeleton-cell" style="width:70px;"></div></td>
+                <td><div class="skeleton-cell" style="width:60px;"></div></td>
+              </tr>
+              <tr class="skeleton-row" id="skeleton-row-4" style="display:none;">
+                <td><div class="skeleton-cell" style="width:20px;height:20px;"></div></td>
+                <td><div class="skeleton-cell" style="width:40px;height:40px;"></div></td>
+                <td><div class="skeleton-cell"></div></td>
+                <td><div class="skeleton-cell" style="width:80px;"></div></td>
+                <td><div class="skeleton-cell" style="width:90px;"></div></td>
+                <td><div class="skeleton-cell" style="width:50px;"></div></td>
+                <td><div class="skeleton-cell" style="width:60px;"></div></td>
+                <td><div class="skeleton-cell" style="width:50px;"></div></td>
+                <td><div class="skeleton-cell" style="width:70px;"></div></td>
+                <td><div class="skeleton-cell" style="width:60px;"></div></td>
+                <td><div class="skeleton-cell" style="width:70px;"></div></td>
+                <td><div class="skeleton-cell" style="width:60px;"></div></td>
+                <td><div class="skeleton-cell" style="width:50px;"></div></td>
+                <td><div class="skeleton-cell" style="width:80px;"></div></td>
+                <td><div class="skeleton-cell" style="width:70px;"></div></td>
+                <td><div class="skeleton-cell" style="width:60px;"></div></td>
               </tr>
             </tbody>
           </table>
@@ -338,8 +414,12 @@
         <!-- Manual Setlist -->
         <h2 class="settings-section-title" style="margin-top:32px;padding:0 24px;">Manual Setlist</h2>
         <div id="setlist-subpanel" style="padding:0 24px 24px;">
-          <div id="setlist-empty-state" class="empty-state" style="padding: 60px 20px;">
-            Add tracks from the Tracks tab to build your setlist
+          <div id="setlist-empty-state" class="empty-state">
+            <div class="empty-state-content">
+              <div class="empty-icon">🎵</div>
+              <div class="empty-msg">Build your set</div>
+              <div class="empty-submsg">Add tracks from the Library tab to create your setlist</div>
+            </div>
           </div>
 
           <div id="setlist-main" class="setlist-container" style="display: none;">
@@ -565,8 +645,12 @@
               <button class="btn btn-primary btn-sm" id="btn-new-playlist">+ New</button>
             </div>
             <div id="playlists-list" class="playlists-list">
-              <div class="empty-state" style="padding: 24px 12px; text-align: center; color: var(--text-secondary); font-size: 13px;">
-                No playlists yet. Click "+ New" to create one.
+              <div class="empty-state" style="padding: 32px 12px;">
+                <div class="empty-state-content">
+                  <div class="empty-icon">📋</div>
+                  <div class="empty-msg" style="font-size:14px;">No playlists</div>
+                  <div class="empty-submsg" style="font-size:12px;">Click "+ New" to create one</div>
+                </div>
               </div>
             </div>
           </div>
@@ -1031,6 +1115,19 @@
         </div>
       </section>
     </main>
+
+    <!-- DETAIL DOCK v2 — permanently docked right panel (Phase 1.4) -->
+    <!-- art, 600-pt waveform + playhead, key/BPM/energy hero row, cues,
+         compatible tracks list from /api/mixes/compatible/ -->
+    <aside id="detail-dock" class="detail-dock" aria-label="Track details" hidden>
+      <div class="detail-dock-header">
+        <span class="detail-dock-title">Track Details</span>
+        <button class="detail-dock-close" id="detail-dock-close" title="Collapse (Shift+D)" aria-label="Collapse detail panel">&times;</button>
+      </div>
+      <div class="detail-dock-body" id="detail-dock-body">
+        <!-- Populated by detail-dock.js -->
+      </div>
+    </aside>
     </div><!-- /.app-body -->
   </div>
 

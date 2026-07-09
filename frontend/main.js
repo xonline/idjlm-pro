@@ -3,6 +3,7 @@
 // Cross-module symbols are shared via explicit `window.*` bridges added to
 // each module (see "ES module bridge" comment blocks) — see plan 0.4.
 import '../app/static/modules/core.js';
+import '../app/static/modules/loading.js';
 import '../app/static/modules/navigation.js';
 import '../app/static/modules/opsbar.js';
 import '../app/static/modules/library.js';

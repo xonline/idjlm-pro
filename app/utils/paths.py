@@ -10,8 +10,10 @@ inline across 7+ files. Reads/writes under the user's home on every OS:
 - Windows:  %USERPROFILE%/.idjlm-pro                  (data)
             %USERPROFILE%/.idjlm-pro/logs             (logs)
 """
+import json
 import os
 import platform
+import tempfile
 from pathlib import Path
 
 
@@ -93,3 +95,36 @@ def safe_path_for(path: str) -> str:
     if _IS_WINDOWS:
         return str(Path(path))
     return path
+
+
+def atomic_write(path: str, data, **dump_kwargs) -> None:
+    """Write JSON to *path* atomically via temp-file + rename.
+
+    Writes to a temporary file in the same directory (same filesystem
+    mount = guaranteed atomic ``os.replace``) then renames over the
+    target.  If the process crashes mid-write, the target file remains
+    intact (either the old version or not yet replaced).
+
+    *dump_kwargs* are forwarded to ``json.dump`` (indent, sort_keys, …).
+    """
+    dirname = os.path.dirname(path) or "."
+    os.makedirs(dirname, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(
+        suffix=".tmp",
+        prefix=os.path.basename(path) + ".",
+        dir=dirname,
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, **dump_kwargs)
+    except BaseException:
+        _try_unlink(tmp)
+        raise
+    os.replace(tmp, path)
+
+
+def _try_unlink(path: str) -> None:
+    try:
+        os.unlink(path)
+    except OSError:
+        pass

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import random
 import time
 
 try:
@@ -85,12 +86,25 @@ Example output format:
     return prompt
 
 
-def _call_with_backoff(call_fn, max_retries=3):
+def _call_with_backoff(call_fn, max_retries=None):
     """
     Call fn with exponential backoff on rate limit and transient errors.
     Returns the result if successful.
     Raises Exception if all retries exhausted or non-retryable error occurs.
+
+    Backoff base is read from IDJLM_BACKOFF_BASE_SEC (default 2.0s) so the
+    default chain stays snappy: 2s, 4s, 8s. Production callers may set
+    a higher base for friendlier provider rate-limit hunting.
+
+    Jitter (±25%) is added to each wait to prevent thundering herd when
+    multiple callers hit rate limits simultaneously.
+
+    Max retries is read from IDJLM_BACKOFF_MAX_RETRIES (default 3),
+    overridable per-call via the parameter.
     """
+    if max_retries is None:
+        max_retries = int(os.getenv("IDJLM_BACKOFF_MAX_RETRIES", "3"))
+    base = float(os.getenv("IDJLM_BACKOFF_BASE_SEC", "2"))
     for attempt in range(max_retries):
         try:
             return call_fn()
@@ -101,15 +115,20 @@ def _call_with_backoff(call_fn, max_retries=3):
                 'timeout' in err or
                 'connection' in err or
                 'reset' in err or
-                '503' in err or
+                '500' in err or
                 '502' in err or
+                '503' in err or
                 '504' in err or
                 'service unavailable' in err
             )
             if is_rate_limit or is_transient:
                 if attempt < max_retries - 1:
-                    wait = 30 * (2 ** attempt)  # 30s, 60s, 120s
-                    time.sleep(wait)
+                    base_wait = base * (2 ** attempt)  # base, base*2, base*4
+                    jitter = random.uniform(-0.25, 0.25) * base_wait
+                    wait = base_wait + jitter
+                    logger.debug("Backoff retry %d/%d after %s — waiting %.1fs",
+                                 attempt + 1, max_retries, err[:80], wait)
+                    time.sleep(max(wait, 0.1))
                     continue
             raise  # Re-raise non-retryable errors immediately
     raise Exception("API call failed after retries")
@@ -215,20 +234,30 @@ def _classify_with_gemini(prompt: str, batch: list[Track]) -> tuple[bool, str]:
 
 def _classify_with_ollama(prompt: str, batch: list[Track]) -> tuple[bool, str]:
     """
-    Classify tracks using Ollama (fallback).
+    Classify tracks using Ollama (fallback) with exponential backoff retry.
     Returns (success: bool, response_text: str)
     """
     try:
         import requests as req
         model_name = os.getenv("OLLAMA_MODEL", "qwen3:1.7b")
-        response = req.post(
-            "http://localhost:11434/api/generate",
-            json={"model": model_name, "prompt": prompt, "stream": False},
-            timeout=120
-        )
-        if response.status_code != 200:
-            return False, f"Ollama API error: {response.status_code}"
-        return True, response.json()["response"]
+        url = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
+
+        def call_ollama():
+            response = req.post(
+                url,
+                json={"model": model_name, "prompt": prompt, "stream": False},
+                timeout=120,
+            )
+            if response.status_code != 200:
+                raise Exception(f"Ollama API error: {response.status_code} — {response.text[:200]}")
+            data = response.json()
+            content = data.get("response", "")
+            if not content:
+                raise Exception("Ollama returned empty response")
+            return content
+
+        response_text = _call_with_backoff(call_ollama, max_retries=3)
+        return True, response_text
     except Exception as e:
         return False, str(e)
 
@@ -316,7 +345,7 @@ def _classify_with_qwen(prompt: str, batch: list[Track]) -> tuple[bool, str]:
 
 def _classify_with_openrouter(prompt: str, batch: list[Track]) -> tuple[bool, str]:
     """
-    Classify tracks using OpenRouter API (supports many models via OpenAI-compatible endpoint).
+    Classify tracks using OpenRouter API with exponential backoff retry.
     Returns (success: bool, response_text: str)
     """
     try:
@@ -325,27 +354,32 @@ def _classify_with_openrouter(prompt: str, batch: list[Track]) -> tuple[bool, st
         if not api_key:
             return False, "OPENROUTER_API_KEY not set"
         model_name = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-exp:free")
-        response = req.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            json={
-                "model": model_name,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 2048,
-            },
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "HTTP-Referer": "http://localhost",
-                "X-Title": "IDJLM Pro",
-            },
-            timeout=120,
-        )
-        if response.status_code != 200:
-            return False, f"OpenRouter API error: {response.status_code} — {response.text[:200]}"
-        data = response.json()
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-        if not content:
-            return False, "OpenRouter returned empty response"
-        return True, content
+
+        def call_openrouter():
+            response = req.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                json={
+                    "model": model_name,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 2048,
+                },
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "HTTP-Referer": "http://localhost",
+                    "X-Title": "IDJLM Pro",
+                },
+                timeout=120,
+            )
+            if response.status_code != 200:
+                raise Exception(f"OpenRouter API error: {response.status_code} — {response.text[:200]}")
+            data = response.json()
+            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            if not content:
+                raise Exception("OpenRouter returned empty response")
+            return content
+
+        response_text = _call_with_backoff(call_openrouter, max_retries=3)
+        return True, response_text
     except Exception as e:
         return False, str(e)
 
@@ -403,13 +437,19 @@ def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False, mo
         batch_end = min(batch_start + batch_size, len(tracks))
         batch = tracks[batch_start:batch_end]
 
-        prompt = _build_classification_prompt(batch, taxonomy)
-
-        # Try models in chain order
-        classifications = []
-        used_model = None
+        # remaining_indices tracks which positions in the batch still need classification.
+        # As each model salvages some tracks, we remove them from remaining_indices and
+        # build the next prompt for only the unclassified subset.
+        remaining_indices = list(range(len(batch)))
+        any_success = False
 
         for model_name in model_chain:
+            if not remaining_indices:
+                break
+
+            remaining_tracks = [batch[i] for i in remaining_indices]
+            prompt = _build_classification_prompt(remaining_tracks, taxonomy)
+
             success = False
             response_text = None
 
@@ -427,37 +467,39 @@ def classify_tracks(tracks: list[Track], taxonomy: dict, force: bool = False, mo
                 success, response_text = _classify_with_openrouter(prompt, batch)
 
             if success and response_text:
-                classifications = _parse_classification_response(response_text, len(batch))
+                classifications = _parse_classification_response(response_text, len(remaining_tracks))
                 if classifications:
-                    used_model = model_name
-                    break
-                # Malformed/empty response: try next provider in chain
+                    any_success = True
+                    # Map response indices (relative to remaining_tracks) back to batch indices
+                    newly_classified = set()
+                    for c in classifications:
+                        idx_in_remaining = c.get("index")
+                        if idx_in_remaining is None or not (0 <= idx_in_remaining < len(remaining_tracks)):
+                            continue
+                        original_idx = remaining_indices[idx_in_remaining]
+                        track = batch[original_idx]
+                        track.proposed_genre = c.get("genre")
+                        track.proposed_subgenre = c.get("subgenre")
+                        track.confidence = c.get("confidence")
+                        track.reasoning = c.get("reasoning")
+                        track.classification_done = True
+                        newly_classified.add(original_idx)
 
-        if not used_model:
-            # All models failed or returned malformed responses
-            for track in batch:
-                track.error = "Classification failed: all providers exhausted"
-            continue
+                    previously_remaining = len(remaining_indices)
+                    remaining_indices = [i for i in remaining_indices if i not in newly_classified]
+                    salvaged = previously_remaining - len(remaining_indices)
 
-        logger.debug("Using %s", used_model)
+                    if salvaged < previously_remaining:
+                        logger.debug(
+                            "%s: %d/%d classified, %d remaining — continuing chain",
+                            model_name, salvaged, previously_remaining, len(remaining_indices)
+                        )
 
-        # Apply results to batch
-        for classification in classifications:
-            idx = classification.get("index")
-            if idx is None or not (0 <= idx < len(batch)):
-                continue
-
-            track = batch[idx]
-            track.proposed_genre = classification.get("genre")
-            track.proposed_subgenre = classification.get("subgenre")
-            track.confidence = classification.get("confidence")
-            track.reasoning = classification.get("reasoning")
-            track.classification_done = True
-
-        # Mark any unprocessed tracks in batch as failed
-        processed_indices = {c.get("index") for c in classifications if c.get("index") is not None}
-        for idx, track in enumerate(batch):
-            if idx not in processed_indices and not track.classification_done:
-                track.error = "Classification response malformed"
+        # Mark any still-unclassified tracks
+        for i in remaining_indices:
+            if any_success:
+                batch[i].error = "Classification response malformed"
+            else:
+                batch[i].error = "Classification failed: all providers exhausted"
 
     return tracks

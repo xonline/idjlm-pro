@@ -68,6 +68,7 @@ function initLibraryToolbar() {
     if (btnImport)    btnImport.style.display    = 'none';
     if (folderDisplay) folderDisplay.textContent = folder;
     showSpinner();
+    showSkeletonRows();
     try {
       const result = await apiFetch('/api/import', {
         method: 'POST',

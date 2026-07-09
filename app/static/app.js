@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initThemeSwatches();
   initNavigation();
+  initLoadingStates();
   initEditModal();
   initReclassifyModal();
   initAudioPlayer();
@@ -37,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initFilterChips();
   initSettingsTab();
   initKeyboardShortcuts();
+  initGlobalSearch();
   initUpdateChecker();
   initKeyGraph();
   initAdvisorModal();

@@ -6,8 +6,36 @@
 //   - initKeyboardNav: ArrowUp/ArrowDown/Space row-navigation on tracks table
 //                     MutationObserver to re-apply selection across renderTracks()
 //   - showKeyboardShortcuts / initKeyboardShortcuts: review-tab nav, global hotkeys
+//   - registerGlobalShortcut: single registry for cross-module hotkeys (4.2)
 // Load order: any. Independent of other modules.
 // ----------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Global shortcut registry (single handler per key-combo — Phase 4.2)
+// ---------------------------------------------------------------------------
+// Modules call registerGlobalShortcut('cmdf', handlerFn) to register
+// a callback. This avoids multiple keydown listeners on the same combo.
+// Keys: 'cmdf' (Cmd+F / Ctrl+F), 'cmdk' (Cmd+K), etc.
+
+const _globalShortcuts = {};
+
+function registerGlobalShortcut(key, handler) {
+  _globalShortcuts[key] = handler;
+}
+
+// Initialise the registry listener once
+document.addEventListener('keydown', (e) => {
+  // Cmd+F / Ctrl+F → global search popup
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'F')) {
+    // Do NOT intercept when focus is inside an input/textarea
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+    if (_globalShortcuts['cmdf']) {
+      e.preventDefault();
+      _globalShortcuts['cmdf']();
+    }
+  }
+});
 
 // ============================================================================
 // Keyboard shortcuts for track table
@@ -204,3 +232,4 @@ function initKeyboardShortcuts() {
 // --- ES module bridge (0.4): expose to global scope for cross-module calls ---
 window.initKeyboardShortcuts = initKeyboardShortcuts;
 window.showKeyboardShortcuts = showKeyboardShortcuts;
+window.registerGlobalShortcut = registerGlobalShortcut;

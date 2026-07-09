@@ -40,9 +40,9 @@ def save_session(track_store: dict, folder_path: Optional[str] = None) -> dict:
             "tracks": tracks_data
         }
 
-        # Write to session.json in project root
-        with open(SESSION_FILE, 'w') as f:
-            json.dump(session_data, f, indent=2)
+        # Write atomically via temp-file + rename
+        from app.utils.paths import atomic_write
+        atomic_write(SESSION_FILE, session_data, indent=2)
 
         return session_data
 

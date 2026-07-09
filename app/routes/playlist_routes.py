@@ -20,8 +20,8 @@ def _load_playlists():
 
 
 def _save_playlists(data):
-    with open(PLAYLISTS_PATH, 'w') as f:
-        json.dump(data, f, indent=2)
+    from app.utils.paths import atomic_write
+    atomic_write(PLAYLISTS_PATH, data, indent=2)
 
 
 def _apply_filters(track_store, filters):
