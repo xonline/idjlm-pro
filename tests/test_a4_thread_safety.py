@@ -32,27 +32,30 @@ def test_analyze_lock_released_via_route(monkeypatch):
     # Break uuid to force an exception inside the try block (after acquire)
     import uuid as _uuid_module
 
-    original_uuid4 = _uuid_module.uuid4
-
     def _explode():
         raise RuntimeError("uuid4 boom")
 
     monkeypatch.setattr(_uuid_module, "uuid4", _explode)
 
     # Build an app with an empty store so the route proceeds past the keys() call
-    from app import create_app, set_track_store
+    from app import create_app, get_track_store, set_track_store
     from app.services.track_store import TrackStore
     import tempfile, os
 
+    original_store = get_track_store()
     app = create_app()
-    with tempfile.TemporaryDirectory() as td:
-        store = TrackStore(db_path=os.path.join(td, "t.db"))
-        set_track_store(store)
-        app.config["TESTING"] = True
-        client = app.test_client()
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            store = TrackStore(db_path=os.path.join(td, "t.db"))
+            set_track_store(store)
+            app.config["TESTING"] = True
+            client = app.test_client()
 
-        resp = client.post("/api/analyze", json={"track_paths": ["/fake/track.mp3"]})
-        assert resp.status_code == 500
+            resp = client.post("/api/analyze", json={"track_paths": ["/fake/track.mp3"]})
+            assert resp.status_code == 500
+    finally:
+        # Restore the original store so subsequent tests are not affected
+        set_track_store(original_store)
 
     # Lock MUST be free after the 500 response
     assert lock.acquire(blocking=False), "_analyze_lock leaked after 500 in route setup"
@@ -80,19 +83,24 @@ def test_classify_lock_released_via_route(monkeypatch):
 
     monkeypatch.setattr(_uuid_module, "uuid4", _explode)
 
-    from app import create_app, set_track_store
+    from app import create_app, get_track_store, set_track_store
     from app.services.track_store import TrackStore
     import tempfile
 
+    original_store = get_track_store()
     app = create_app()
-    with tempfile.TemporaryDirectory() as td:
-        store = TrackStore(db_path=td + "/t.db")
-        set_track_store(store)
-        app.config["TESTING"] = True
-        client = app.test_client()
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            store = TrackStore(db_path=td + "/t.db")
+            set_track_store(store)
+            app.config["TESTING"] = True
+            client = app.test_client()
 
-        resp = client.post("/api/classify", json={"track_paths": ["/fake/track.mp3"]})
-        assert resp.status_code == 500
+            resp = client.post("/api/classify", json={"track_paths": ["/fake/track.mp3"]})
+            assert resp.status_code == 500
+    finally:
+        # Restore the original store so subsequent tests are not affected
+        set_track_store(original_store)
 
     assert lock.acquire(blocking=False), "_classify_lock leaked after 500 in route setup"
     lock.release()
@@ -110,13 +118,17 @@ def test_track_store_lock_prevents_empty_store_observation(tmp_path):
     reader that tries to acquire the lock is blocked until repopulation is done,
     so it never observes zero keys when tracks exist.
     """
-    from app import get_track_store_lock, set_track_store
+    from app import get_track_store_lock
     from app.services.track_store import TrackStore
     from app.models.track import Track
 
     db_file = str(tmp_path / "ts.db")
     store = TrackStore(db_path=db_file)
-    set_track_store(store)
+    # Note: set_track_store is NOT called here — this test works directly with
+    # `store` and get_track_store_lock() (which is a module-level RLock,
+    # independent of which store is currently active). Calling set_track_store
+    # followed by store.close() would leave the global _track_store in a broken
+    # state and cause sqlite3.ProgrammingError in subsequent tests.
 
     # Pre-populate with 3 tracks
     for i in range(3):
