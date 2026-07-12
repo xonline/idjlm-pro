@@ -90,24 +90,33 @@ def import_tracks():
 
         # Import scanner service
         from app.services.scanner import scan_folder
-        from app import get_track_store, set_current_folder_path
+        from app import get_track_store, set_current_folder_path, get_track_store_lock
 
-        # Clear previous session and scan
+        # Scan the folder first (slow I/O — no lock held while scanning)
         track_store = get_track_store()
-        track_store.clear()
         set_current_folder_path(folder_path)
         tracks = scan_folder(folder_path)
 
-        # Store tracks in memory by file_path
-        for track in tracks:
-            track_store[track.file_path] = track
+        # Clear-and-repopulate under _track_store_lock so a concurrent
+        # background analyze/classify thread cannot observe a half-empty
+        # store (issue #199 — import clear vs. background analyse race).
+        _ts_lock = get_track_store_lock()
+        with _ts_lock:
+            track_store.clear()
+            for track in tracks:
+                track_store[track.file_path] = track
 
-        # Restore cached analysis for unchanged files (B.3 — analysis cache)
-        from app.services.analysis_cache import restore
-        restored_count = 0
-        for track in tracks:
-            if restore(track):
-                restored_count += 1
+            # Restore cached analysis for unchanged files (B.3 — analysis cache)
+            # B.1 (issue #187): when the store is SQLite-backed, re-persist each
+            # restored track so a later `store.values()` read reflects the
+            # restored analysis fields (otherwise the in-memory Track has
+            # them via setattr but the SQLite payload was written first).
+            from app.services.analysis_cache import restore
+            restored_count = 0
+            for track in tracks:
+                if restore(track):
+                    track_store[track.file_path] = track
+                    restored_count += 1
         if restored_count:
             logger.info("Restored analysis from cache for %d tracks", restored_count)
 
@@ -139,6 +148,7 @@ def analyze_tracks():
     if not _analyze_lock.acquire(blocking=False):
         return jsonify({"error": "Analysis already in progress"}), 429
 
+    _thread_started = False
     try:
         import uuid
         import threading
@@ -165,45 +175,57 @@ def analyze_tracks():
             analyzed = 0
             errors = []
             logger.info(f"Starting analysis thread for {total} tracks")
-            for i, file_path in enumerate(track_paths):
-                if file_path not in track_store:
-                    logger.warning(f"Track {file_path} not found in store, skipping")
-                    continue
-                try:
-                    track = track_store[file_path]
-                    logger.info(f"Analyzing track {i+1}/{total}: {track.display_title}")
-                    analyze_track(track)
-                    analyzed += 1
-                    q.put({
-                        'current': i + 1,
-                        'total': total,
-                        'track': track.display_title,
-                        'analyzed': analyzed
-                    })
-                    logger.info(f"Successfully analyzed {track.display_title}, analysis_done={track.analysis_done}")
-                    if track.error:
-                        logger.warning(f"Track {track.display_title} has error after analysis: {track.error}")
-                    if not track.analysis_done:
-                        logger.warning(f"Track {track.display_title} analysis_done is still False!")
-                except Exception as e:
-                    error_msg = str(e)
-                    logger.error(f"Error analyzing {file_path}: {error_msg}")
-                    errors.append({'path': file_path, 'error': error_msg})
-                    q.put({
-                        'current': i + 1,
-                        'total': total,
-                        'error': error_msg
-                    })
-            logger.info(f"Analysis complete: {analyzed}/{total} succeeded, {len(errors)} errors")
-            q.put({'done': True, 'analyzed': analyzed, 'errors': errors, 'refetch': True})
-            _analyze_lock.release()
+            try:
+                for i, file_path in enumerate(track_paths):
+                    if file_path not in track_store:
+                        logger.warning(f"Track {file_path} not found in store, skipping")
+                        continue
+                    try:
+                        track = track_store[file_path]
+                        logger.info(f"Analyzing track {i+1}/{total}: {track.display_title}")
+                        analyze_track(track)
+                        analyzed += 1
+                        q.put({
+                            'current': i + 1,
+                            'total': total,
+                            'track': track.display_title,
+                            'analyzed': analyzed
+                        })
+                        logger.info(f"Successfully analyzed {track.display_title}, analysis_done={track.analysis_done}")
+                        if track.error:
+                            logger.warning(f"Track {track.display_title} has error after analysis: {track.error}")
+                        if not track.analysis_done:
+                            logger.warning(f"Track {track.display_title} analysis_done is still False!")
+                    except Exception as e:
+                        error_msg = str(e)
+                        logger.error(f"Error analyzing {file_path}: {error_msg}")
+                        errors.append({'path': file_path, 'error': error_msg})
+                        q.put({
+                            'current': i + 1,
+                            'total': total,
+                            'error': error_msg
+                        })
+                logger.info(f"Analysis complete: {analyzed}/{total} succeeded, {len(errors)} errors")
+                q.put({'done': True, 'analyzed': analyzed, 'errors': errors, 'refetch': True})
+            finally:
+                # Always release so a crash/exception cannot leave the lock held
+                # and block all future /api/analyze calls (issue #199).
+                _analyze_lock.release()
 
-        threading.Thread(target=run, daemon=True).start()
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
+        _thread_started = True
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202
 
     except Exception as e:
         logger.exception("Error in /api/analyze")
         return jsonify({"error": str(e)}), 500
+
+    finally:
+        # If the thread never started (exception in setup above), release the
+        # lock here — the thread's finally will not run in that case.
+        if not _thread_started:
+            _analyze_lock.release()
 
 
 @bp.route("/classify", methods=["POST"])
@@ -225,6 +247,7 @@ def classify_tracks():
     if not _classify_lock.acquire(blocking=False):
         return jsonify({"error": "Classification already in progress"}), 429
 
+    _thread_started = False
     try:
         import uuid
         import threading
@@ -253,73 +276,85 @@ def classify_tracks():
             total = len(track_paths)
             errors = []
 
-            # Filter to tracks that actually exist in the store
-            tracks_to_classify = []
-            valid_paths = []
-            for file_path in track_paths:
-                if file_path in track_store:
-                    track = track_store[file_path]
-                    tracks_to_classify.append(track)
-                    valid_paths.append(file_path)
-
-            # When reclassifying, reset approved tracks to pending so they get fresh classification
-            if force:
-                for track in tracks_to_classify:
-                    if track.review_status == 'approved':
-                        track.review_status = 'pending'
-                    # Clear previous classification so it gets re-done
-                    track.proposed_genre = None
-                    track.proposed_subgenre = None
-                    track.confidence = None
-                    track.reasoning = None
-                    track.classification_done = False
-
-            # Classify all tracks at once (service handles batching internally)
             try:
-                classify_service(tracks_to_classify, get_taxonomy(), force=force, model_override=model_override)
-            except Exception as e:
-                errors.append({'error': str(e)})
+                # Filter to tracks that actually exist in the store
+                tracks_to_classify = []
+                valid_paths = []
+                for file_path in track_paths:
+                    if file_path in track_store:
+                        track = track_store[file_path]
+                        tracks_to_classify.append(track)
+                        valid_paths.append(file_path)
 
-            # Enrich all tracks using the full multi-provider chain
-            try:
-                from app.routes.settings_routes import load_env
-                _env = load_env()
-                enrich_config = {
-                    "spotify_enabled": bool(_env.get("SPOTIFY_CLIENT_ID") and _env.get("SPOTIFY_CLIENT_SECRET"))
-                        and _env.get("SPOTIFY_ENRICH_ENABLED", "true").lower() == "true",
-                    "deezer_enabled": _env.get("DEEZER_ENRICH_ENABLED", "true").lower() == "true",
-                    "beatport_enabled": _env.get("BEATPORT_ENRICH_ENABLED", "false").lower() == "true",
-                    "lastfm_api_key": _env.get("LASTFM_API_KEY", ""),
-                }
-                enrich_service(tracks_to_classify, config=enrich_config)
-            except Exception as e:
-                errors.append({'error': str(e)})
+                # When reclassifying, reset approved tracks to pending so they get fresh classification
+                if force:
+                    for track in tracks_to_classify:
+                        if track.review_status == 'approved':
+                            track.review_status = 'pending'
+                        # Clear previous classification so it gets re-done
+                        track.proposed_genre = None
+                        track.proposed_subgenre = None
+                        track.confidence = None
+                        track.reasoning = None
+                        track.classification_done = False
 
-            classified = sum(1 for t in tracks_to_classify if t.classification_done)
+                # Classify all tracks at once (service handles batching internally)
+                try:
+                    classify_service(tracks_to_classify, get_taxonomy(), force=force, model_override=model_override)
+                except Exception as e:
+                    errors.append({'error': str(e)})
 
-            # Report progress for each track
-            for i, file_path in enumerate(track_paths):
-                if file_path in track_store:
-                    track = track_store[file_path]
-                    q.put({
-                        'current': i + 1,
-                        'total': total,
-                        'track': track.display_title,
-                        'classified': classified
-                    })
+                # Enrich all tracks using the full multi-provider chain
+                try:
+                    from app.routes.settings_routes import load_env
+                    _env = load_env()
+                    enrich_config = {
+                        "spotify_enabled": bool(_env.get("SPOTIFY_CLIENT_ID") and _env.get("SPOTIFY_CLIENT_SECRET"))
+                            and _env.get("SPOTIFY_ENRICH_ENABLED", "true").lower() == "true",
+                        "deezer_enabled": _env.get("DEEZER_ENRICH_ENABLED", "true").lower() == "true",
+                        "beatport_enabled": _env.get("BEATPORT_ENRICH_ENABLED", "false").lower() == "true",
+                        "lastfm_api_key": _env.get("LASTFM_API_KEY", ""),
+                    }
+                    enrich_service(tracks_to_classify, config=enrich_config)
+                except Exception as e:
+                    errors.append({'error': str(e)})
 
-            q.put({'done': True, 'classified': classified, 'errors': errors, 'refetch': True})
-            try:
-                from app.services.session_service import save_session
-                from app import get_current_folder_path
-                save_session(track_store, get_current_folder_path())
-            except Exception:
-                logger.exception("Session save failed after classification")
-            _classify_lock.release()
+                classified = sum(1 for t in tracks_to_classify if t.classification_done)
 
-        threading.Thread(target=run, daemon=True).start()
+                # Report progress for each track
+                for i, file_path in enumerate(track_paths):
+                    if file_path in track_store:
+                        track = track_store[file_path]
+                        q.put({
+                            'current': i + 1,
+                            'total': total,
+                            'track': track.display_title,
+                            'classified': classified
+                        })
+
+                q.put({'done': True, 'classified': classified, 'errors': errors, 'refetch': True})
+                try:
+                    from app.services.session_service import save_session
+                    from app import get_current_folder_path
+                    save_session(track_store, get_current_folder_path())
+                except Exception:
+                    logger.exception("Session save failed after classification")
+            finally:
+                # Always release so a crash/exception cannot leave the lock held
+                # and block all future /api/classify calls (issue #199).
+                _classify_lock.release()
+
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
+        _thread_started = True
         return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202
 
     except Exception as e:
         logger.exception("Error in /api/classify")
         return jsonify({"error": str(e)}), 500
+
+    finally:
+        # If the thread never started (exception in setup above), release the
+        # lock here — the thread's finally will not run in that case.
+        if not _thread_started:
+            _classify_lock.release()
