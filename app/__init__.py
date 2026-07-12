@@ -5,6 +5,8 @@ import threading
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 
+from app.services.track_store import TrackStore
+
 
 def _setup_file_logging():
     """Write app logs to ~/Library/Logs/IDJLM Pro/idjlm.log (macOS) or ~/.idjlm-pro/logs/idjlm.log."""
@@ -27,8 +29,12 @@ def _setup_file_logging():
     return log_path
 
 
-# In-memory session store: { file_path: Track }
-_track_store: dict = {}
+# In-memory session store: dict-like facade persisting to SQLite.
+# Issue #187 (B.1) migrated the previous in-memory dict + session.json to a
+# SQLite-backed TrackStore with content-hash IDs. The SQLite database lives
+# next to the user data dir (<user_dir>/tracks.db). Migration from any
+# pre-existing session.json runs automatically inside create_app() once.
+_track_store: "TrackStore | dict" = None
 # Reentrant lock protecting _track_store from concurrent mutations
 # (import clear vs background analyse/classify iteration race — issue #199)
 _track_store_lock = threading.RLock()
@@ -53,8 +59,31 @@ _progress_queues = _LimitedProgressQueues()
 _current_folder_path: str = ""
 
 
-def get_track_store() -> dict:
-    return _track_store
+def get_track_store():
+    """Return the active TrackStore (dict-like façade).
+
+    Kept untyped so legacy route code (`track_store[fp]`, etc.) compiles
+    unchanged. Returns the underlying SQLite-backed TrackStore once
+    create_app() has wired it up; returns a fresh empty dict during
+    test imports before create_app() runs (legacy behaviour preserved).
+    """
+    return _track_store if _track_store is not None else {}
+
+
+def get_track_store_lock() -> threading.RLock:
+    """Return the process-wide RLock that guards multi-step _track_store operations.
+
+    Callers that do clear-then-repopulate (import) or snapshot-then-iterate
+    (analyze/classify) should acquire this lock for the duration of the
+    multi-step sequence so a concurrent import cannot clear the store mid-flight.
+    """
+    return _track_store_lock
+
+
+def set_track_store(store) -> None:
+    """Install a TrackStore instance as the active store (test seam)."""
+    global _track_store
+    _track_store = store
 
 
 def get_taxonomy() -> dict:
@@ -89,8 +118,34 @@ def create_app() -> Flask:
     # Clear any stale progress queues from previous sessions
     _progress_queues.clear()
 
+    # Wire up the SQLite track store (issue #187 — B.1). The previous
+    # in-memory dict + session.json pair is replaced by a small
+    # dict-facade over SQLite. Migration from a pre-existing
+    # session.json runs once on first launch and is recorded in the
+    # store's `store_meta` table so subsequent launches skip it.
+    from .utils import paths as _paths
+    store = TrackStore()
+    try:
+        migrated = store.migrate_from_session_json(
+            _paths.user_data_path("session.json")
+        )
+        if migrated is True:
+            logging.getLogger(__name__).info(
+                "IDJLM Pro: migrated previous session.json into SQLite track store"
+            )
+    except Exception as exc:
+        # Migration failure must not crash app startup. The store is
+        # still usable; the JSON file is left untouched for the next
+        # attempt.
+        logging.getLogger(__name__).warning(
+            "IDJLM Pro: track-store migration skipped due to error: %s",
+            exc,
+        )
+    global _track_store
+    _track_store = store
+
     # Load taxonomy — prefer user-writable copy (may have edits), fall back to bundle
-    from .utils import paths
+    from .utils import paths  # noqa: F811  (re-import scoped to function)
     _user_taxonomy = paths.user_data_path("taxonomy.json")
     _bundle_taxonomy = os.path.join(os.path.dirname(__file__), "..", "taxonomy.json")
     taxonomy_path = _user_taxonomy if os.path.exists(_user_taxonomy) else _bundle_taxonomy
