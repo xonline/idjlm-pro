@@ -16,3 +16,5 @@ build/
 src-tauri/target/
 src-tauri/binaries/
 node_modules/
+# User data files — written at runtime, not source
+playlists.json
