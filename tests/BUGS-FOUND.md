@@ -119,6 +119,31 @@
 
 ---
 
+## BUG-014 — Silent sort failure on mixed types in `/api/tracks` [P2] [FIXED]
+- **What**: `GET /api/tracks?sort_by=bpm` (or `year`) mapped to the string-typed `final_bpm`/`final_year` `Track` properties, but missing values fell back to the *int* `0` (`getattr(t, sort_attr) or 0`). Comparing `str` and `int` raises `TypeError` in Python 3, which the surrounding `except Exception` swallowed, silently re-sorting by filename instead of the requested column with no error surfaced to the caller.
+- **Where**: `app/routes/track_routes.py` (`list_tracks`, sort block)
+- **Source**: Codex review `CODEX_REVIEW_2026-04-05.txt` (P2 finding #1)
+- **Fix**: Added a `sort_key()` helper that coerces numeric fields to `float` (treating `None`/unparsable as `0.0`) and string fields to `str` (`None` as `""`) so every sort key is the same type — the mixed-type `TypeError` can no longer occur. The remaining `except Exception` fallback now logs a warning instead of failing silently.
+- **Regression test**: `tests/test_a3_p2_regressions.py::TestSortMixedTypes`
+
+---
+
+## BUG-015 — Stale 'edited' status after clearing the last override [P2] [FIXED]
+- **What**: Verified as already fixed in the working tree (commit `aa6395c9`, same day as the Codex review) for both `PUT /api/tracks/<path>` and `POST /api/review/bulk-edit` — both recompute `has_overrides` and revert `review_status` from `"edited"` to `"pending"` once the last override is cleared. No code change needed; added regression coverage to lock the behaviour in given it regressed once already (the underlying `_PersistingTrack` SQLite write-through proxy from #187/B.1 makes this easy to break silently again).
+- **Where**: `app/routes/track_routes.py` (`update_track`), `app/routes/review_routes.py` (`bulk_edit`)
+- **Source**: Codex review `CODEX_REVIEW_2026-04-05.txt` (P2 finding #2)
+- **Regression test**: `tests/test_a3_p2_regressions.py::TestEditedStatusClearsWhenOverridesRemoved`
+
+---
+
+## BUG-016 — `/api/review/bulk-edit` validation bypass (e.g. `bpm="fast"`) [P2] [FIXED]
+- **What**: Verified as already fixed in the working tree (commit `aa6395c9`) — `bulk_edit()` validates `bpm` (numeric, 40-300), `key` (string ≤10 chars), and `year` (1900-2030) with the same rules as the single-track `PUT /api/tracks/<path>` endpoint, rejecting invalid payloads with HTTP 400 before any track is mutated. No code change needed; added regression coverage since this is the exact bypass the Codex review flagged and it had no test previously.
+- **Where**: `app/routes/review_routes.py` (`bulk_edit`)
+- **Source**: Codex review `CODEX_REVIEW_2026-04-05.txt` (P2 finding #3)
+- **Regression test**: `tests/test_a3_p2_regressions.py::TestBulkEditValidation`
+
+---
+
 ## Summary
 
 | ID | Severity | Area | Description |
@@ -136,3 +161,6 @@
 | BUG-011 | P2 | Settings | 9 password fields not in `<form>` — browser warns, password manager disabled |
 | BUG-012 | P3 | Docs | `/api/classify/start` referenced in task description doesn't exist |
 | BUG-013 | P3 | UI/Layout | Track table pushed below viewport by pipeline stepper on narrow screens |
+| BUG-014 | P2 | API | [FIXED] Silent sort failure on mixed types — `/api/tracks?sort_by=bpm\|year` |
+| BUG-015 | P2 | API | [FIXED] Stale 'edited' status never cleared after last override removed |
+| BUG-016 | P2 | API | [FIXED] `/api/review/bulk-edit` validation bypass (e.g. `bpm="fast"`) |
