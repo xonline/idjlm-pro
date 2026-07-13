@@ -223,7 +223,7 @@ class TestStaticFiles:
             tracks_content = f.read()
 
         # Check that handleBulkEdit sends track_paths (not file_paths)
-        assert "track_paths: Array.from(window.selectedTracks)" in classify_content, (
+        assert "track_paths: Array.from(store.state.selectedTracks)" in classify_content, (
             "handleBulkEdit must send 'track_paths' not 'file_paths'"
         )
 
