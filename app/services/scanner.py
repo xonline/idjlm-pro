@@ -145,6 +145,15 @@ def _read_tags_universal(file_path: str) -> dict:
     return tags
 
 
+def _get_file_stat(file_path: str) -> tuple:
+    """Return (mtime, file_size) for a file, or (None, None) on error."""
+    try:
+        st = os.stat(file_path)
+        return st.st_mtime, st.st_size
+    except OSError:
+        return None, None
+
+
 def _read_duration_seconds(file_path: str, suffix: str) -> Optional[float]:
     """
     Read track duration in seconds from mutagen. Returns None on failure.
@@ -194,7 +203,10 @@ def scan_folder(folder_path: str) -> list[Track]:
                     audio_tags = _read_tags_universal(file_path)
 
                 from app.services.analysis_cache import compute_hash
+                from app.services.fingerprint import compute_fingerprint
                 content_hash = compute_hash(file_path)
+                audio_fingerprint = compute_fingerprint(file_path)
+                file_mtime, file_size = _get_file_stat(file_path)
                 track = Track(
                     file_path=file_path,
                     filename=filename,
@@ -209,16 +221,130 @@ def scan_folder(folder_path: str) -> list[Track]:
                     custom_tags=audio_tags.get('custom_tags', {}),
                     duration=_read_duration_seconds(file_path, suffix),
                     content_hash=content_hash,
+                    audio_fingerprint=audio_fingerprint,
+                    file_mtime=file_mtime,
+                    file_size=file_size,
                 )
                 tracks.append(track)
 
             except Exception as e:
                 # File couldn't be read at all
+                file_mtime, file_size = _get_file_stat(file_path)
                 track = Track(
                     file_path=file_path,
                     filename=filename,
                     error=f"Failed to read tags: {str(e)}",
+                    file_mtime=file_mtime,
+                    file_size=file_size,
                 )
                 tracks.append(track)
 
     return tracks
+
+
+def scan_folder_incremental(folder_path: str, track_store: dict) -> tuple[list[Track], list[str]]:
+    """
+    Recursively scan folder for audio files, skipping unchanged files.
+
+    For each file on disk:
+      - If the file is already in the track_store with the same mtime AND
+        file_size, reuse the existing Track from the store (no I/O for
+        reading tags or computing hashes).
+      - If the file is new or has changed (different mtime or size), process
+        it fully via _scan_single_file.
+
+    Returns (tracks, stale_paths) where:
+      - tracks: list of Track objects for ALL current files (unchanged +
+        newly scanned)
+      - stale_paths: list of file paths that are in the store but no longer
+        exist on disk (should be removed from the store by the caller)
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    tracks = []
+    folder = Path(folder_path).expanduser().resolve()
+    if not folder.is_dir():
+        return [], []
+
+    store_keys = set(track_store.keys())
+    disk_paths: set[str] = set()
+    unchanged_count = 0
+    scanned_count = 0
+
+    for root, dirs, files in os.walk(folder):
+        for filename in files:
+            suffix = Path(filename).suffix.lower()
+            if suffix not in SUPPORTED_EXTENSIONS:
+                continue
+
+            file_path = os.path.join(root, filename)
+            disk_paths.add(file_path)
+
+            disk_mtime, disk_size = _get_file_stat(file_path)
+            if disk_mtime is None:
+                continue
+
+            existing = track_store.get(file_path)
+            if existing is not None:
+                if (existing.file_mtime == disk_mtime and
+                        existing.file_size == disk_size):
+                    tracks.append(existing)
+                    unchanged_count += 1
+                    continue
+
+            track = _scan_single_file(file_path, filename, suffix)
+            tracks.append(track)
+            scanned_count += 1
+
+    stale_paths = sorted(store_keys - disk_paths)
+
+    if unchanged_count or scanned_count:
+        logger.info(
+            "Incremental scan: %d unchanged, %d scanned, %d stale",
+            unchanged_count, scanned_count, len(stale_paths),
+        )
+
+    return tracks, stale_paths
+
+
+def _scan_single_file(file_path: str, filename: str, suffix: str) -> Track:
+    """Fully scan a single audio file and return a Track object."""
+    try:
+        if suffix == '.mp3':
+            audio_tags = _read_id3_tags(file_path)
+        else:
+            audio_tags = _read_tags_universal(file_path)
+
+        from app.services.analysis_cache import compute_hash
+        from app.services.fingerprint import compute_fingerprint
+        content_hash = compute_hash(file_path)
+        audio_fingerprint = compute_fingerprint(file_path)
+        file_mtime, file_size = _get_file_stat(file_path)
+        return Track(
+            file_path=file_path,
+            filename=filename,
+            existing_title=audio_tags['title'],
+            existing_artist=audio_tags['artist'],
+            existing_album=audio_tags['album'],
+            existing_year=audio_tags['year'],
+            existing_genre=audio_tags['genre'],
+            existing_comment=audio_tags['comment'],
+            existing_bpm=audio_tags['bpm'],
+            existing_key=audio_tags['key'],
+            custom_tags=audio_tags.get('custom_tags', {}),
+            duration=_read_duration_seconds(file_path, suffix),
+            content_hash=content_hash,
+            audio_fingerprint=audio_fingerprint,
+            file_mtime=file_mtime,
+            file_size=file_size,
+        )
+    except Exception as e:
+        file_mtime, file_size = _get_file_stat(file_path)
+        return Track(
+            file_path=file_path,
+            filename=filename,
+            error=f"Failed to read tags: {str(e)}",
+            file_mtime=file_mtime,
+            file_size=file_size,
+        )

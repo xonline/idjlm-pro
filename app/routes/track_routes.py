@@ -266,3 +266,48 @@ def update_track(file_path):
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/tracks/identify", methods=["POST"])
+def identify_track_route():
+    """
+    Identify a zero-metadata track via AcoustID + MusicBrainz.
+    POST /api/tracks/identify  {"file_path": "..."}
+
+    Writes the match into the track's spotify_* enrichment slots (the existing
+    "suggested metadata" channel) rather than overwriting user-owned fields.
+    """
+    try:
+        from app import get_track_store
+        from app.services.fingerprint import identify_track, is_acoustid_enabled
+
+        data = request.get_json(silent=True) or {}
+        file_path = data.get("file_path")
+        if not file_path:
+            return jsonify({"error": "file_path is required"}), 400
+
+        if not is_acoustid_enabled():
+            return jsonify({
+                "error": "AcoustID is not configured — set ACOUSTID_API_KEY",
+                "enabled": False,
+            }), 503
+
+        track_store = get_track_store()
+        track = track_store.get(file_path)
+        if track is None:
+            return jsonify({"error": "Track not found"}), 404
+
+        match = identify_track(file_path)
+        if not match:
+            return jsonify({"matched": False, "file_path": file_path}), 200
+
+        if match.get("title"):
+            track.spotify_title = match["title"]
+        if match.get("artist"):
+            track.spotify_artist = match["artist"]
+
+        return jsonify({"matched": True, "file_path": file_path, "match": match}), 200
+
+    except Exception as e:
+        logger.exception("AcoustID identify failed")
+        return jsonify({"error": str(e)}), 500

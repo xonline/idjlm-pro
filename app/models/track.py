@@ -115,12 +115,28 @@ class Track:
     # High-resolution waveform for detail panel (600 normalised amplitude points 0.0–1.0)
     waveform_peaks: Optional[list] = None
 
+    # Energy timeline — per-frame RMS over time for loudness envelope visualisation
+    # List of [timestamp_seconds, rms_value] pairs, ~200-500 points
+    energy_timeline: Optional[list] = None
+
     # Key accuracy
     key_mismatch: Optional[bool] = None       # True if analyzed_key differs significantly from final_key
     key_mismatch_detail: Optional[str] = None # e.g. "Stored: 8A, Detected: 7B"
 
     # Content hash (SHA-256 of first 1MB) for change detection / analysis cache
     content_hash: Optional[str] = None
+
+    # Chromaprint audio fingerprint for content-based dedup
+    audio_fingerprint: Optional[str] = None
+
+    # File metadata for incremental import — skip unchanged files on re-scan
+    # mtime is stored as float (os.path.getmtime), size in bytes
+    file_mtime: Optional[float] = None
+    file_size: Optional[int] = None
+
+    # Phrase / section boundary detection
+    # List of [time_seconds, confidence] pairs marking structural boundaries
+    phrase_boundaries: Optional[list] = None
 
     # Custom tags (user-defined key-value pairs, stored as TXXX frames)
     custom_tags: dict = field(default_factory=dict)

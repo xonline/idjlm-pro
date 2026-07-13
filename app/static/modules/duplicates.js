@@ -110,7 +110,8 @@ function renderDuplicates(duplicates) {
     var header = document.createElement('div');
     header.className = 'compare-card-header';
     var groupLabel = group.group_label || '';
-    var reason = group.reason === 'same_metadata' ? 'Same Artist + Title' : 'Similar Filename';
+    var reasonLabels = { same_audio_content: 'Identical Audio', same_metadata: 'Same Artist + Title', fuzzy_filename: 'Similar Filename' };
+    var reason = reasonLabels[group.reason] || 'Possible Duplicate';
     header.innerHTML = '<span class="compare-card-title">Group ' + (gIdx + 1) +
       (groupLabel ? ': <em>' + escapeHtml(groupLabel) + '</em>' : '') +
       '</span>' +
