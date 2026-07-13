@@ -89,33 +89,35 @@ def import_tracks():
             return jsonify({"error": f"Folder is not readable: {folder_path}"}), 400
 
         # Import scanner service
-        from app.services.scanner import scan_folder
+        from app.services.scanner import scan_folder_incremental
         from app import get_track_store, set_current_folder_path, get_track_store_lock
 
-        # Scan the folder first (slow I/O — no lock held while scanning)
         track_store = get_track_store()
         set_current_folder_path(folder_path)
-        tracks = scan_folder(folder_path)
 
-        # Clear-and-repopulate under _track_store_lock so a concurrent
-        # background analyze/classify thread cannot observe a half-empty
-        # store (issue #199 — import clear vs. background analyse race).
+        # Incremental scan: reuse unchanged tracks, only process new/changed files
+        tracks, stale_paths = scan_folder_incremental(folder_path, track_store)
+
+        # Remove stale tracks (files deleted from disk since last import)
+        # and upsert newly scanned tracks under _track_store_lock
         _ts_lock = get_track_store_lock()
+        from app.services.analysis_cache import restore
         with _ts_lock:
-            track_store.clear()
-            for track in tracks:
-                track_store[track.file_path] = track
+            for stale_path in stale_paths:
+                try:
+                    del track_store[stale_path]
+                except KeyError:
+                    pass
 
-            # Restore cached analysis for unchanged files (B.3 — analysis cache)
-            # B.1 (issue #187): when the store is SQLite-backed, re-persist each
-            # restored track so a later `store.values()` read reflects the
-            # restored analysis fields (otherwise the in-memory Track has
-            # them via setattr but the SQLite payload was written first).
-            from app.services.analysis_cache import restore
+            newly_scanned_count = 0
             restored_count = 0
             for track in tracks:
+                existing = track_store.get(track.file_path)
+                if existing is not None and existing is track:
+                    continue
+                track_store[track.file_path] = track
+                newly_scanned_count += 1
                 if restore(track):
-                    track_store[track.file_path] = track
                     restored_count += 1
         if restored_count:
             logger.info("Restored analysis from cache for %d tracks", restored_count)
@@ -153,14 +155,13 @@ def analyze_tracks():
         import uuid
         import threading
         import queue as _queue
-        from app.services.analyzer import analyze_track
+        from app.services.analyzer import analyze_track, analyze_tracks_batch
         from app import get_track_store, get_progress_queues
 
         data = request.get_json(silent=True) or {}
         track_paths = data.get("track_paths", [])
         track_store = get_track_store()
 
-        # If empty, analyze all tracks
         if not track_paths:
             track_paths = list(track_store.keys())
 
@@ -170,60 +171,65 @@ def analyze_tracks():
         q = _queue.Queue()
         get_progress_queues()[op_id] = q
 
-        def run():
-            total = len(track_paths)
-            analyzed = 0
-            errors = []
-            logger.info(f"Starting analysis thread for {total} tracks")
-            try:
-                for i, file_path in enumerate(track_paths):
-                    if file_path not in track_store:
-                        logger.warning(f"Track {file_path} not found in store, skipping")
-                        continue
-                    try:
-                        track = track_store[file_path]
-                        logger.info(f"Analyzing track {i+1}/{total}: {track.display_title}")
-                        analyze_track(track)
-                        analyzed += 1
-                        q.put({
-                            'current': i + 1,
-                            'total': total,
-                            'track': track.display_title,
-                            'analyzed': analyzed
-                        })
-                        logger.info(f"Successfully analyzed {track.display_title}, analysis_done={track.analysis_done}")
-                        if track.error:
-                            logger.warning(f"Track {track.display_title} has error after analysis: {track.error}")
-                        if not track.analysis_done:
-                            logger.warning(f"Track {track.display_title} analysis_done is still False!")
-                    except Exception as e:
-                        error_msg = str(e)
-                        logger.error(f"Error analyzing {file_path}: {error_msg}")
-                        errors.append({'path': file_path, 'error': error_msg})
-                        q.put({
-                            'current': i + 1,
-                            'total': total,
-                            'error': error_msg
-                        })
-                logger.info(f"Analysis complete: {analyzed}/{total} succeeded, {len(errors)} errors")
-                q.put({'done': True, 'analyzed': analyzed, 'errors': errors, 'refetch': True})
-            finally:
-                # Always release so a crash/exception cannot leave the lock held
-                # and block all future /api/analyze calls (issue #199).
-                _analyze_lock.release()
+        total = len(track_paths)
+
+        if total > 1:
+            def run():
+                logger.info(f"Starting parallel analysis for {total} tracks")
+                try:
+                    analyze_tracks_batch(track_paths, track_store, progress_queue=q)
+                finally:
+                    _analyze_lock.release()
+        else:
+            def run():
+                analyzed = 0
+                errors = []
+                logger.info(f"Starting sequential analysis for {total} tracks")
+                try:
+                    for i, file_path in enumerate(track_paths):
+                        if file_path not in track_store:
+                            logger.warning(f"Track {file_path} not found in store, skipping")
+                            continue
+                        try:
+                            track = track_store[file_path]
+                            logger.info(f"Analyzing track {i+1}/{total}: {track.display_title}")
+                            analyze_track(track)
+                            analyzed += 1
+                            q.put({
+                                'current': i + 1,
+                                'total': total,
+                                'track': track.display_title,
+                                'analyzed': analyzed
+                            })
+                            logger.info(f"Successfully analyzed {track.display_title}, analysis_done={track.analysis_done}")
+                            if track.error:
+                                logger.warning(f"Track {track.display_title} has error after analysis: {track.error}")
+                            if not track.analysis_done:
+                                logger.warning(f"Track {track.display_title} analysis_done is still False!")
+                        except Exception as e:
+                            error_msg = str(e)
+                            logger.error(f"Error analyzing {file_path}: {error_msg}")
+                            errors.append({'path': file_path, 'error': error_msg})
+                            q.put({
+                                'current': i + 1,
+                                'total': total,
+                                'error': error_msg
+                            })
+                    logger.info(f"Analysis complete: {analyzed}/{total} succeeded, {len(errors)} errors")
+                    q.put({'done': True, 'analyzed': analyzed, 'errors': errors, 'refetch': True})
+                finally:
+                    _analyze_lock.release()
 
         t = threading.Thread(target=run, daemon=True)
         t.start()
         _thread_started = True
-        return jsonify({'op_id': op_id, 'total': len(track_paths)}), 202
+        return jsonify({'op_id': op_id, 'total': total}), 202
 
     except Exception as e:
         logger.exception("Error in /api/analyze")
         return jsonify({"error": str(e)}), 500
 
     finally:
-        # If the thread never started (exception in setup above), release the
-        # lock here — the thread's finally will not run in that case.
         if not _thread_started:
             _analyze_lock.release()
 
