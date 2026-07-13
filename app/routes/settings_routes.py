@@ -748,6 +748,152 @@ def test_key():
 
 
 # ---------------------------------------------------------------------------
+# Field Mappings
+# ---------------------------------------------------------------------------
+
+FIELD_MAPPINGS_PATH = None
+
+
+def _get_field_mappings_path():
+    global FIELD_MAPPINGS_PATH
+    if FIELD_MAPPINGS_PATH is None:
+        from ..utils import paths
+        settings_dir = paths.ensure_app_user_dir()
+        FIELD_MAPPINGS_PATH = os.path.join(settings_dir, "field_mappings.json")
+    return FIELD_MAPPINGS_PATH
+
+
+def _default_field_mappings():
+    return {
+        "rekordbox": {
+            "final_genre": "TCON",
+            "final_subgenre": "COMM:subgenre:eng",
+            "final_bpm": "TBPM",
+            "final_key": "TKEY",
+            "initial_key": "TXXX:INITIALKEY",
+            "final_year": "TDRC",
+            "analyzed_energy": "COMM:energy:eng",
+            "clave_pattern": "COMM:clave:eng",
+            "vocal_flag": "COMM:vocal_flag:eng",
+            "tempo_category": "COMM:tempo_category:eng",
+            "custom_tags": "TXXX",
+            "album_art": "APIC",
+        },
+        "serato": {
+            "final_genre": "TCON",
+            "final_subgenre": "COMM:subgenre:eng",
+            "final_bpm": "TBPM",
+            "final_key": "TKEY",
+            "initial_key": "TXXX:INITIALKEY",
+            "final_year": "TDRC",
+            "analyzed_energy": "COMM:energy:eng",
+            "clave_pattern": "COMM:clave:eng",
+            "vocal_flag": "COMM:vocal_flag:eng",
+            "tempo_category": "COMM:tempo_category:eng",
+            "custom_tags": "TXXX",
+            "album_art": "APIC",
+        },
+        "m3u": {
+            "final_genre": "Genre",
+            "final_bpm": "BPM",
+            "final_key": "Key",
+            "final_year": "Year",
+            "filename": "File Path",
+            "display_title": "Title",
+            "display_artist": "Artist",
+        },
+        "csv": {
+            "final_genre": "Genre",
+            "final_subgenre": "Subgenre",
+            "final_bpm": "BPM",
+            "final_key": "Key",
+            "final_year": "Year",
+            "analyzed_energy": "Energy",
+            "clave_pattern": "Clave",
+            "vocal_flag": "Vocal",
+            "tempo_category": "Tempo Category",
+            "filename": "File Path",
+            "display_title": "Title",
+            "display_artist": "Artist",
+            "album": "Album",
+            "comment": "Comment",
+            "confidence": "Confidence",
+        },
+    }
+
+
+@bp.route("/field-mappings", methods=["GET"])
+def get_field_mappings():
+    try:
+        path = _get_field_mappings_path()
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                mappings = json.load(f)
+        else:
+            mappings = _default_field_mappings()
+        return jsonify(mappings), 200
+    except Exception as e:
+        logger.exception("Error in /api/field-mappings GET")
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/field-mappings", methods=["POST"])
+def save_field_mappings():
+    try:
+        data = request.get_json(silent=True) or {}
+        target = data.get("target", "").strip()
+        mappings = data.get("mappings", {})
+
+        if not target:
+            return jsonify({"error": "target is required"}), 400
+        if not isinstance(mappings, dict):
+            return jsonify({"error": "mappings must be an object"}), 400
+
+        path = _get_field_mappings_path()
+        current = {}
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                current = json.load(f)
+
+        current[target] = mappings
+
+        with open(path, "w") as f:
+            json.dump(current, f, indent=2)
+
+        return jsonify({"saved": True, "target": target}), 200
+    except Exception as e:
+        logger.exception("Error in /api/field-mappings POST")
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/field-mappings/reset", methods=["POST"])
+def reset_field_mappings():
+    try:
+        data = request.get_json(silent=True) or {}
+        target = data.get("target", "").strip()
+
+        path = _get_field_mappings_path()
+        current = {}
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                current = json.load(f)
+
+        defaults = _default_field_mappings()
+        if target:
+            current[target] = defaults.get(target, {})
+        else:
+            current = defaults
+
+        with open(path, "w") as f:
+            json.dump(current, f, indent=2)
+
+        return jsonify({"reset": True, "target": target or "all"}), 200
+    except Exception as e:
+        logger.exception("Error in /api/field-mappings/reset")
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
 # AI Learning
 # ---------------------------------------------------------------------------
 
