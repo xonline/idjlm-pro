@@ -54,7 +54,7 @@ function initEditModal() {
 }
 
 function openEditModal(filePath) {
-  const track = window.tracks.find(t => t.file_path === filePath);
+  const track = store.state.tracks.find(t => t.file_path === filePath);
   if (!track) return;
 
   window.currentEditPath = filePath;
@@ -79,7 +79,7 @@ function openEditModal(filePath) {
   optionDefault.textContent = 'Select Genre';
   genreSelect.appendChild(optionDefault);
 
-  Object.keys(window.taxonomy).forEach(genre => {
+  Object.keys(store.state.taxonomy).forEach(genre => {
     const option = document.createElement('option');
     option.value = genre;
     option.textContent = genre;
@@ -124,8 +124,8 @@ function updateSubgenreOptions() {
   optionDefault.textContent = 'Select Comment';
   subgenreSelect.appendChild(optionDefault);
 
-  if (selectedGenre && window.taxonomy[selectedGenre]) {
-    const subgenres = window.taxonomy[selectedGenre].subgenres || [];
+  if (selectedGenre && store.state.taxonomy[selectedGenre]) {
+    const subgenres = store.state.taxonomy[selectedGenre].subgenres || [];
     subgenres.forEach(sub => {
       const option = document.createElement('option');
       option.value = sub;
@@ -135,7 +135,7 @@ function updateSubgenreOptions() {
   }
 
   // Restore current value if available
-  const track = window.tracks.find(t => t.file_path === window.currentEditPath);
+  const track = store.state.tracks.find(t => t.file_path === window.currentEditPath);
   if (track && track.final_subgenre) {
     subgenreSelect.value = track.final_subgenre;
   }
@@ -160,7 +160,7 @@ async function saveTrackEdits() {
       body: JSON.stringify(override),
     });
 
-    const track = window.tracks.find(t => t.file_path === window.currentEditPath);
+    const track = store.state.tracks.find(t => t.file_path === window.currentEditPath);
     if (track) {
       Object.assign(track, result);
     }
@@ -186,7 +186,7 @@ function addNewGenre() {
     return;
   }
 
-  window.taxonomy[name] = {
+  store.state.taxonomy[name] = {
     description: description,
     subgenres: [],
   };

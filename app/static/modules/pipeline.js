@@ -22,8 +22,8 @@ function initWorkflowGuide() {
   if (!guide) return;
 
   if (!localStorage.getItem('idjlm-workflow-seen')) {
-    var store = window.tracks || [];
-    if (store.length === 0) {
+    var currentTracks = store.state.tracks || [];
+    if (currentTracks.length === 0) {
       guide.style.display = 'block';
     }
   }
@@ -38,15 +38,15 @@ function initWorkflowGuide() {
 }
 
 function saveSetlistToStorage() {
-  localStorage.setItem('idjlm-setlist', JSON.stringify(window.setlist || []));
+  localStorage.setItem('idjlm-setlist', JSON.stringify(store.state.setlist || []));
 }
 
 function loadSetlistFromStorage() {
   try {
     const saved = localStorage.getItem('idjlm-setlist');
-    if (saved) window.setlist = JSON.parse(saved);
+    if (saved) store.set('setlist', JSON.parse(saved));
   } catch(e) {
-    window.setlist = [];
+    store.set('setlist', []);
   }
 }
 
@@ -80,8 +80,8 @@ function initSetPlanTab() {
 
   // Populate genre filter from taxonomy
   const genreSelect = document.getElementById('setplan-genre');
-  if (genreSelect && window.taxonomy) {
-    Object.keys(window.taxonomy).forEach(genre => {
+  if (genreSelect && store.state.taxonomy) {
+    Object.keys(store.state.taxonomy).forEach(genre => {
       const opt = document.createElement('option');
       opt.value = genre;
       opt.textContent = genre;
@@ -301,7 +301,7 @@ async function fixAllKeys(paths) {
 
 /** Update the pipeline stepper based on current track states */
 function updatePipelineStepper() {
-  var allTracks = window.tracks || [];
+  var allTracks = store.state.tracks || [];
   if (!allTracks.length) return;
 
   var total = allTracks.length;
@@ -330,8 +330,8 @@ function setStepStatus(step, done, total, status) {
 /** Show onboarding wizard if first run */
 function showOnboardingIfNeeded() {
   if (localStorage.getItem('idjlm-onboarding-done')) return;
-  var store = window.tracks || [];
-  if (store.length > 0) return;
+  var currentTracks = store.state.tracks || [];
+  if (currentTracks.length > 0) return;
   var overlay = document.getElementById('onboarding-overlay');
   if (overlay) { overlay.style.display = 'flex'; updateOnboardingStep(1); }
 }
@@ -365,9 +365,8 @@ async function autoResumeOrOnboard() {
       // Auto-resume: load without prompting
       const result = await apiFetch('/api/session/load', { method: 'POST' });
       if (result && result.tracks) {
-        window.tracks = result.tracks;
+        store.set('tracks', result.tracks); // renderTracks fires via subscription
         window.searchResults = null;
-        renderTracks();
         updateStats();
         updatePipelineStepper();
         updateToolbarButtonStates();
@@ -410,9 +409,8 @@ function initOnboarding() {
               body: JSON.stringify({ folder_path: path })
             });
             if (result && result.tracks) {
-              window.tracks = result.tracks;
+              store.set('tracks', result.tracks); // renderTracks fires via subscription
               window.searchResults = null;
-              renderTracks();
               updateStats();
               updatePipelineStepper();
               updateToolbarButtonStates();

@@ -11,7 +11,7 @@ function initFilterChips() {
 }
 
 function updateFilterChips() {
-  const tracks = window.tracks || [];
+  const tracks = store.state.tracks || [];
   if (!tracks.length) {
     document.querySelectorAll('.chip-group-items').forEach(el => el.innerHTML = '');
     return;

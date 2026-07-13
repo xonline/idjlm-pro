@@ -10,9 +10,9 @@ function initBulkSelectFeature() {
     checkboxes.forEach(cb => {
       cb.checked = e.target.checked;
       if (e.target.checked) {
-        window.selectedTracks.add(cb.dataset.filePath);
+        store.state.selectedTracks.add(cb.dataset.filePath);
       } else {
-        window.selectedTracks.delete(cb.dataset.filePath);
+        store.state.selectedTracks.delete(cb.dataset.filePath);
       }
     });
     updateBulkActionsBar();
@@ -22,10 +22,10 @@ function initBulkSelectFeature() {
     if (e.target.type === 'checkbox') {
       const tr = e.target.closest('tr');
       if (e.target.checked) {
-        window.selectedTracks.add(e.target.dataset.filePath);
+        store.state.selectedTracks.add(e.target.dataset.filePath);
         if (tr) tr.classList.add('row-selected');
       } else {
-        window.selectedTracks.delete(e.target.dataset.filePath);
+        store.state.selectedTracks.delete(e.target.dataset.filePath);
         if (tr) tr.classList.remove('row-selected');
       }
       updateBulkActionsBar();
@@ -37,10 +37,10 @@ function initBulkSelectFeature() {
       showBulkEditModal();
     }
     if (e.target.id === 'bulk-add-setlist-btn') {
-      window.selectedTracks.forEach(filePath => {
+      store.state.selectedTracks.forEach(filePath => {
         addTrackToSetlist(filePath);
       });
-      window.selectedTracks.clear();
+      store.state.selectedTracks.clear();
       updateBulkActionsBar();
     }
     if (e.target.id === 'bulk-export-btn') {
@@ -78,10 +78,10 @@ function updateBulkActionsBar() {
   const bar = document.getElementById('bulk-actions-bar');
   if (!bar) return;
 
-  if (window.selectedTracks.size > 0) {
+  if (store.state.selectedTracks.size > 0) {
     bar.style.display = 'flex';
     bar.innerHTML = `
-      <span class="bulk-actions-count">${window.selectedTracks.size} tracks selected</span>
+      <span class="bulk-actions-count">${store.state.selectedTracks.size} tracks selected</span>
       <button class="btn btn-accent btn-small" id="bulk-analyze-btn">Analyse</button>
       <button class="btn btn-primary btn-small" id="bulk-edit-btn">Bulk Edit</button>
       <button class="btn btn-accent btn-small" id="bulk-approve-selected-btn">Approve All Selected</button>
@@ -93,7 +93,7 @@ function updateBulkActionsBar() {
     const bulkAnalyzeBtn = document.getElementById('bulk-analyze-btn');
     if (bulkAnalyzeBtn) {
       bulkAnalyzeBtn.addEventListener('click', async () => {
-        const paths = Array.from(window.selectedTracks);
+        const paths = Array.from(store.state.selectedTracks);
         bulkAnalyzeBtn.disabled = true;
         showProgressInStatsBar(`Analysing ${paths.length} track${paths.length !== 1 ? 's' : ''}...`, 'analyze');
         try {
@@ -115,9 +115,8 @@ function updateBulkActionsBar() {
                 hideProgressInStatsBar();
                 // Refetch fresh track data from server
                 apiFetch('/api/tracks').then(d => {
-                  window.tracks = d.tracks || [];
+                  store.set('tracks', d.tracks || []); // renderTracks fires via subscription
                   window.searchResults = null;
-                  renderTracks();
                   updateStats();
                 });
                 updateToolbarButtonStates();
@@ -146,7 +145,7 @@ function updateBulkActionsBar() {
     const bulkApproveSelectedBtn = document.getElementById('bulk-approve-selected-btn');
     if (bulkApproveSelectedBtn) {
       bulkApproveSelectedBtn.addEventListener('click', async () => {
-        const paths = Array.from(window.selectedTracks);
+        const paths = Array.from(store.state.selectedTracks);
         if (!paths.length) return;
         bulkApproveSelectedBtn.disabled = true;
         try {
@@ -157,12 +156,11 @@ function updateBulkActionsBar() {
           const count = result && result.approved !== undefined ? result.approved : paths.length;
           showToast(`Approved ${count} track${count !== 1 ? 's' : ''}`, 'success');
           apiFetch('/api/tracks').then(d => {
-            window.tracks = d.tracks || [];
+            store.set('tracks', d.tracks || []); // renderTracks fires via subscription
             window.searchResults = null;
-            renderTracks();
             updateStats();
           });
-          window.selectedTracks.clear();
+          store.state.selectedTracks.clear();
           updateBulkActionsBar();
           updateToolbarButtonStates();
         } catch (e) {
@@ -182,13 +180,13 @@ function showBulkEditModal() {
 
   // Populate genre select from taxonomy
   const genreSelect = document.getElementById('bulk-genre');
-  if (genreSelect && window.taxonomy) {
+  if (genreSelect && store.state.taxonomy) {
     while (genreSelect.firstChild) genreSelect.removeChild(genreSelect.firstChild);
     const defaultOpt = document.createElement('option');
     defaultOpt.value = '';
     defaultOpt.textContent = '— No change —';
     genreSelect.appendChild(defaultOpt);
-    Object.keys(window.taxonomy).forEach(genre => {
+    Object.keys(store.state.taxonomy).forEach(genre => {
       const opt = document.createElement('option');
       opt.value = genre;
       opt.textContent = genre;
@@ -197,7 +195,7 @@ function showBulkEditModal() {
   }
 
   const countEl = document.getElementById('bulk-edit-count');
-  if (countEl) countEl.textContent = `${window.selectedTracks.size} track${window.selectedTracks.size !== 1 ? 's' : ''} selected`;
+  if (countEl) countEl.textContent = `${store.state.selectedTracks.size} track${store.state.selectedTracks.size !== 1 ? 's' : ''} selected`;
 
   modal.style.display = 'flex';
 }
@@ -207,7 +205,7 @@ function showBulkEditModal() {
 // ============================================================================
 
 function showReclassifyModal() {
-  if (window.selectedTracks.size === 0) {
+  if (store.state.selectedTracks.size === 0) {
     showToast('Select tracks to re-classify', 'error');
     return;
   }
@@ -216,7 +214,7 @@ function showReclassifyModal() {
   if (!modal) return;
 
   const countEl = document.getElementById('reclassify-count');
-  if (countEl) countEl.textContent = `${window.selectedTracks.size} track${window.selectedTracks.size !== 1 ? 's' : ''} selected`;
+  if (countEl) countEl.textContent = `${store.state.selectedTracks.size} track${store.state.selectedTracks.size !== 1 ? 's' : ''} selected`;
 
   // Set default provider from settings
   const providerSelect = document.getElementById('reclassify-provider');
@@ -252,7 +250,7 @@ function initReclassifyModal() {
     runBtn.addEventListener('click', async () => {
       const provider = document.getElementById('reclassify-provider').value;
       const force = document.getElementById('reclassify-force').checked;
-      const paths = Array.from(window.selectedTracks);
+      const paths = Array.from(store.state.selectedTracks);
 
       if (!paths.length) {
         showToast('No tracks selected', 'error');
@@ -287,9 +285,8 @@ function initReclassifyModal() {
               hideProgressInStatsBar();
               // Refetch fresh track data from server
               apiFetch('/api/tracks').then(d => {
-                window.tracks = d.tracks || [];
+                store.set('tracks', d.tracks || []); // renderTracks fires via subscription
                 window.searchResults = null;
-                renderTracks();
                 updateStats();
               });
               updateToolbarButtonStates();
@@ -330,7 +327,7 @@ function initAppleMusicSync() {
       const result = await apiFetch('/api/sync/apple-music', {
         method: 'POST',
         body: JSON.stringify({
-          track_ids: Array.from(window.selectedTracks.size > 0 ? window.selectedTracks : window.tracks.map(t => t.file_path))
+          track_ids: Array.from(store.state.selectedTracks.size > 0 ? store.state.selectedTracks : store.state.tracks.map(t => t.file_path))
         })
       });
       showToast(result.message || 'Apple Music sync completed', 'success');
@@ -450,9 +447,9 @@ function initExportFeature() {
 }
 
 function exportTracks(format) {
-  const tracks = window.selectedTracks.size > 0
-    ? Array.from(window.selectedTracks).map(fp => window.tracks.find(t => t.file_path === fp))
-    : window.tracks;
+  const tracks = store.state.selectedTracks.size > 0
+    ? Array.from(store.state.selectedTracks).map(fp => store.state.tracks.find(t => t.file_path === fp))
+    : store.state.tracks;
 
   let data, filename, mime;
 
@@ -538,7 +535,7 @@ async function handleBulkEdit() {
   }
 
   const payload = {
-    track_paths: Array.from(window.selectedTracks),
+    track_paths: Array.from(store.state.selectedTracks),
   };
 
   if (genreInput) payload.genre = genreInput;
@@ -555,14 +552,13 @@ async function handleBulkEdit() {
 
     if (result.updated) {
       showToast(`Updated ${result.updated} tracks`, 'success');
-      window.selectedTracks.clear();
+      store.state.selectedTracks.clear();
       updateBulkActionsBar();
       document.getElementById('bulk-edit-modal').style.display = 'none';
       // Reload tracks to reflect changes
       apiFetch('/api/tracks').then(data => {
-        window.tracks = data.tracks || [];
+        store.set('tracks', data.tracks || []); // renderTracks fires via subscription
         window.searchResults = null;
-        renderTracks();
       });
     }
   } catch (error) {

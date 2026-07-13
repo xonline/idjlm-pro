@@ -76,9 +76,8 @@ function initLibraryToolbar() {
         body: JSON.stringify({ folder_path: folder })
       });
       if (result && result.tracks) {
-        window.tracks = result.tracks;
+        store.set('tracks', result.tracks); // renderTracks fires via subscription
         window.searchResults = null;
-        renderTracks();
         updateStats();
         showToast((result.count || result.tracks.length) + ' tracks imported — click Analyse All to extract BPM & key', 'success');
         apiFetch('/api/session/save', { method: 'POST' }).catch(() => {});
@@ -123,9 +122,8 @@ function initLibraryToolbar() {
               window.opsbar.complete(opHandle, data);
               // Refetch fresh track data from server
               apiFetch('/api/tracks').then(d => {
-                window.tracks = d.tracks || [];
+                store.set('tracks', d.tracks || []); // renderTracks fires via subscription
                 window.searchResults = null;
-                renderTracks();
                 updateStats();
               });
               updateToolbarButtonStates();
@@ -177,9 +175,8 @@ function initLibraryToolbar() {
               }
               window.opsbar.complete(opHandle, data);
               apiFetch('/api/tracks').then(d => {
-                window.tracks = d.tracks || [];
+                store.set('tracks', d.tracks || []); // renderTracks fires via subscription
                 window.searchResults = null;
-                renderTracks();
                 updateStats();
               });
               updateToolbarButtonStates();
@@ -213,8 +210,7 @@ function initLibraryToolbar() {
         if (result) {
           // Refetch fresh track data from server
           apiFetch('/api/tracks').then(d => {
-            window.tracks = d.tracks || [];
-            renderTracks();
+            store.set('tracks', d.tracks || []); // renderTracks fires via subscription
             updateStats();
           });
           showToast((result.approved_count ?? 0) + ' tracks approved', 'success');
@@ -258,9 +254,8 @@ function initLibraryToolbar() {
               window.opsbar.complete(opHandle, data);
               // Refetch fresh track data from server
               apiFetch('/api/tracks').then(d => {
-                window.tracks = d.tracks || [];
+                store.set('tracks', d.tracks || []); // renderTracks fires via subscription
                 window.searchResults = null;
-                renderTracks();
                 updateStats();
               });
               updateToolbarButtonStates();
@@ -270,7 +265,7 @@ function initLibraryToolbar() {
               const changedCount = changes.length;
 
               // Save state for undo
-              window._lastWrittenState = JSON.parse(JSON.stringify(window.tracks || []));
+              window._lastWrittenState = JSON.parse(JSON.stringify(store.state.tracks || []));
 
               if (changedCount > 0) {
                 showToast(written + ' tracks written, ' + changedCount + ' changed', 'success', {
@@ -329,10 +324,10 @@ function initLibraryToolbar() {
 
 function updateToolbarButtonStates(stats) {
   const s = stats || {};
-  const total      = s.total      ?? (window.tracks ? window.tracks.length : 0);
-  const analyzed   = s.analyzed   ?? (window.tracks ? window.tracks.filter(t => t.final_bpm).length : 0);
-  const classified = s.classified ?? (window.tracks ? window.tracks.filter(t => t.final_genre && t.final_genre !== 'Unknown').length : 0);
-  const approved   = s.approved   ?? (window.tracks ? window.tracks.filter(t => t.review_status === 'approved').length : 0);
+  const total      = s.total      ?? (store.state.tracks ? store.state.tracks.length : 0);
+  const analyzed   = s.analyzed   ?? (store.state.tracks ? store.state.tracks.filter(t => t.final_bpm).length : 0);
+  const classified = s.classified ?? (store.state.tracks ? store.state.tracks.filter(t => t.final_genre && t.final_genre !== 'Unknown').length : 0);
+  const approved   = s.approved   ?? (store.state.tracks ? store.state.tracks.filter(t => t.review_status === 'approved').length : 0);
 
   const btnAnalyze     = document.getElementById('btn-analyze');
   const btnClassify    = document.getElementById('btn-classify');
@@ -366,9 +361,8 @@ function checkResumeSession() {
         try {
           const result = await apiFetch('/api/session/load', { method: 'POST' });
           if (result) {
-            window.tracks = result.tracks || [];
+            store.set('tracks', result.tracks || []); // renderTracks fires via subscription
             window.searchResults = null;
-            renderTracks();
             updateStats();
             if (banner) banner.style.display = 'none';
             showToast('Session resumed', 'success');
@@ -412,10 +406,9 @@ async function pollFolderWatch() {
   try {
     const result = await apiFetch('/api/watch/poll');
     if (result.tracks && result.tracks.length > 0) {
-      // Add new tracks to window.tracks
-      window.tracks = window.tracks.concat(result.tracks);
+      // Add new tracks to store.state.tracks
+      store.set('tracks', store.state.tracks.concat(result.tracks)); // renderTracks fires via subscription
       window.searchResults = null;
-      renderTracks();
       renderReview();
       updateStats();
       showToast(`${result.tracks.length} new track${result.tracks.length !== 1 ? 's' : ''} detected`, 'success');

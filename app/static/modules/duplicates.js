@@ -251,9 +251,8 @@ async function batchResolve(resolutions, checkboxes) {
     resolutions.forEach(function(res) {
       res.merge_paths.forEach(function(p) { mergedPaths.add(p); });
     });
-    window.tracks = window.tracks.filter(function(t) { return !mergedPaths.has(t.file_path); });
+    store.set('tracks', store.state.tracks.filter(function(t) { return !mergedPaths.has(t.file_path); }));
     window.searchResults = null;
-    renderTracks();
 
     // Collapse resolved groups visually
     checkboxes.forEach(function(cb) {
@@ -290,9 +289,8 @@ async function removeDuplicate(filePath) {
       body: JSON.stringify({ file_path: filePath })
     });
 
-    window.tracks = window.tracks.filter(function(t) { return t.file_path !== filePath; });
+    store.set('tracks', store.state.tracks.filter(function(t) { return t.file_path !== filePath; }));
     window.searchResults = null;
-    renderTracks();
     showToast('Track removed from library', 'success');
     await scanForDuplicates();
   } catch (error) {

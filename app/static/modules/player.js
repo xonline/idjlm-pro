@@ -64,14 +64,14 @@ function initAudioPlayer() {
   prevBtn.addEventListener('click', () => {
     if (currentTrackIndex > 0) {
       currentTrackIndex--;
-      playTrack(window.tracks[currentTrackIndex]);
+      playTrack(store.state.tracks[currentTrackIndex]);
     }
   });
 
   nextBtn.addEventListener('click', () => {
-    if (currentTrackIndex < window.tracks.length - 1) {
+    if (currentTrackIndex < store.state.tracks.length - 1) {
       currentTrackIndex++;
-      playTrack(window.tracks[currentTrackIndex]);
+      playTrack(store.state.tracks[currentTrackIndex]);
     }
   });
 
@@ -89,7 +89,7 @@ function playTrack(track) {
   const playPauseBtn = document.getElementById('audio-play-pause');
 
   currentPlayingTrack = track;
-  currentTrackIndex = window.tracks.indexOf(track);
+  currentTrackIndex = store.state.tracks.indexOf(track);
 
   audio.src = `/api/audio?path=${encodeURIComponent(track.file_path)}`;
   document.getElementById('audio-track-title').textContent = track.display_title || 'Unknown';

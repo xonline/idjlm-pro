@@ -3,12 +3,11 @@
 // ============================================================================
 
 // Global state
-window.tracks = [];
+// tracks/selectedTracks/setlist/taxonomy now live in store.state (store.js,
+// loaded before this module) — read/write them via store.state.<key> or
+// store.set('<key>', value); do not re-declare window.* globals for them.
 window.searchResults = null; // null = no active search; array = server-side search results
-window.taxonomy = {};
 window.currentSort = { field: 'display_title', direction: 'asc' };
-window.setlist = [];
-window.selectedTracks = new Set();
 window.currentPage = 1;
 const TRACKS_PER_PAGE = 100;
 window.statsInterval = null;
@@ -152,9 +151,8 @@ async function undoLastWrite() {
       await apiFetch('/api/organise/backups/' + latestBackup.id + '/restore', { method: 'POST' });
       // Refetch tracks
       const d = await apiFetch('/api/tracks');
-      window.tracks = d.tracks || [];
+      store.set('tracks', d.tracks || []); // renderTracks fires via subscription
       window.searchResults = null;
-      renderTracks();
       updateStats();
       showToast('Tags restored from backup', 'success');
     } else {

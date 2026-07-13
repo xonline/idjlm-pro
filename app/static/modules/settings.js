@@ -355,7 +355,7 @@ async function saveSettings() {
       // Also save taxonomy in the same pass
       await apiFetch('/api/taxonomy', {
         method: 'PUT',
-        body: JSON.stringify({ genres: window.taxonomy }),
+        body: JSON.stringify({ genres: store.state.taxonomy }),
       });
       showToast('All settings saved', 'success');
       // Clear key inputs and reload to show masked values in placeholders

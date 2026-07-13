@@ -66,7 +66,7 @@ function showInDock(track) {
 }
 
 function findTrackByPath(filePath) {
-  var tracks = window.tracks || [];
+  var tracks = store.state.tracks || [];
   for (var i = 0; i < tracks.length; i++) {
     if (tracks[i].file_path === filePath) return tracks[i];
   }
