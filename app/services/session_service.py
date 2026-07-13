@@ -26,28 +26,21 @@ def save_session(track_store: dict, folder_path: Optional[str] = None) -> dict:
     Returns:
         dict with serialized session data
     """
-    try:
-        # Serialize tracks
-        tracks_data = {}
-        for file_path, track in track_store.items():
-            tracks_data[file_path] = track.to_dict()
+    tracks_data = {}
+    for file_path, track in track_store.items():
+        tracks_data[file_path] = track.to_dict()
 
-        # Build session object
-        session_data = {
-            "saved_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            "folder_path": folder_path,
-            "track_count": len(tracks_data),
-            "tracks": tracks_data
-        }
+    session_data = {
+        "saved_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "folder_path": folder_path,
+        "track_count": len(tracks_data),
+        "tracks": tracks_data
+    }
 
-        # Write atomically via temp-file + rename
-        from app.utils.paths import atomic_write
-        atomic_write(SESSION_FILE, session_data, indent=2)
+    from app.utils.paths import atomic_write
+    atomic_write(SESSION_FILE, session_data, indent=2)
 
-        return session_data
-
-    except Exception as e:
-        raise Exception(f"Failed to save session: {str(e)}")
+    return session_data
 
 
 def load_session() -> Tuple[Optional[dict], Optional[dict]]:

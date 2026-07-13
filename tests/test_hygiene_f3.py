@@ -175,8 +175,13 @@ class TestStructuredErrors:
         assert e.status_code == 503
         assert str(e) == "disk on fire"
 
-    def test_app_error_to_json_response(self, app, client):
+    def test_app_error_to_json_response(self):
         """A route that raises AppError must produce a structured 4xx payload."""
+        from app import create_app
+
+        app = create_app()
+        app.config["TESTING"] = True
+        client = app.test_client()
 
         @app.route("/__test_raise_app_error__")
         def _raise():
