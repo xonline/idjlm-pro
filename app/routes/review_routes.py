@@ -1,8 +1,7 @@
 from flask import Blueprint, request, jsonify
 import logging
 import threading
-import os
-from datetime import datetime, timezone
+from datetime import timezone
 
 logger = logging.getLogger(__name__)
 _log_lock = threading.Lock()
