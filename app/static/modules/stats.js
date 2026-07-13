@@ -12,7 +12,7 @@ function initStatsTab() {
 }
 
 function renderStats() {
-  if (!window.tracks.length) {
+  if (!store.state.tracks.length) {
     // Clear all charts
     Object.keys(chartInstances).forEach(key => {
       if (chartInstances[key]) {
@@ -25,10 +25,10 @@ function renderStats() {
   }
 
   // Update stats cards
-  const total = window.tracks.length;
-  const classified = window.tracks.filter(t => t.final_genre).length;
-  const approved = window.tracks.filter(t => t.review_status === 'approved').length;
-  const written = window.tracks.filter(t => t.review_status === 'written').length;
+  const total = store.state.tracks.length;
+  const classified = store.state.tracks.filter(t => t.final_genre).length;
+  const approved = store.state.tracks.filter(t => t.review_status === 'approved').length;
+  const written = store.state.tracks.filter(t => t.review_status === 'written').length;
 
   document.getElementById('stats-card-total').textContent = total;
   document.getElementById('stats-card-classified').textContent = classified;
@@ -50,7 +50,7 @@ function renderStats() {
 
 function renderGenreChart() {
   const genreCounts = {};
-  window.tracks.forEach(track => {
+  store.state.tracks.forEach(track => {
     const genre = track.final_genre || 'Unknown';
     genreCounts[genre] = (genreCounts[genre] || 0) + 1;
   });
@@ -110,7 +110,7 @@ function renderBpmChart() {
     '120+': 0,
   };
 
-  window.tracks.forEach(track => {
+  store.state.tracks.forEach(track => {
     const bpm = parseFloat(track.final_bpm) || 0;
     if (bpm < 80) ranges['60-79']++;
     else if (bpm < 90) ranges['80-89']++;
@@ -173,7 +173,7 @@ function renderYearChart() {
     '2020s': 0,
   };
 
-  window.tracks.forEach(track => {
+  store.state.tracks.forEach(track => {
     const year = parseInt(track.final_year) || 0;
     if (year < 2000) decades['Pre-2000']++;
     else if (year < 2010) decades['2000s']++;
@@ -228,7 +228,7 @@ function renderYearChart() {
 
 function renderSubgenreList() {
   const subgenreCounts = {};
-  window.tracks.forEach(track => {
+  store.state.tracks.forEach(track => {
     const subgenre = track.final_subgenre || 'Unclassified';
     subgenreCounts[subgenre] = (subgenreCounts[subgenre] || 0) + 1;
   });
@@ -272,7 +272,7 @@ function renderStatsDashboard() {
   const dashboard = document.getElementById('stats-dashboard');
   if (!dashboard) return;
 
-  const tracks = window.tracks || [];
+  const tracks = store.state.tracks || [];
   const hasTracks = tracks.length > 0;
 
   dashboard.style.display = 'block';

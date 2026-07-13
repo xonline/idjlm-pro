@@ -250,7 +250,7 @@ function openTrackDetail(track) {
   if (cueAnalysisBtn) {
     cueAnalysisBtn.addEventListener('click', async () => {
       const filePath = cueAnalysisBtn.dataset.filePath;
-      const currentTrack = window.tracks.find(t => t.file_path === filePath);
+      const currentTrack = store.state.tracks.find(t => t.file_path === filePath);
       if (!currentTrack) return;
 
       // Non-blocking: this endpoint returns op_id and we stream progress via
@@ -286,7 +286,7 @@ function openTrackDetail(track) {
               }
               window.opsbar.complete(opHandle, data);
               // Re-fetch the result payload via /analyze/latin doesn't support GET,
-              // so we refetch the track and read back from window.tracks.
+              // so we refetch the track and read back from store.state.tracks.
               try {
                 const refreshed = await apiFetch('/api/tracks');
                 if (refreshed && Array.isArray(refreshed.tracks)) {
@@ -361,7 +361,7 @@ function openTrackDetail(track) {
   if (mixMatchesBtn) {
     mixMatchesBtn.addEventListener('click', async () => {
       const filePath = mixMatchesBtn.dataset.filePath;
-      const currentTrack = window.tracks.find(t => t.file_path === filePath);
+      const currentTrack = store.state.tracks.find(t => t.file_path === filePath);
       if (!currentTrack) return;
 
       // /api/mixes/compatible/ is synchronous (no op_id) — keep the spinner
@@ -430,8 +430,8 @@ function initSetlistTab() {
 
   // Wire M3U export button
   document.getElementById('btn-setlist-export')?.addEventListener('click', async () => {
-    if (!window.setlist.length) return;
-    const paths = window.setlist.map(t => t.file_path);
+    if (!store.state.setlist.length) return;
+    const paths = store.state.setlist.map(t => t.file_path);
     try {
       const res = await fetch('/api/export/m3u', {
         method: 'POST',
@@ -455,11 +455,11 @@ function initSetlistTab() {
 }
 
 function addTrackToSetlist(filePath) {
-  const track = window.tracks.find(t => t.file_path === filePath);
+  const track = store.state.tracks.find(t => t.file_path === filePath);
   if (!track) return;
 
-  if (!window.setlist.find(t => t.file_path === filePath)) {
-    window.setlist.push(track);
+  if (!store.state.setlist.find(t => t.file_path === filePath)) {
+    store.state.setlist.push(track);
     saveSetlistToStorage();
     renderSetlist();
     showToast('Track added to setlist', 'success');
@@ -469,7 +469,7 @@ function addTrackToSetlist(filePath) {
 }
 
 function removeTrackFromSetlist(filePath) {
-  window.setlist = window.setlist.filter(t => t.file_path !== filePath);
+  store.set('setlist', store.state.setlist.filter(t => t.file_path !== filePath));
   saveSetlistToStorage();
   renderSetlist();
   showToast('Track removed from setlist', 'success');
@@ -484,14 +484,14 @@ function renderSetlist() {
   if (!currentContainer) return;
 
   // Show/hide empty state vs main panel
-  if (emptyState) emptyState.style.display = window.setlist.length === 0 ? '' : 'none';
-  if (mainPanel) mainPanel.style.display = window.setlist.length === 0 ? 'none' : '';
+  if (emptyState) emptyState.style.display = store.state.setlist.length === 0 ? '' : 'none';
+  if (mainPanel) mainPanel.style.display = store.state.setlist.length === 0 ? 'none' : '';
 
   // Render current setlist
   while (currentContainer.firstChild) currentContainer.removeChild(currentContainer.firstChild);
   let totalDuration = 0;
 
-  window.setlist.forEach((track, idx) => {
+  store.state.setlist.forEach((track, idx) => {
     const duration = track.duration || 0;
     totalDuration += duration;
 
@@ -533,8 +533,8 @@ function renderSetlist() {
   // Render harmonic suggestions if setlist not empty
   if (suggestionsContainer) {
     while (suggestionsContainer.firstChild) suggestionsContainer.removeChild(suggestionsContainer.firstChild);
-    if (window.setlist.length > 0) {
-      const lastTrack = window.setlist[window.setlist.length - 1];
+    if (store.state.setlist.length > 0) {
+      const lastTrack = store.state.setlist[store.state.setlist.length - 1];
       const suggestions = findHarmonicCompatible(lastTrack);
       const header = document.createElement('p');
       header.style.cssText = 'color:var(--text-secondary);font-size:12px;';
@@ -579,9 +579,9 @@ function renderSetlist() {
   const exportBtn = document.getElementById('btn-setlist-export');
   const mins = Math.floor(totalDuration / 60);
   const secs = Math.floor(totalDuration % 60);
-  if (countEl) countEl.textContent = `${window.setlist.length} track${window.setlist.length !== 1 ? 's' : ''}`;
+  if (countEl) countEl.textContent = `${store.state.setlist.length} track${store.state.setlist.length !== 1 ? 's' : ''}`;
   if (durEl) durEl.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
-  if (exportBtn) exportBtn.disabled = window.setlist.length === 0;
+  if (exportBtn) exportBtn.disabled = store.state.setlist.length === 0;
 
   // Render energy timeline
   renderEnergyTimeline();
@@ -594,14 +594,14 @@ function renderEnergyTimeline() {
 
   if (!panel || !canvas) return;
 
-  if (window.setlist.length < 2) {
+  if (store.state.setlist.length < 2) {
     panel.style.display = 'none';
     return;
   }
 
   panel.style.display = '';
 
-  const energies = window.setlist.map((t, idx) => {
+  const energies = store.state.setlist.map((t, idx) => {
     const energy = parseFloat(t.analyzed_energy) || parseFloat(t.energy) || 0;
     return { idx: idx + 1, energy: energy, title: t.display_title || 'Unknown' };
   });
@@ -669,11 +669,11 @@ function renderEnergyTimeline() {
             title: function(items) {
               if (items.length === 0) return '';
               const idx = items[0].dataIndex;
-              return window.setlist[idx] ? (window.setlist[idx].display_title || 'Unknown') : '';
+              return store.state.setlist[idx] ? (store.state.setlist[idx].display_title || 'Unknown') : '';
             },
             label: function(context) {
               const val = context.parsed.y;
-              const track = window.setlist[context.dataIndex];
+              const track = store.state.setlist[context.dataIndex];
               const bpm = track && track.final_bpm ? track.final_bpm + ' BPM' : '';
               const key = track && track.final_key ? track.final_key : '';
               return [`Energy: ${val}/10`, bpm, key].filter(Boolean).join(' | ');
@@ -720,8 +720,8 @@ function findHarmonicCompatible(track) {
   const compatible = camelotWheel[track.final_key] || [];
   const bpmTolerance = 5;
 
-  const suggestions = window.tracks
-    .filter(t => t.file_path !== track.file_path && !window.setlist.find(st => st.file_path === t.file_path))
+  const suggestions = store.state.tracks
+    .filter(t => t.file_path !== track.file_path && !store.state.setlist.find(st => st.file_path === t.file_path))
     .map(t => {
       let score = 0;
 
@@ -921,8 +921,8 @@ async function exportSetplanM3U() {
 
 function populateSetplanGenres() {
   const sel = document.getElementById('setplan-genre');
-  if (!sel || !window.tracks) return;
-  const genres = [...new Set(window.tracks.map(t => t.final_genre).filter(Boolean))].sort();
+  if (!sel || !store.state.tracks) return;
+  const genres = [...new Set(store.state.tracks.map(t => t.final_genre).filter(Boolean))].sort();
   const existing = [...sel.options].map(o => o.value);
   genres.forEach(g => {
     if (!existing.includes(g)) {

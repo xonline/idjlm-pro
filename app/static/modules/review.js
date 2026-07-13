@@ -142,9 +142,8 @@ function initReviewTab() {
             }
             window.opsbar.complete(opHandle, data);
             apiFetch('/api/tracks').then(d => {
-              window.tracks = d.tracks || [];
+              store.set('tracks', d.tracks || []); // renderTracks fires via subscription
               window.searchResults = null;
-              renderTracks();
               updateStats();
             });
             const written = data.written || data.total || 0;
@@ -169,13 +168,13 @@ function initReviewTab() {
 }
 
 function getPendingTracks() {
-  return window.tracks.filter(t => t.review_status === 'pending');
+  return store.state.tracks.filter(t => t.review_status === 'pending');
 }
 
 function renderReview() {
   const list = document.getElementById('review-list');
   const pending = getPendingTracks();
-  const approvedCount = window.tracks.filter(t => t.review_status === 'approved').length;
+  const approvedCount = store.state.tracks.filter(t => t.review_status === 'approved').length;
 
   document.getElementById('approved-count').textContent = approvedCount;
   document.getElementById('btn-write-tags').disabled = approvedCount === 0;
@@ -371,7 +370,7 @@ async function approveTrack(filePath) {
       body: JSON.stringify({ track_paths: [filePath] }),
     });
 
-    const track = window.tracks.find(t => t.file_path === filePath);
+    const track = store.state.tracks.find(t => t.file_path === filePath);
     if (track) {
       track.review_status = 'approved';
     }
@@ -391,7 +390,7 @@ async function skipTrack(filePath) {
       body: JSON.stringify({ track_paths: [filePath] }),
     });
 
-    const track = window.tracks.find(t => t.file_path === filePath);
+    const track = store.state.tracks.find(t => t.file_path === filePath);
     if (track) {
       track.review_status = 'skipped';
     }
@@ -408,7 +407,7 @@ async function skipTrack(filePath) {
 function showGenreSelector() {
   // Get unique approved genres
   const genres = new Set();
-  window.tracks.forEach(track => {
+  store.state.tracks.forEach(track => {
     if (track.review_status === 'approved' && track.final_genre) {
       genres.add(track.final_genre);
     }

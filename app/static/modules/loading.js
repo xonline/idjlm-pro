@@ -27,7 +27,7 @@ function hideSkeletonRows() {
   });
 
   // Show empty state if no tracks
-  if (!window.tracks || window.tracks.length === 0) {
+  if (!store.state.tracks || store.state.tracks.length === 0) {
     const emptyRow = document.getElementById('empty-state-row');
     if (emptyRow) emptyRow.style.display = '';
   }
@@ -39,7 +39,7 @@ function hideSkeletonRows() {
  */
 function initLoadingStates() {
   // Ensure empty state is visible on first load
-  if (window.tracks && window.tracks.length > 0) {
+  if (store.state.tracks && store.state.tracks.length > 0) {
     hideSkeletonRows();
   } else {
     // Show empty state for first-run
@@ -62,3 +62,12 @@ if (typeof window !== 'undefined') {
     };
   }
 }
+
+// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+// Pre-existing gap found while smoke-testing 0.5 (app.js's DOMContentLoaded
+// handler calls initLoadingStates(); library.js calls showSkeletonRows() —
+// neither was ever bridged, so both threw ReferenceError and silently aborted
+// init/import before this fix).
+window.showSkeletonRows = showSkeletonRows;
+window.hideSkeletonRows = hideSkeletonRows;
+window.initLoadingStates = initLoadingStates;

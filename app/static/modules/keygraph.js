@@ -7,7 +7,7 @@
 //   - initKeyGraph / closeKeyGraph / renderKeyCompatibilityGraph
 // Dependencies (window-globals, resolved by load order):
 //   - isCompatibleKey: camelot.js (loaded earlier)
-//   - window.tracks / window.setlist: core.js
+//   - store.state.tracks / store.state.setlist: core.js
 //   - escapeHtml / showToast: core.js
 // ----------------------------------------------------------------------------
 
@@ -87,7 +87,7 @@ function renderKeyCompatibilityGraph(tracks) {
   // Determine track source
   const sourceSelect = document.getElementById('key-graph-source');
   const source = sourceSelect ? sourceSelect.value : 'library';
-  let sourceTracks = source === 'setlist' ? window.setlist : window.tracks;
+  let sourceTracks = source === 'setlist' ? store.state.setlist : store.state.tracks;
   if (tracks) sourceTracks = tracks;
 
   // Filter to tracks with a valid key

@@ -9,7 +9,7 @@
 // The popup queries:
 //   - Library tracks  → /api/tracks/search?q=...
 //   - Saved playlists → /api/playlists (filter by name client-side)
-//   - Current setlist  → window.setlist (client-side)
+//   - Current setlist  → store.state.setlist (client-side)
 // Selection reveals the item in its home view (Library / Playlists / Setlist tab).
 // ----------------------------------------------------------------------------
 
@@ -239,10 +239,10 @@ async function _runGlobalSearch(query) {
     playlists = [];
   }
 
-  // 3. Setlist — client-side search against window.setlist track names
+  // 3. Setlist — client-side search against store.state.setlist track names
   let setlistMatches = [];
-  if (window.setlist && window.setlist.length) {
-    setlistMatches = window.setlist.filter(t => {
+  if (store.state.setlist && store.state.setlist.length) {
+    setlistMatches = store.state.setlist.filter(t => {
       const title = (t.display_title || '').toLowerCase();
       const artist = (t.display_artist || '').toLowerCase();
       return title.includes(qLower) || artist.includes(qLower);
@@ -321,7 +321,7 @@ function _renderGlobalSearchResults() {
     html += '<div class="gs-group"><div class="gs-group-label">SETLIST <span class="gs-group-count">' + setlist.length + '</span></div>';
     setlist.forEach(track => {
       const selected = idx === _gsState.selectedIdx ? ' gs-item-selected' : '';
-      const pos = window.setlist.findIndex(t => t.file_path === track.file_path);
+      const pos = store.state.setlist.findIndex(t => t.file_path === track.file_path);
       const subtitle = escapeHtml(track.display_artist || '—') +
         (track.final_key ? ' · ' + escapeHtml(track.final_key) : '') +
         (track.final_bpm ? ' · ' + parseFloat(track.final_bpm).toFixed(1) + ' BPM' : '') +
@@ -458,7 +458,7 @@ function _revealSetlistTrack(track) {
   setTimeout(() => {
     // Find the track item in the setlist and flash it
     const items = document.querySelectorAll('#setlist-tracks .setlist-track-item');
-    const pos = window.setlist.findIndex(t => t.file_path === track.file_path);
+    const pos = store.state.setlist.findIndex(t => t.file_path === track.file_path);
     if (pos >= 0 && items[pos]) {
       items[pos].classList.add('gs-flash');
       items[pos].scrollIntoView({ block: 'center' });

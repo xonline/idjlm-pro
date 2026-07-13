@@ -32,7 +32,7 @@ function initTracksTab() {
   // Load taxonomy for genre filter
   apiFetch('/api/taxonomy')
     .then(data => {
-      window.taxonomy = data.genres || {};
+      store.set('taxonomy', data.genres || {});
       populateGenreFilters();
     });
 
@@ -70,7 +70,7 @@ function initTracksTab() {
 function populateGenreFilters() {
   const select = document.getElementById('filter-genre');
   select.innerHTML = '<option value="">All Genres</option>';
-  Object.keys(window.taxonomy).forEach(genre => {
+  Object.keys(store.state.taxonomy).forEach(genre => {
     const option = document.createElement('option');
     option.value = genre;
     option.textContent = genre;
@@ -82,7 +82,7 @@ function getFilteredTracks() {
   // Use server-side search results if a search is active
   let filtered = window.searchResults !== null
     ? [...window.searchResults]
-    : [...(window.tracks || [])];
+    : [...(store.state.tracks || [])];
 
   // Genre filter (legacy dropdown)
   const genreEl = document.getElementById('filter-genre');
@@ -264,7 +264,7 @@ function renderTracks() {
     checkbox.dataset.filePath = track.file_path;
 
     // Re-apply row-selected if this track is already in selectedTracks
-    if (window.selectedTracks && window.selectedTracks.has(track.file_path)) {
+    if (store.state.selectedTracks && store.state.selectedTracks.has(track.file_path)) {
       checkbox.checked = true;
       row.classList.add('row-selected');
     }
@@ -287,10 +287,10 @@ function renderTracks() {
           if (!cb) continue;
           cb.checked = targetChecked;
           if (targetChecked) {
-            window.selectedTracks.add(cb.dataset.filePath);
+            store.state.selectedTracks.add(cb.dataset.filePath);
             r.classList.add('row-selected');
           } else {
-            window.selectedTracks.delete(cb.dataset.filePath);
+            store.state.selectedTracks.delete(cb.dataset.filePath);
             r.classList.remove('row-selected');
           }
         }
@@ -298,10 +298,10 @@ function renderTracks() {
       } else {
         // Normal single click
         if (checkbox.checked) {
-          window.selectedTracks.add(track.file_path);
+          store.state.selectedTracks.add(track.file_path);
           row.classList.add('row-selected');
         } else {
-          window.selectedTracks.delete(track.file_path);
+          store.state.selectedTracks.delete(track.file_path);
           row.classList.remove('row-selected');
         }
         lastClickedRowIdx = currentIdx;
@@ -461,7 +461,7 @@ function renderTracks() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ review_status: newStatus })
           });
-          const found = window.tracks.find(x => x.file_path === track.file_path);
+          const found = store.state.tracks.find(x => x.file_path === track.file_path);
           if (found) found.review_status = newStatus;
           renderTracks();
           updateStats();
@@ -743,8 +743,8 @@ function showTrackContextMenu(track, x, y) {
     { icon: '\u270F\uFE0F', label: 'Edit Tags', action: () => openSingleTrackEdit(track) },
     { icon: '\u{1F4C1}', label: 'Show File Path', action: () => { showToast(track.file_path, 'info'); } },
     { icon: '\u{1F504}', label: (() => {
-        const n = window.selectedTracks?.size || 0;
-        const inSel = window.selectedTracks?.has(track.file_path);
+        const n = store.state.selectedTracks?.size || 0;
+        const inSel = store.state.selectedTracks?.has(track.file_path);
         return (inSel && n > 1) ? `Re-classify ${n} tracks` : 'Re-classify';
       })(), action: () => reclassifySingleTrack(track) },
   ];
@@ -827,12 +827,12 @@ function openSingleTrackEdit(track) {
 function reclassifySingleTrack(track) {
   // If multiple tracks are selected AND the right-clicked track is in the selection,
   // keep the full selection. Otherwise select just this track.
-  const inSelection = window.selectedTracks && window.selectedTracks.has(track.file_path);
-  const multiSelected = window.selectedTracks && window.selectedTracks.size > 1;
+  const inSelection = store.state.selectedTracks && store.state.selectedTracks.has(track.file_path);
+  const multiSelected = store.state.selectedTracks && store.state.selectedTracks.size > 1;
   if (!(inSelection && multiSelected)) {
-    if (!window.selectedTracks) window.selectedTracks = new Set();
-    window.selectedTracks.clear();
-    window.selectedTracks.add(track.file_path);
+    if (!store.state.selectedTracks) store.set('selectedTracks', new Set());
+    store.state.selectedTracks.clear();
+    store.state.selectedTracks.add(track.file_path);
     const cb = document.querySelector('input[data-file-path="' + CSS.escape(track.file_path) + '"]');
     if (cb) {
       cb.checked = true;
@@ -852,3 +852,8 @@ function reclassifySingleTrack(track) {
 // --- ES module bridge (0.4): expose to global scope for cross-module calls ---
 window.renderTracks = renderTracks;
 window.toggleAudioPlay = toggleAudioPlay;
+
+// IDJLM 0.5: renderTracks re-renders automatically whenever the tracks list
+// is replaced via store.set('tracks', ...) — callers no longer need to
+// manually call renderTracks() right after reassigning the tracks array.
+store.subscribe('tracks', renderTracks);

@@ -16,7 +16,7 @@ function initTaxonomyTab() {
       try {
         await apiFetch('/api/taxonomy', {
           method: 'PUT',
-          body: JSON.stringify({ genres: window.taxonomy }),
+          body: JSON.stringify({ genres: store.state.taxonomy }),
         });
         showToast('Taxonomy saved', 'success');
       } catch (error) {
@@ -69,7 +69,7 @@ function initTaxonomyTab() {
               body: JSON.stringify({ taxonomy: json, merge: true })
             });
             if (result && result.ok) {
-              window.taxonomy = result.taxonomy || {};
+              store.set('taxonomy', result.taxonomy || {});
               renderTaxonomy();
               showToast('Imported ' + (result.added_genres || []).length + ' genres and ' + (result.added_subgenres || 0) + ' subgenres', 'success');
             }
@@ -117,7 +117,7 @@ function initTaxonomyTab() {
               body: JSON.stringify({ settings: json, merge: true })
             });
             if (result && result.ok) {
-              window.taxonomy = result.taxonomy.genres || {};
+              store.set('taxonomy', result.taxonomy.genres || {});
               renderTaxonomy();
               showToast('Imported ' + result.genres_added + ' genres and ' + result.subgenres_added + ' subgenres from OneTagger', 'success');
             }
@@ -148,7 +148,7 @@ function initTaxonomyTab() {
 async function loadTaxonomy() {
   try {
     const data = await apiFetch('/api/taxonomy');
-    window.taxonomy = data.genres || {};
+    store.set('taxonomy', data.genres || {});
     renderTaxonomy();
   } catch (error) {
     // Error shown
@@ -159,7 +159,7 @@ function renderTaxonomy() {
   const list = document.getElementById('taxonomy-list');
   list.innerHTML = '';
 
-  if (!Object.keys(window.taxonomy).length) {
+  if (!Object.keys(store.state.taxonomy).length) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
     empty.textContent = 'No genres defined. Add one to get started.';
@@ -167,7 +167,7 @@ function renderTaxonomy() {
     return;
   }
 
-  Object.entries(window.taxonomy).forEach(([genre, data]) => {
+  Object.entries(store.state.taxonomy).forEach(([genre, data]) => {
     const genreEl = document.createElement('div');
     genreEl.className = 'taxonomy-genre';
 
@@ -257,17 +257,17 @@ function toggleGenre(header) {
 function addSubgenreForm(genre) {
   const name = prompt(`Add comment to ${genre}:`);
   if (name) {
-    if (!window.taxonomy[genre].subgenres) {
-      window.taxonomy[genre].subgenres = [];
+    if (!store.state.taxonomy[genre].subgenres) {
+      store.state.taxonomy[genre].subgenres = [];
     }
-    window.taxonomy[genre].subgenres.push(name);
+    store.state.taxonomy[genre].subgenres.push(name);
     renderTaxonomy();
   }
 }
 
 function removeSubgenre(genre, idx) {
   if (confirm('Remove this comment?')) {
-    window.taxonomy[genre].subgenres.splice(idx, 1);
+    store.state.taxonomy[genre].subgenres.splice(idx, 1);
     renderTaxonomy();
   }
 }
@@ -375,7 +375,7 @@ async function applyTemplate(templateName) {
       body: JSON.stringify({ merge: true })
     });
     if (result && result.ok) {
-      window.taxonomy = result.taxonomy || {};
+      store.set('taxonomy', result.taxonomy || {});
       renderTaxonomy();
       showToast('Applied template: ' + (result.added_genres || []).length + ' genres and ' + (result.added_subgenres || 0) + ' subgenres added', 'success');
       // Reset preview
