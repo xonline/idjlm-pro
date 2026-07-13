@@ -56,18 +56,31 @@ def list_tracks():
 
         sort_attr = sort_key_map.get(sort_by, "filename")
 
-        try:
-            # For numeric fields (confidence, bpm, year), sort None as 0 (lowest value)
-            # For string fields, sort None as empty string
-            numeric_fields = {"confidence", "final_bpm", "final_year"}
-            is_numeric = sort_attr in numeric_fields
+        # For numeric fields (confidence, bpm, year), sort None/unparsable as 0
+        # (lowest value). For string fields, sort None as empty string.
+        # final_bpm/final_year are string-typed properties (e.g. "128"), so a
+        # naive `value or 0` fallback mixes str and int in the sort keys and
+        # raises TypeError mid-sort — coerce numeric fields to float explicitly
+        # so every key is the same type and the sort never has to fall back.
+        numeric_fields = {"confidence", "final_bpm", "final_year"}
+        is_numeric = sort_attr in numeric_fields
 
-            tracks.sort(
-                key=lambda t: (getattr(t, sort_attr) or (0 if is_numeric else "")),
-                reverse=reverse
-            )
+        def sort_key(t):
+            value = getattr(t, sort_attr, None)
+            if is_numeric:
+                try:
+                    return float(value) if value not in (None, "") else 0.0
+                except (TypeError, ValueError):
+                    return 0.0
+            return value if isinstance(value, str) else ("" if value is None else str(value))
+
+        try:
+            tracks.sort(key=sort_key, reverse=reverse)
         except Exception:
-            # Fallback to filename if sort fails
+            logger.warning(
+                "Sort by %r failed unexpectedly, falling back to filename order",
+                sort_by, exc_info=True
+            )
             tracks.sort(key=lambda t: t.filename, reverse=reverse)
 
         return jsonify({
