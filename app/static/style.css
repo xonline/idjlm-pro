@@ -6827,7 +6827,7 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
 }
 
 /* ============================================================================
-   Field Mappings (IDJLM 5.2)
+   Field Mappings (IDJLM 5.2) — Lexicon visual mapping pattern
    ============================================================================ */
 
 .tab-header-actions {
@@ -6838,44 +6838,83 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
 
 .fm-table-wrap {
   overflow-x: auto;
-  padding: 0;
+  padding: 0 16px 16px;
 }
 
 .fm-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;
 }
 
 .fm-table thead th {
-  padding: 10px 12px;
+  padding: 12px 16px;
   text-align: left;
   font-weight: 600;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-secondary);
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .fm-th-source {
-  width: 45%;
+  width: 40%;
 }
 
 .fm-th-arrow {
-  width: 40px;
+  width: 48px;
   text-align: center;
 }
 
 .fm-th-target {
-  width: 45%;
+  width: auto;
+}
+
+.fm-category-header td {
+  padding: 16px 16px 6px 16px;
+  border-bottom: none;
+}
+
+.fm-cat-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.fm-cat-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.fm-cat-name {
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+}
+
+.fm-cat-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 4px;
 }
 
 .fm-row td {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color);
+  padding: 6px 16px;
+  border-bottom: none;
   vertical-align: middle;
+  transition: background 0.12s ease;
 }
 
 .fm-row:hover {
@@ -6886,12 +6925,20 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
   display: flex;
   align-items: center;
   gap: 10px;
+  padding-left: 18px;
 }
 
-.fm-source-label {
+.fm-source-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-primary);
-  min-width: 110px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  border-color: var(--fm-cat-color, var(--accent));
+  white-space: nowrap;
 }
 
 .fm-note {
@@ -6901,26 +6948,36 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
 }
 
 .fm-arrow {
-  color: var(--accent);
-  font-size: 16px;
   text-align: center;
-  user-select: none;
+  vertical-align: middle;
+  padding: 0;
+}
+
+.fm-arrow-icon {
+  opacity: 0.45;
+  transition: opacity 0.15s;
+  vertical-align: middle;
+}
+
+.fm-row:hover .fm-arrow-icon {
+  opacity: 0.85;
 }
 
 .fm-target {
-  min-width: 200px;
 }
 
 .fm-select {
   width: 100%;
-  max-width: 320px;
+  max-width: 260px;
   padding: 6px 10px;
-  font-size: 13px;
+  font-size: 12px;
+  font-family: inherit;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
   background: var(--bg1);
   color: var(--text-primary);
   cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .fm-select:focus {
