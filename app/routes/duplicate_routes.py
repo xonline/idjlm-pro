@@ -1,6 +1,63 @@
+import os
+
 from flask import Blueprint, request, jsonify
 
 bp = Blueprint("duplicates", __name__, url_prefix="/api")
+
+
+def _read_audio_info(file_path: str) -> dict:
+    try:
+        stat = os.stat(file_path)
+        file_size = stat.st_size
+        mtime = stat.st_mtime
+    except OSError:
+        file_size = 0
+        mtime = 0
+
+    bitrate = None
+    sample_rate = None
+    try:
+        from mutagen import File as MutagenFile
+        audio = MutagenFile(file_path)
+        if audio and audio.info:
+            bitrate = getattr(audio.info, 'bitrate', None)
+            sample_rate = getattr(audio.info, 'sample_rate', None)
+    except Exception:
+        pass
+
+    return {
+        'bitrate': int(bitrate) if bitrate else None,
+        'sample_rate': int(sample_rate) if sample_rate else None,
+        'file_size': file_size,
+        'mtime': mtime
+    }
+
+
+def _compute_tag_completeness(track_dict: dict) -> dict:
+    tag_fields = [
+        'existing_title', 'existing_artist', 'existing_album',
+        'existing_year', 'existing_genre', 'existing_bpm',
+        'existing_key', 'existing_comment'
+    ]
+    metadata_fields = [
+        'final_genre', 'final_subgenre', 'final_bpm', 'final_key',
+        'final_year', 'analyzed_energy', 'duration', 'analyzed_lufs'
+    ]
+
+    tag_populated = sum(1 for f in tag_fields if track_dict.get(f))
+    metadata_populated = sum(1 for f in metadata_fields if track_dict.get(f))
+
+    return {
+        'tag_count': tag_populated,
+        'tag_total': len(tag_fields),
+        'tag_pct': round(tag_populated / len(tag_fields) * 100),
+        'metadata_count': metadata_populated,
+        'metadata_total': len(metadata_fields),
+        'metadata_pct': round(metadata_populated / len(metadata_fields) * 100),
+        'overall_pct': round(
+            (tag_populated + metadata_populated) / (len(tag_fields) + len(metadata_fields)) * 100
+        )
+    }
 
 
 def _has_value(v) -> bool:
@@ -89,11 +146,22 @@ def scan_duplicates():
         duplicates = []
         for group in result.get("groups", []):
             tracks = group.get("tracks", [])
-            track_objects = [track_store[fp].to_dict() for fp in tracks if fp in track_store]
+            track_objects = []
+            for fp in tracks:
+                if fp not in track_store:
+                    continue
+                td = track_store[fp].to_dict()
+                td['audio_info'] = _read_audio_info(fp)
+                td['tag_completeness'] = _compute_tag_completeness(td)
+                track_objects.append(td)
             if len(track_objects) >= 2:
                 duplicates.append({
                     "group_id": group.get("reason", "unknown"),
-                    "tracks": track_objects
+                    "tracks": track_objects,
+                    "reason": group.get("reason", "unknown"),
+                    "group_label": group.get(
+                        "artist", group.get("filename_pattern", "")
+                    )
                 })
 
         return jsonify({"duplicates": duplicates, "total_duplicates": result.get("total_duplicates", 0)}), 200
@@ -160,6 +228,96 @@ def merge_duplicates():
             "kept": keep_path,
             "updated_fields": updated_fields,
             "result": keep_track.to_dict()
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/duplicates/batch-resolve", methods=["POST"])
+def batch_resolve_duplicates():
+    """
+    Batch-resolve multiple duplicate groups at once.
+    POST /api/duplicates/batch-resolve
+    Body: {
+        "resolutions": [
+            {"keep_path": "...", "merge_paths": ["..."], "field_strategy": "best"},
+            ...
+        ]
+    }
+    Returns: { "resolved_groups": N, "total_merged": N, "errors": [], "results": [...] }
+    """
+    try:
+        from app import get_track_store
+        from app.services.session_service import save_session
+
+        body = request.get_json(silent=True)
+        if not body or "resolutions" not in body:
+            return jsonify({"error": "Missing resolutions in request body"}), 400
+
+        resolutions = body["resolutions"]
+        if not isinstance(resolutions, list) or len(resolutions) == 0:
+            return jsonify({"error": "resolutions must be a non-empty list"}), 400
+
+        track_store = get_track_store()
+        results = []
+        errors = []
+        total_merged = 0
+
+        for i, res in enumerate(resolutions):
+            keep_path = res.get("keep_path")
+            merge_paths = res.get("merge_paths", [])
+            field_strategy = res.get("field_strategy", "best")
+
+            if not keep_path or not merge_paths:
+                errors.append({"index": i, "error": "Missing keep_path or merge_paths"})
+                continue
+
+            missing = [p for p in merge_paths if p not in track_store]
+            if missing:
+                errors.append({
+                    "index": i,
+                    "keep_path": keep_path,
+                    "error": f"Merge tracks not found: {missing}"
+                })
+                continue
+
+            try:
+                keep_track = track_store[keep_path]
+                merge_tracks = [track_store[p] for p in merge_paths]
+
+                if field_strategy == "keep_primary":
+                    updated_fields = _merge_tracks_keep_primary(keep_track, merge_tracks)
+                else:
+                    updated_fields = _merge_tracks_best(keep_track, merge_tracks)
+
+                for mp in merge_paths:
+                    track_store[mp].is_duplicate = True
+                    track_store[mp].duplicate_of = keep_path
+                    del track_store[mp]
+
+                total_merged += len(merge_paths)
+                results.append({
+                    "keep_path": keep_path,
+                    "merged": len(merge_paths),
+                    "updated_fields": updated_fields,
+                    "result": keep_track.to_dict()
+                })
+            except Exception as e:
+                errors.append({
+                    "index": i,
+                    "keep_path": keep_path,
+                    "error": str(e)
+                })
+
+        if total_merged > 0:
+            save_session(track_store)
+
+        return jsonify({
+            "resolved_groups": len(results),
+            "total_merged": total_merged,
+            "errors": errors,
+            "results": results
         }), 200
 
     except Exception as e:

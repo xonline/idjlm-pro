@@ -1,15 +1,9 @@
 // ============================================================================
-// duplicates.js — Duplicates tab (scan / render / merge / remove)
+// duplicates.js — Duplicates tab v2 (side-by-side compare cards + batch resolve)
 // ============================================================================
-// Extracted from pipeline.js (Phase 0.3). No behaviour change.
-// Owns:
-//   - initDuplicatesTab: wires scan button
-//   - scanForDuplicates / renderDuplicates / mergeDuplicateGroup / removeDuplicate
-// Dependencies (window-globals, resolved by load order):
-//   - showSpinner / hideSpinner / apiFetch / showToast / escapeHtml: core.js
-//   - renderTracks: tracks.js
-//   - window.tracks / window.searchResults: core.js
-//   - scanForDuplicates is also re-invoked by removeDuplicate for rescan (recursive).
+// Phase 4.4: replace list UI with side-by-side compare cards showing bitrate,
+// sample rate, file size, tag completeness, and mini-waveform. Pre-select the
+// best-quality copy by heuristic. Batch-resolve selected groups.
 // ----------------------------------------------------------------------------
 
 function initDuplicatesTab() {
@@ -25,7 +19,6 @@ async function scanForDuplicates() {
     const result = await apiFetch('/api/duplicates/scan', { method: 'POST' });
     renderDuplicates(result.duplicates || []);
 
-    // Update badge
     const duplicatesBtn = document.querySelector('[data-tab="duplicates"]');
     if (result.duplicates && result.duplicates.length > 0) {
       let badge = duplicatesBtn.querySelector('.nav-badge');
@@ -37,7 +30,7 @@ async function scanForDuplicates() {
       badge.textContent = result.duplicates.length;
     }
 
-    showToast(`Found ${result.duplicates ? result.duplicates.length : 0} duplicate pairs`, 'info');
+    showToast(`Found ${result.duplicates ? result.duplicates.length : 0} duplicate groups`, 'info');
   } catch (error) {
     showToast('Error scanning for duplicates', 'error');
   } finally {
@@ -45,159 +38,245 @@ async function scanForDuplicates() {
   }
 }
 
+function _pickBestTrack(tracks) {
+  if (!tracks || tracks.length <= 1) return 0;
+  var scored = tracks.map(function(t, i) {
+    var ai = t.audio_info || {};
+    var tc = t.tag_completeness || {};
+    var bitrate = ai.bitrate || 0;
+    var tagPct = tc.overall_pct || 0;
+    var mtime = ai.mtime || 0;
+    return { idx: i, bitrate: bitrate, tagPct: tagPct, mtime: mtime };
+  });
+  scored.sort(function(a, b) {
+    if (b.bitrate !== a.bitrate) return b.bitrate - a.bitrate;
+    if (b.tagPct !== a.tagPct) return b.tagPct - a.tagPct;
+    return b.mtime - a.mtime;
+  });
+  return scored[0].idx;
+}
+
+function _formatSize(bytes) {
+  if (!bytes) return '—';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+function _formatBitrate(br) {
+  if (!br) return '—';
+  if (br >= 1000) return (br / 1000).toFixed(0) + ' kbps';
+  return br + ' bps';
+}
+
+function _drawMiniWaveform(canvas, waveformData) {
+  if (window.renderMiniWaveform) {
+    window.renderMiniWaveform(canvas, waveformData);
+  }
+}
+
 function renderDuplicates(duplicates) {
-  const container = document.getElementById('duplicates-results');
+  var container = document.getElementById('duplicates-results');
   container.innerHTML = '';
 
   if (!duplicates || duplicates.length === 0) {
-    const empty = document.createElement('div');
+    var empty = document.createElement('div');
     empty.className = 'empty-state';
-    empty.textContent = 'No duplicates found. Click "Scan for Duplicates" to begin.';
+    empty.innerHTML = '<div class="empty-state-content"><div class="empty-icon">&#128269;</div><div class="empty-msg">No duplicates found</div><div class="empty-submsg">Click "Scan for Duplicates" to begin</div></div>';
     container.appendChild(empty);
     return;
   }
 
-  duplicates.forEach((group, idx) => {
-    const div = document.createElement('div');
-    div.className = 'duplicate-pair';
-    const tracks = group.tracks || [group.track1, group.track2].filter(Boolean);
-    div.innerHTML = `<h3>Duplicate Group ${idx + 1} (${tracks.length} tracks)</h3>`;
+  // Batch-resolve toolbar
+  var toolbar = document.createElement('div');
+  toolbar.className = 'dup-batch-toolbar';
+  toolbar.innerHTML = '<span class="dup-batch-label">Select groups to batch-resolve:</span>' +
+    '<button class="btn btn-primary btn-sm" id="btn-batch-resolve">Batch Resolve Selected</button>' +
+    '<button class="btn btn-secondary btn-sm" id="btn-select-all">Select All</button>';
+  container.appendChild(toolbar);
 
-    // Radio group for selecting which track to keep
-    const radioName = `dup-keep-group-${idx}`;
+  var storedData = [];
 
-    tracks.forEach((track, tIdx) => {
-      const trackDiv = document.createElement('div');
-      trackDiv.className = 'duplicate-track';
-      trackDiv.innerHTML = `
-        <div class="duplicate-track-info">
-          <label class="duplicate-track-label">
-            <input type="radio" name="${radioName}" value="${tIdx}" class="duplicate-keep-radio" data-group-idx="${idx}" data-track-idx="${tIdx}">
-            <div>
-              <div class="duplicate-track-title">${escapeHtml(track.display_title || 'Unknown')}</div>
-              <div class="duplicate-track-meta">${escapeHtml(track.display_artist || 'Unknown')} — ${escapeHtml(track.file_path)}</div>
-            </div>
-          </label>
-          <button class="btn btn-secondary duplicate-remove-btn" data-path="${encodeURIComponent(track.file_path)}">Remove</button>
-        </div>
-      `;
+  duplicates.forEach(function(group, gIdx) {
+    var tracks = group.tracks || [];
+    var bestIdx = _pickBestTrack(tracks);
+    storedData.push({ group: group, bestIdx: bestIdx, selectedKeep: bestIdx });
 
-      trackDiv.querySelector('.duplicate-remove-btn').addEventListener('click', async (e) => {
-        const path = decodeURIComponent(e.target.dataset.path);
-        await removeDuplicate(path);
-      });
+    var card = document.createElement('div');
+    card.className = 'compare-card';
+    card.dataset.groupIdx = gIdx;
 
-      div.appendChild(trackDiv);
-    });
+    // Group header
+    var header = document.createElement('div');
+    header.className = 'compare-card-header';
+    var groupLabel = group.group_label || '';
+    var reason = group.reason === 'same_metadata' ? 'Same Artist + Title' : 'Similar Filename';
+    header.innerHTML = '<span class="compare-card-title">Group ' + (gIdx + 1) +
+      (groupLabel ? ': <em>' + escapeHtml(groupLabel) + '</em>' : '') +
+      '</span>' +
+      '<span class="compare-card-reason">' + reason + '</span>' +
+      '<label class="compare-card-check"><input type="checkbox" class="dup-batch-check" data-group-idx="' + gIdx + '" checked> Resolve</label>';
+    card.appendChild(header);
 
-    // Merge button (hidden until a radio is selected)
-    const mergeBtn = document.createElement('button');
-    mergeBtn.className = 'btn btn-primary duplicate-merge-btn';
-    mergeBtn.textContent = 'Merge into Selected';
-    mergeBtn.style.display = 'none';
-    mergeBtn.style.marginTop = '8px';
-    mergeBtn.dataset.groupIdx = idx;
-    div.appendChild(mergeBtn);
+    // Track cards (side-by-side)
+    var tracksRow = document.createElement('div');
+    tracksRow.className = 'compare-tracks-row';
 
-    // Summary div
-    const summaryDiv = document.createElement('div');
-    summaryDiv.className = 'duplicate-merge-summary';
-    summaryDiv.style.display = 'none';
-    div.appendChild(summaryDiv);
+    tracks.forEach(function(track, tIdx) {
+      var ai = track.audio_info || {};
+      var tc = track.tag_completeness || {};
+      var isBest = tIdx === bestIdx;
 
-    // Show merge button when a radio is selected
-    div.querySelectorAll('.duplicate-keep-radio').forEach(radio => {
-      radio.addEventListener('change', () => {
-        div.querySelectorAll('.duplicate-merge-btn').forEach(btn => btn.style.display = 'none');
-        mergeBtn.style.display = 'inline-block';
-      });
-    });
+      var tCard = document.createElement('div');
+      tCard.className = 'compare-track-card' + (isBest ? ' compare-track-best' : '');
+      tCard.dataset.trackIdx = tIdx;
 
-    // Merge button click handler
-    mergeBtn.addEventListener('click', async () => {
-      const selectedRadio = div.querySelector(`input[name="${radioName}"]:checked`);
-      if (!selectedRadio) {
-        showToast('Please select a track to keep', 'warning');
-        return;
+      var qualityBadge = '';
+      if (isBest) {
+        qualityBadge = '<span class="compare-quality-badge">Best</span>';
       }
-      const keepTrackIdx = parseInt(selectedRadio.dataset.trackIdx);
-      const groupIdx = parseInt(selectedRadio.dataset.groupIdx);
-      await mergeDuplicateGroup(groupIdx, keepTrackIdx, duplicates[groupIdx]);
+
+      // Waveform canvas placeholder
+      var wfData = track.waveform_data;
+      var wfHtml = '';
+      if (wfData && wfData.length) {
+        wfHtml = '<canvas class="compare-waveform-canvas" width="240" height="40"></canvas>';
+      } else {
+        wfHtml = '<div class="compare-waveform-empty">No waveform</div>';
+      }
+
+      tCard.innerHTML =
+        '<div class="compare-track-header">' +
+          '<label class="compare-keep-label">' +
+            '<input type="radio" name="dup-keep-group-' + gIdx + '" value="' + tIdx + '"' + (isBest ? ' checked' : '') + '>' +
+            '<span class="compare-track-name">' + escapeHtml(track.display_title || 'Unknown') + qualityBadge + '</span>' +
+          '</label>' +
+        '</div>' +
+        '<div class="compare-track-body">' +
+          wfHtml +
+          '<div class="compare-stats">' +
+            '<div class="compare-stat"><span class="compare-stat-label">Artist</span><span class="compare-stat-val">' + escapeHtml(track.display_artist || 'Unknown') + '</span></div>' +
+            '<div class="compare-stat"><span class="compare-stat-label">Bitrate</span><span class="compare-stat-val">' + _formatBitrate(ai.bitrate) + '</span></div>' +
+            '<div class="compare-stat"><span class="compare-stat-label">Sample Rate</span><span class="compare-stat-val">' + (ai.sample_rate ? ai.sample_rate + ' Hz' : '—') + '</span></div>' +
+            '<div class="compare-stat"><span class="compare-stat-label">File Size</span><span class="compare-stat-val">' + _formatSize(ai.file_size) + '</span></div>' +
+            '<div class="compare-stat"><span class="compare-stat-label">Path</span><span class="compare-stat-val compare-path" title="' + escapeHtml(track.file_path) + '">' + escapeHtml(track.file_path.split('/').slice(-2).join('/') || track.file_path) + '</span></div>' +
+          '</div>' +
+          '<div class="compare-completeness">' +
+            '<div class="compare-completeness-bar">' +
+              '<div class="compare-completeness-fill compare-tags-fill" style="width:' + tc.tag_pct + '%"></div>' +
+              '<div class="compare-completeness-fill compare-meta-fill" style="width:' + tc.metadata_pct + '%"></div>' +
+            '</div>' +
+            '<div class="compare-completeness-legend">' +
+              '<span>Tags: ' + tc.tag_count + '/' + tc.tag_total + '</span>' +
+              '<span>Meta: ' + tc.metadata_count + '/' + tc.metadata_total + '</span>' +
+              '<span class="compare-completeness-pct">' + tc.overall_pct + '%</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+      // Radio change handler
+      tCard.querySelector('input[type="radio"]').addEventListener('change', function() {
+        storedData[gIdx].selectedKeep = tIdx;
+      });
+
+      tracksRow.appendChild(tCard);
     });
 
-    container.appendChild(div);
+    card.appendChild(tracksRow);
+    container.appendChild(card);
+
+    // Draw mini-waveforms after DOM insertion
+    tracksRow.querySelectorAll('.compare-waveform-canvas').forEach(function(cv) {
+      var parentCard = cv.closest('.compare-track-card');
+      if (!parentCard) return;
+      var tIdx2 = parseInt(parentCard.dataset.trackIdx);
+      var trackData = tracks[tIdx2];
+      if (trackData && trackData.waveform_data) {
+        _drawMiniWaveform(cv, trackData.waveform_data);
+      }
+    });
+  });
+
+  // Batch-resolve button handler
+  document.getElementById('btn-batch-resolve').addEventListener('click', function() {
+    var checked = document.querySelectorAll('.dup-batch-check:checked');
+    if (checked.length === 0) {
+      showToast('No groups selected for batch resolve', 'warning');
+      return;
+    }
+    var resolutions = [];
+    checked.forEach(function(cb) {
+      var gi = parseInt(cb.dataset.groupIdx);
+      var data = storedData[gi];
+      var tracks = data.group.tracks;
+      var keepIdx = data.selectedKeep;
+      var mergePaths = tracks.filter(function(_, i) { return i !== keepIdx; }).map(function(t) { return t.file_path; });
+      if (mergePaths.length > 0) {
+        resolutions.push({
+          keep_path: tracks[keepIdx].file_path,
+          merge_paths: mergePaths,
+          field_strategy: 'best'
+        });
+      }
+    });
+    if (resolutions.length === 0) {
+      showToast('No tracks to merge in selected groups', 'warning');
+      return;
+    }
+    batchResolve(resolutions, checked);
+  });
+
+  // Select-all handler
+  document.getElementById('btn-select-all').addEventListener('click', function() {
+    var all = document.querySelectorAll('.dup-batch-check');
+    var allChecked = Array.from(all).every(function(cb) { return cb.checked; });
+    all.forEach(function(cb) { cb.checked = !allChecked; });
+    this.textContent = allChecked ? 'Select All' : 'Deselect All';
   });
 }
 
-async function mergeDuplicateGroup(groupIdx, keepTrackIdx, group) {
-  const tracks = group.tracks || [group.track1, group.track2].filter(Boolean);
-  const keepTrack = tracks[keepTrackIdx];
-  const mergeTracks = tracks.filter((_, i) => i !== keepTrackIdx);
-
-  if (!keepTrack || mergeTracks.length === 0) {
-    showToast('Nothing to merge', 'warning');
-    return;
-  }
-
-  showSpinner('Merging duplicates...');
+async function batchResolve(resolutions, checkboxes) {
+  showSpinner('Batch-resolving duplicates...');
   try {
-    const result = await apiFetch('/api/duplicates/merge', {
+    var result = await apiFetch('/api/duplicates/batch-resolve', {
       method: 'POST',
-      body: JSON.stringify({
-        keep_path: keepTrack.file_path,
-        merge_paths: mergeTracks.map(t => t.file_path),
-        field_strategy: 'best'
-      })
+      body: JSON.stringify({ resolutions: resolutions })
     });
 
-    // Update local track store
-    if (result.result) {
-      const idx = window.tracks.findIndex(t => t.file_path === result.kept);
-      if (idx >= 0) {
-        window.tracks[idx] = result.result;
-      }
-    }
-    window.tracks = window.tracks.filter(t => t.file_path !== result.kept || t.file_path === result.kept);
-    // Remove merged tracks
-    const mergedPaths = new Set(mergeTracks.map(t => t.file_path));
-    window.tracks = window.tracks.filter(t => !mergedPaths.has(t.file_path));
+    // Remove resolved tracks from local store
+    var mergedPaths = new Set();
+    (result.results || []).forEach(function(r) {
+      (r.merged || 0);
+    });
+    resolutions.forEach(function(res) {
+      res.merge_paths.forEach(function(p) { mergedPaths.add(p); });
+    });
+    window.tracks = window.tracks.filter(function(t) { return !mergedPaths.has(t.file_path); });
     window.searchResults = null;
-
     renderTracks();
 
-    // Show summary
-    const container = document.getElementById('duplicates-results');
-    const mergeSummary = container.querySelectorAll('.duplicate-merge-summary')[groupIdx];
-    if (mergeSummary) {
-      const fieldNames = (result.updated_fields || []).map(f => {
-        const names = {
-          final_genre: 'genre',
-          final_subgenre: 'subgenre',
-          final_bpm: 'BPM',
-          final_key: 'key',
-          final_year: 'year',
-          analyzed_energy: 'energy',
-          clave_pattern: 'clave',
-          vocal_flag: 'vocal'
-        };
-        return names[f] || f;
-      });
-      const fieldsText = fieldNames.length > 0 ? ` Fields updated: ${fieldNames.join(', ')}` : '';
-      mergeSummary.textContent = `Merged ${result.merged} duplicates into "${result.result.display_title}".${fieldsText}`;
-      mergeSummary.style.display = 'block';
-    }
+    // Collapse resolved groups visually
+    checkboxes.forEach(function(cb) {
+      var card = cb.closest('.compare-card');
+      if (card) {
+        card.classList.add('compare-card-resolved');
+        cb.disabled = true;
+        cb.parentElement.style.opacity = '0.5';
+      }
+    });
 
-    // Hide merge button and radios
-    const dupGroup = container.querySelectorAll('.duplicate-pair')[groupIdx];
-    if (dupGroup) {
-      dupGroup.querySelectorAll('.duplicate-keep-radio').forEach(r => r.disabled = true);
-      dupGroup.querySelectorAll('.duplicate-merge-btn').forEach(b => b.style.display = 'none');
-      dupGroup.querySelectorAll('.duplicate-remove-btn').forEach(b => b.style.display = 'none');
-    }
+    // Update batch button
+    var batchBtn = document.getElementById('btn-batch-resolve');
+    if (batchBtn) batchBtn.textContent = 'Batch Resolve Selected';
 
-    showToast(`Merged ${result.merged} duplicates`, 'success');
+    var errors = result.errors || [];
+    if (errors.length > 0) {
+      showToast('Resolved ' + result.resolved_groups + ' groups with ' + errors.length + ' errors', 'warning');
+    } else {
+      showToast('Batch-resolved ' + result.resolved_groups + ' groups (' + result.total_merged + ' tracks merged)', 'success');
+    }
   } catch (error) {
-    showToast('Error merging duplicates: ' + (error.message || 'Unknown error'), 'error');
+    showToast('Error batch-resolving: ' + (error.message || 'Unknown error'), 'error');
   } finally {
     hideSpinner();
   }
@@ -211,12 +290,10 @@ async function removeDuplicate(filePath) {
       body: JSON.stringify({ file_path: filePath })
     });
 
-    window.tracks = window.tracks.filter(t => t.file_path !== filePath);
+    window.tracks = window.tracks.filter(function(t) { return t.file_path !== filePath; });
     window.searchResults = null;
     renderTracks();
     showToast('Track removed from library', 'success');
-
-    // Rescan to refresh UI
     await scanForDuplicates();
   } catch (error) {
     showToast('Error removing duplicate', 'error');
