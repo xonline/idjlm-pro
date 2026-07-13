@@ -54,4 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initOnboarding();
   initWorkflowGuide();
   initDetailDock();
+  initSyncCenter();
+  initInbox();
+  initTagsSidebar();
 });
