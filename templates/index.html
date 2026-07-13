@@ -666,85 +666,31 @@
                 <button class="btn btn-secondary btn-sm" id="btn-delete-playlist">Delete</button>
               </div>
 
-              <!-- Filter Builder -->
+              <!-- Smart Rule Builder -->
               <div class="card" style="margin-top: 16px;">
                 <div class="card-header">
-                  <h3>Filter Builder</h3>
+                  <h3>Smart Rules</h3>
+                  <span class="match-count-badge" id="pl-match-count-badge">0 tracks match</span>
                 </div>
-                <div class="playlist-filters">
-                  <div class="filter-row">
-                    <div class="form-group">
-                      <label>Genre</label>
-                      <select id="pl-filter-genre" class="input-select">
-                        <option value="">All genres</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label>Comments</label>
-                      <select id="pl-filter-subgenre" class="input-select">
-                        <option value="">All comments</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label>Status</label>
-                      <select id="pl-filter-status" class="input-select">
-                        <option value="">All statuses</option>
-                        <option value="pending">Pending</option>
-                        <option value="approved">Approved</option>
-                        <option value="skipped">Skipped</option>
-                        <option value="written">Written</option>
-                      </select>
-                    </div>
+                <div class="smart-builder" id="pl-smart-builder">
+                  <!-- Top-level combinator -->
+                  <div class="combinator-bar">
+                    <span class="combinator-label">Match</span>
+                    <select class="combinator-select" id="pl-top-combinator">
+                      <option value="AND">ALL of the following</option>
+                      <option value="OR">ANY of the following</option>
+                    </select>
                   </div>
-                  <div class="filter-row">
-                    <div class="form-group">
-                      <label>Key</label>
-                      <select id="pl-filter-key" class="input-select">
-                        <option value="">All keys</option>
-                        <option value="1A">1A</option><option value="1B">1B</option>
-                        <option value="2A">2A</option><option value="2B">2B</option>
-                        <option value="3A">3A</option><option value="3B">3B</option>
-                        <option value="4A">4A</option><option value="4B">4B</option>
-                        <option value="5A">5A</option><option value="5B">5B</option>
-                        <option value="6A">6A</option><option value="6B">6B</option>
-                        <option value="7A">7A</option><option value="7B">7B</option>
-                        <option value="8A">8A</option><option value="8B">8B</option>
-                        <option value="9A">9A</option><option value="9B">9B</option>
-                        <option value="10A">10A</option><option value="10B">10B</option>
-                        <option value="11A">11A</option><option value="11B">11B</option>
-                        <option value="12A">12A</option><option value="12B">12B</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label>BPM Range</label>
-                      <div style="display:flex;gap:6px;align-items:center;">
-                        <input type="number" id="pl-filter-bpm-min" class="input" placeholder="Min" style="width:70px;">
-                        <span style="color:var(--text-secondary);">–</span>
-                        <input type="number" id="pl-filter-bpm-max" class="input" placeholder="Max" style="width:70px;">
-                      </div>
-                    </div>
+
+                  <!-- Rules container -->
+                  <div class="rules-container" id="pl-rules-container">
+                    <!-- Populated dynamically -->
                   </div>
-                  <div class="filter-row">
-                    <div class="form-group">
-                      <label>Energy</label>
-                      <div style="display:flex;gap:6px;align-items:center;">
-                        <input type="number" id="pl-filter-energy-min" class="input" placeholder="Min" style="width:70px;" min="1" max="10">
-                        <span style="color:var(--text-secondary);">–</span>
-                        <input type="number" id="pl-filter-energy-max" class="input" placeholder="Max" style="width:70px;" min="1" max="10">
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <label>Year</label>
-                      <div style="display:flex;gap:6px;align-items:center;">
-                        <input type="number" id="pl-filter-year-min" class="input" placeholder="From" style="width:80px;">
-                        <span style="color:var(--text-secondary);">–</span>
-                        <input type="number" id="pl-filter-year-max" class="input" placeholder="To" style="width:80px;">
-                      </div>
-                    </div>
-                  </div>
-                  <div class="filter-actions">
-                    <button class="btn btn-primary btn-sm" id="btn-apply-filters">Apply Filters</button>
-                    <button class="btn btn-secondary btn-sm" id="btn-clear-filters">Clear</button>
+
+                  <!-- Action buttons -->
+                  <div class="rule-actions" style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="btn btn-secondary btn-sm" id="btn-add-rule">+ Add Rule</button>
+                    <button class="btn btn-secondary btn-sm" id="btn-add-group">+ Add Group</button>
                   </div>
                 </div>
               </div>

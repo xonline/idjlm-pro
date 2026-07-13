@@ -24,74 +24,121 @@ def _save_playlists(data):
     atomic_write(PLAYLISTS_PATH, data, indent=2)
 
 
-def _apply_filters(track_store, filters):
-    """Filter tracks based on filter criteria. All AND-combined."""
+# Field mapping for rule-to-track attribute lookups
+_RULE_FIELD_MAP = {
+    "genre": "final_genre",
+    "subgenre": "final_subgenre",
+    "status": "review_status",
+    "key": "final_key",
+    "bpm": "final_bpm",
+    "energy": "analyzed_energy",
+    "year": "final_year",
+    "artist": "display_artist",
+    "title": "display_title",
+}
+
+
+def _get_track_field(track, field):
+    mapped = _RULE_FIELD_MAP.get(field, field)
+    return getattr(track, mapped, None)
+
+
+def _rule_matches(track, rule):
+    field = rule.get("field", "")
+    operator = rule.get("operator", "equals")
+    value = rule.get("value")
+    track_val = _get_track_field(track, field)
+
+    if operator == "equals":
+        return str(track_val or "") == str(value or "")
+    if operator == "contains":
+        return value and str(track_val or "").lower().find(str(value).lower()) != -1
+    if operator == "not_equals":
+        return str(track_val or "") != str(value or "")
+    if operator == "starts_with":
+        return str(track_val or "").lower().startswith(str(value or "").lower())
+
+    try:
+        tv = float(track_val or 0)
+        fv = float(value or 0)
+    except (ValueError, TypeError):
+        return False
+
+    if operator == "gte":
+        return tv >= fv
+    if operator == "lte":
+        return tv <= fv
+    if operator == "gt":
+        return tv > fv
+    if operator == "lt":
+        return tv < fv
+
+    return False
+
+
+def _group_matches(track, group):
+    combinator = group.get("combinator", "AND")
+    rules = group.get("rules", [])
+
+    if not rules:
+        return True
+
     results = []
+    for r in rules:
+        if "combinator" in r:
+            results.append(_group_matches(track, r))
+        else:
+            results.append(_rule_matches(track, r))
+
+    if combinator == "OR":
+        return any(results)
+    return all(results)
+
+
+def _apply_filters(track_store, filters):
+    """Filter tracks based on filter criteria via nested AND/OR rule groups.
+    Supports both legacy flat dicts and new {combinator, rules} format.
+    """
+    results = []
+
+    # Legacy flat format: convert to rules
+    if not filters.get("rules") and not filters.get("combinator"):
+        filters = _legacy_filters_to_rules(filters)
+
+    if not filters.get("rules"):
+        # Empty rules = match all
+        return [track.to_dict() for track in track_store.values()]
+
     for fp, track in track_store.items():
-        if filters.get("genre") and track.final_genre != filters["genre"]:
-            continue
-        if filters.get("subgenre") and track.final_subgenre != filters["subgenre"]:
-            continue
-        if filters.get("status") and track.review_status != filters["status"]:
-            continue
-        if filters.get("key") and track.final_key != filters["key"]:
-            continue
-
-        # BPM filter
-        try:
-            bpm_min = float(filters["bpm_min"]) if filters.get("bpm_min") else None
-            bpm_max = float(filters["bpm_max"]) if filters.get("bpm_max") else None
-        except (ValueError, TypeError):
-            bpm_min = None
-            bpm_max = None
-
-        if bpm_min is not None or bpm_max is not None:
-            try:
-                bpm = float(track.final_bpm or 0)
-            except (ValueError, TypeError):
-                bpm = 0
-            if bpm_min is not None and bpm < bpm_min:
-                continue
-            if bpm_max is not None and bpm > bpm_max:
-                continue
-
-        # Energy filter
-        try:
-            energy_min = int(filters["energy_min"]) if filters.get("energy_min") else None
-            energy_max = int(filters["energy_max"]) if filters.get("energy_max") else None
-        except (ValueError, TypeError):
-            energy_min = None
-            energy_max = None
-
-        if energy_min is not None or energy_max is not None:
-            energy = track.analyzed_energy
-            if energy is None:
-                continue  # Can't filter by energy if track has no energy data
-            if energy_min is not None and energy < energy_min:
-                continue
-            if energy_max is not None and energy > energy_max:
-                continue
-
-        # Year filter
-        try:
-            year_min = int(filters["year_min"]) if filters.get("year_min") else None
-            year_max = int(filters["year_max"]) if filters.get("year_max") else None
-        except (ValueError, TypeError):
-            year_min = None
-            year_max = None
-
-        if year_min is not None or year_max is not None:
-            try:
-                year = int(track.final_year or 0)
-            except (ValueError, TypeError):
-                year = 0
-            if year_min is not None and year < year_min:
-                continue
-            if year_max is not None and year > year_max:
-                continue
-
-        results.append(track.to_dict())
+        if _group_matches(track, filters):
+            results.append(track.to_dict())
     return results
+
+
+def _legacy_filters_to_rules(filters):
+    """Convert old flat filter dict to new {combinator, rules} format."""
+    rules = []
+    if filters.get("genre"):
+        rules.append({"field": "genre", "operator": "equals", "value": filters["genre"]})
+    if filters.get("subgenre"):
+        rules.append({"field": "subgenre", "operator": "equals", "value": filters["subgenre"]})
+    if filters.get("status"):
+        rules.append({"field": "status", "operator": "equals", "value": filters["status"]})
+    if filters.get("key"):
+        rules.append({"field": "key", "operator": "equals", "value": filters["key"]})
+    if filters.get("bpm_min"):
+        rules.append({"field": "bpm", "operator": "gte", "value": filters["bpm_min"]})
+    if filters.get("bpm_max"):
+        rules.append({"field": "bpm", "operator": "lte", "value": filters["bpm_max"]})
+    if filters.get("energy_min"):
+        rules.append({"field": "energy", "operator": "gte", "value": filters["energy_min"]})
+    if filters.get("energy_max"):
+        rules.append({"field": "energy", "operator": "lte", "value": filters["energy_max"]})
+    if filters.get("year_min"):
+        rules.append({"field": "year", "operator": "gte", "value": filters["year_min"]})
+    if filters.get("year_max"):
+        rules.append({"field": "year", "operator": "lte", "value": filters["year_max"]})
+    return {"combinator": "AND", "rules": rules}
 
 
 @bp.route("/playlists", methods=["GET"])
@@ -166,9 +213,20 @@ def run_playlist(playlist_id):
     data = _load_playlists()
     for p in data.get("playlists", []):
         if p["id"] == playlist_id:
-            tracks = _apply_filters(get_track_store(), p.get("filters", {}))
+            filters = p.get("filters", {})
+            tracks = _apply_filters(get_track_store(), filters)
             return jsonify({"tracks": tracks, "count": len(tracks)}), 200
     return jsonify({"error": "Not found"}), 404
+
+
+@bp.route("/playlists/match-preview", methods=["POST"])
+def match_preview():
+    """Return match count and track list for a rule set (no persistence)."""
+    from app import get_track_store
+    body = request.get_json(silent=True) or {}
+    rules = body.get("rules") or body.get("filters", {})
+    tracks = _apply_filters(get_track_store(), rules)
+    return jsonify({"tracks": tracks, "count": len(tracks)}), 200
 
 
 @bp.route("/playlists/<playlist_id>/export-m3u", methods=["GET"])
