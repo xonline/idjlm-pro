@@ -162,6 +162,65 @@ def apply_library_percentile_normalization(tracks: list) -> int:
     return n
 
 
+def _compute_energy_timeline(y: np.ndarray, sr: int, target_points: int = 300) -> list:
+    """
+    Compute per-frame RMS energy over time, returning a downsampled list of
+    [timestamp_seconds, rms_value] pairs suitable for loudness envelope rendering.
+    """
+    rms_frames = librosa.feature.rms(y=y)
+    rms_values = rms_frames.flatten()
+    times = librosa.frames_to_time(np.arange(len(rms_values)), sr=sr, hop_length=512).tolist()
+
+    if len(rms_values) <= target_points:
+        return [[round(float(t), 2), round(float(v), 6)] for t, v in zip(times, rms_values)]
+
+    indices = np.linspace(0, len(rms_values) - 1, target_points, dtype=int)
+    timeline = []
+    for i in indices:
+        timeline.append([round(float(times[i]), 2), round(float(rms_values[i]), 6)])
+    return timeline
+
+
+def _detect_phrase_boundaries(y: np.ndarray, sr: int, min_segment_sec: float = 6.0) -> list:
+    rms = librosa.feature.rms(y=y)
+    rms_env = rms.flatten()
+    onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+
+    if len(rms_env) != len(onset_env):
+        target_len = len(onset_env)
+        rms_env = np.interp(
+            np.linspace(0, len(rms_env) - 1, target_len),
+            np.arange(len(rms_env)),
+            rms_env,
+        )
+
+    onset_norm = onset_env / (np.max(onset_env) + 1e-6)
+    rms_norm = rms_env / (np.max(rms_env) + 1e-6)
+
+    onset_diff = np.abs(np.diff(onset_norm, prepend=onset_norm[0]))
+    rms_diff = np.abs(np.diff(rms_norm, prepend=rms_norm[0]))
+    novelty = onset_diff * 0.65 + rms_diff * 0.35
+
+    from scipy.signal import savgol_filter, find_peaks
+
+    win = max(3, int(sr * 1.5 / 512))
+    if win % 2 == 0:
+        win += 1
+    smooth = savgol_filter(novelty, win, 2) if len(novelty) > win else novelty
+
+    min_dist = max(3, int(min_segment_sec * sr / 512))
+    peaks, props = find_peaks(smooth, distance=min_dist, prominence=np.std(smooth) * 0.4)
+
+    hop_length = 512
+    boundaries = []
+    for idx in peaks:
+        t = round(float(librosa.frames_to_time(idx, sr=sr, hop_length=hop_length)), 2)
+        conf = min(100, int((props["prominences"][np.where(peaks == idx)[0][0]] / (np.max(props["prominences"]) + 1e-6)) * 100))
+        boundaries.append([t, conf])
+
+    return boundaries
+
+
 def detect_vocal_flag(y: np.ndarray, sr: int) -> tuple:
     """
     Detect whether track contains vocals, instrumentals, or mostly instrumentals.
@@ -494,193 +553,159 @@ def _read_tags_bpm_key(file_path: str):
         return None, None
 
 
-def analyze_track(track: Track) -> Track:
-    """
-    Analyze audio features: BPM, key (Camelot), energy (1-10), LUFS loudness.
-    Populates: analyzed_bpm, analyzed_key, analyzed_energy, analyzed_lufs,
-               analyzed_lufs_range, analyzed_true_peak, analysis_done=True
-    Applies BPM correction: if > 160, halve it; if < 70, double it.
-    Sets bpm_corrected=True if a correction was applied.
-    Sets bpm_from_tags=True when BPM was read from existing file tags.
-    Sets track.error on exception.
+def _compute_tempo_category(bpm, genre):
+    if not bpm:
+        return None
+    genre_lower = (genre or "").lower()
+    if "bachata" in genre_lower:
+        if bpm < 110: return "slow"
+        elif bpm < 128: return "medium"
+        else: return "fast"
+    elif "kizomba" in genre_lower or "zouk" in genre_lower:
+        if bpm < 80: return "slow"
+        elif bpm < 100: return "medium"
+        else: return "fast"
+    elif "reggaeton" in genre_lower:
+        if bpm < 90: return "slow"
+        elif bpm < 105: return "medium"
+        else: return "fast"
+    else:
+        if bpm < 90: return "slow"
+        elif bpm < 115: return "medium"
+        else: return "fast"
 
-    Optimization: reads existing BPM/key tags first (mutagen). If both are
-    present and valid, skips librosa BPM+key detection entirely. LUFS/energy
-    analysis always runs regardless.
-    """
-    if track.error:
-        return track
 
-    if track.analysis_done:
-        return track
+def _apply_bpm_correction(bpm_raw, genre):
+    if not bpm_raw:
+        return bpm_raw, False
+    genre_lower = (genre or "").lower()
+    if "bachata" in genre_lower:
+        dance_min, dance_max = 110, 145
+    elif "kizomba" in genre_lower or "zouk" in genre_lower:
+        dance_min, dance_max = 80, 110
+    elif "cha cha" in genre_lower or "chacha" in genre_lower:
+        dance_min, dance_max = 108, 132
+    elif "reggaeton" in genre_lower:
+        dance_min, dance_max = 90, 110
+    elif "merengue" in genre_lower:
+        dance_min, dance_max = 150, 170
+    else:
+        dance_min, dance_max = 75, 110
+
+    corrected = False
+    result = bpm_raw
+
+    if bpm_raw > dance_max * 1.5:
+        result = bpm_raw / 2
+        corrected = True
+    elif bpm_raw < dance_min * 0.7:
+        result = bpm_raw * 2
+        corrected = True
+
+    if not corrected and bpm_raw > dance_max:
+        candidate_4_3 = bpm_raw * 0.75
+        if dance_min * 0.9 <= candidate_4_3 <= dance_max * 1.1:
+            result = round(candidate_4_3, 1)
+            corrected = True
+
+    if not corrected:
+        if result > 200:
+            result = result / 2
+            corrected = True
+        elif result < 50:
+            result = result * 2
+            corrected = True
+
+    if result != round(result, 1):
+        result = round(result, 1)
+    return result, corrected
+
+
+def _analyze_track_core(file_path, genre=""):
+    """Extract audio features from a file. Returns a dict of results.
+    Standalone — no Track object, no cache, no library-relative
+    normalization. Designed to be picklable and safe for multiprocessing
+    worker processes (only uses module-level imports, no Flask/app state).
+    """
+    result = {
+        "file_path": file_path,
+        "analyzed_bpm": None,
+        "bpm_from_tags": False,
+        "bpm_confidence": None,
+        "bpm_corrected": False,
+        "analyzed_key": None,
+        "key_confidence": None,
+        "raw_rms": None,
+        "duration": None,
+        "energy_timeline": None,
+        "phrase_boundaries": None,
+        "vocal_flag": None,
+        "vocal_confidence": None,
+        "tempo_category": None,
+        "analyzed_lufs": None,
+        "analyzed_lufs_range": None,
+        "analyzed_true_peak": None,
+        "waveform_data": None,
+        "waveform_peaks": None,
+        "error": None,
+    }
 
     try:
-        # ------------------------------------------------------------------ #
-        # Step 1: Try to read existing BPM / key from file tags               #
-        # ------------------------------------------------------------------ #
-        existing_bpm, existing_key = _read_tags_bpm_key(track.file_path)
-
+        existing_bpm, existing_key = _read_tags_bpm_key(file_path)
         skip_bpm = existing_bpm is not None
         skip_key = existing_key is not None
         skip_librosa_load = skip_bpm and skip_key
 
-        # ------------------------------------------------------------------ #
-        # Step 2: Load audio (required for energy/LUFS/waveform, and for any #
-        #         BPM or key that couldn't be read from tags)                 #
-        # ------------------------------------------------------------------ #
         y = None
         sr = None
         if not skip_librosa_load:
-            y, sr = librosa.load(track.file_path, sr=22050, mono=True)
+            y, sr = librosa.load(file_path, sr=22050, mono=True)
 
-        # ------------------------------------------------------------------ #
-        # Step 3: BPM — use tag value if available, else run librosa          #
-        # ------------------------------------------------------------------ #
         if skip_bpm:
-            track.analyzed_bpm = existing_bpm
-            track.bpm_from_tags = True
-            track.bpm_confidence = 100  # tag-sourced is authoritative
+            result["analyzed_bpm"] = existing_bpm
+            result["bpm_from_tags"] = True
+            result["bpm_confidence"] = 100
         else:
             onset_env = librosa.onset.onset_strength(y=y, sr=sr)
-            bpm, _ = librosa.beat.beat_track(y=y, sr=sr, onset_envelope=onset_env)
-            # librosa returns ndarray; handle empty, single, and multi-element arrays
-            bpm_arr = np.asarray(bpm)
+            bpm_raw, _ = librosa.beat.beat_track(y=y, sr=sr, onset_envelope=onset_env)
+            bpm_arr = np.asarray(bpm_raw)
             if bpm_arr.size == 0:
                 raise ValueError("No BPM detected — audio may be silent or corrupt")
-            track.analyzed_bpm = round(float(bpm_arr.item() if bpm_arr.ndim > 0 else bpm_arr), 1)
-
-            # BPM confidence — based on onset strength peak clarity
+            raw_val = round(float(bpm_arr.item() if bpm_arr.ndim > 0 else bpm_arr), 1)
             onset_ratio = np.max(onset_env) / (np.mean(onset_env) + 1e-6)
-            track.bpm_confidence = min(100, int(onset_ratio * 15))
+            result["bpm_confidence"] = min(100, int(onset_ratio * 15))
+            corrected_val, was_corrected = _apply_bpm_correction(raw_val, genre)
+            result["analyzed_bpm"] = round(corrected_val, 1) if corrected_val else raw_val
+            result["bpm_corrected"] = was_corrected
 
-            # Genre-aware BPM half/double correction for Latin dance tempos
-            # librosa detects the raw beat frequency, which for salsa is typically
-            # double what DJs think of as the BPM (e.g. 189 detected → 95 dance BPM)
-            bpm_raw = track.analyzed_bpm
-            genre = (track.proposed_genre or track.existing_genre or "").lower()
+        result["tempo_category"] = _compute_tempo_category(result["analyzed_bpm"], genre)
 
-            # Expected DJ dance BPM ranges (what the final result should be)
-            if "bachata" in genre:
-                dance_min, dance_max = 110, 145
-            elif "kizomba" in genre or "zouk" in genre:
-                dance_min, dance_max = 80, 110
-            elif "cha cha" in genre or "chacha" in genre:
-                dance_min, dance_max = 108, 132  # natural range — no 4/3 correction
-            elif "reggaeton" in genre:
-                dance_min, dance_max = 90, 110
-            elif "merengue" in genre:
-                dance_min, dance_max = 150, 170
-            else:  # Salsa, son, timba — clave causes 4/3 over-detection
-                dance_min, dance_max = 75, 110
-
-            # If raw BPM is roughly double the dance range, halve it
-            if bpm_raw > dance_max * 1.5:
-                track.analyzed_bpm = bpm_raw / 2
-                track.bpm_corrected = True
-            # If raw BPM is roughly half the dance range, double it
-            elif bpm_raw < dance_min * 0.7:
-                track.analyzed_bpm = bpm_raw * 2
-                track.bpm_corrected = True
-
-            # Check 4/3 correction (librosa sometimes detects at 4/3 speed for syncopated Latin rhythms)
-            # e.g. salsa 112 * 0.75 = 84 BPM (expected ~85)
-            if not track.bpm_corrected and bpm_raw > dance_max:
-                candidate_4_3 = bpm_raw * 0.75
-                if dance_min * 0.9 <= candidate_4_3 <= dance_max * 1.1:
-                    track.analyzed_bpm = round(candidate_4_3, 1)
-                    track.bpm_corrected = True
-
-            # Fallback: absolute correction for edge cases
-            if not track.bpm_corrected:
-                if track.analyzed_bpm > 200:
-                    track.analyzed_bpm = track.analyzed_bpm / 2
-                    track.bpm_corrected = True
-                elif track.analyzed_bpm < 50:
-                    track.analyzed_bpm = track.analyzed_bpm * 2
-                    track.bpm_corrected = True
-
-        # Tempo category based on genre + BPM (always derived from final BPM)
-        bpm = track.analyzed_bpm
-        genre = (track.proposed_genre or track.existing_genre or "").lower()
-
-        if bpm:
-            # Genre-aware BPM ranges for Latin dance styles
-            if "bachata" in genre:
-                if bpm < 110: tempo_cat = "slow"
-                elif bpm < 128: tempo_cat = "medium"
-                else: tempo_cat = "fast"
-            elif "kizomba" in genre or "zouk" in genre:
-                if bpm < 80: tempo_cat = "slow"
-                elif bpm < 100: tempo_cat = "medium"
-                else: tempo_cat = "fast"
-            elif "reggaeton" in genre:
-                if bpm < 90: tempo_cat = "slow"
-                elif bpm < 105: tempo_cat = "medium"
-                else: tempo_cat = "fast"
-            else:  # Salsa, Merengue, Cha Cha, default
-                if bpm < 90: tempo_cat = "slow"
-                elif bpm < 115: tempo_cat = "medium"
-                else: tempo_cat = "fast"
-            track.tempo_category = tempo_cat
-
-        # ------------------------------------------------------------------ #
-        # Step 4: Key — use tag value if available, else run librosa chroma   #
-        # ------------------------------------------------------------------ #
         if skip_key:
-            track.analyzed_key = existing_key
-            track.key_confidence = 100  # tag-sourced is authoritative
+            result["analyzed_key"] = existing_key
+            result["key_confidence"] = 100
         else:
             chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
-            track.analyzed_key, track.key_confidence = _detect_key_from_chroma(chroma)
+            result["analyzed_key"], result["key_confidence"] = _detect_key_from_chroma(chroma)
 
-        # ------------------------------------------------------------------ #
-        # Step 5: Energy, vocals, LUFS — always run (these are our value-add  #
-        #         and not stored in standard tags)                             #
-        # ------------------------------------------------------------------ #
-        # If we skipped librosa.load above, load now for energy/vocal/LUFS
         if y is None:
-            y, sr = librosa.load(track.file_path, sr=22050, mono=True)
+            y, sr = librosa.load(file_path, sr=22050, mono=True)
 
-        # Energy score
-        # Compute RMS directly from waveform (compatible with all librosa versions)
         rms = librosa.feature.rms(y=y)
-        rms_mean = float(np.mean(rms))
-        track.raw_rms = round(rms_mean, 6)
+        result["raw_rms"] = round(float(np.mean(rms)), 6)
+        result["duration"] = round(float(len(y)) / float(sr), 2)
+        result["energy_timeline"] = _compute_energy_timeline(y, sr)
+        result["phrase_boundaries"] = _detect_phrase_boundaries(y, sr)
 
-        # Capture track duration if not already set (librosa-loaded length)
-        if track.duration is None:
-            track.duration = round(float(len(y)) / float(sr), 2)
+        result["vocal_flag"], result["vocal_confidence"] = detect_vocal_flag(y, sr)
 
-        # Library-relative percentile normalization (replaces the old 0.35 hardcoded fallback).
-        # Falls back to the per-track fallback when library has fewer than 2 analyzed tracks.
-        try:
-            from app import get_track_store
-            track_store = get_track_store()
-            all_tracks = list(track_store.values()) if isinstance(track_store, dict) else list(track_store)
-        except Exception:
-            all_tracks = [track]
-
-        rescaled = apply_library_percentile_normalization(all_tracks)
-        if rescaled == 0:
-            track.analyzed_energy = _normalize_energy(rms)
-
-        # Vocal detection
-        vocal_flag, vocal_confidence = detect_vocal_flag(y, sr)
-        track.vocal_flag = vocal_flag
-        track.vocal_confidence = vocal_confidence
-
-        # LUFS loudness analysis (non-blocking — sets to None on failure)
         try:
             lufs, lra, true_peak = _compute_lufs(y, sr)
-            track.analyzed_lufs = lufs
-            track.analyzed_lufs_range = lra
-            track.analyzed_true_peak = true_peak
+            result["analyzed_lufs"] = lufs
+            result["analyzed_lufs_range"] = lra
+            result["analyzed_true_peak"] = true_peak
         except Exception:
-            track.analyzed_lufs = None
-            track.analyzed_lufs_range = None
-            track.analyzed_true_peak = None
+            pass
 
-        # Waveform thumbnail: 60 amplitude points across full track
         num_points = 60
         chunk = max(1, len(y) // num_points)
         points = []
@@ -688,29 +713,197 @@ def analyze_track(track: Track) -> Track:
             segment = y[i * chunk:(i + 1) * chunk]
             points.append(float(np.max(np.abs(segment))) if len(segment) else 0.0)
         max_amp = max(points) if max(points) > 0 else 1.0
-        track.waveform_data = [round(p / max_amp, 3) for p in points]
+        result["waveform_data"] = [round(p / max_amp, 3) for p in points]
 
-        # High-resolution waveform peaks: 600 amplitude points for detail panel
-        if not track.waveform_peaks:
-            num_peaks = 600
-            mono_abs = np.abs(y)
-            peak_chunk = max(1, len(mono_abs) // num_peaks)
-            raw_peaks = []
-            for i in range(num_peaks):
-                seg = mono_abs[i * peak_chunk:(i + 1) * peak_chunk]
-                raw_peaks.append(float(seg.max()) if len(seg) > 0 else 0.0)
-            peak_max = max(raw_peaks) if raw_peaks else 1.0
-            if peak_max > 0:
-                track.waveform_peaks = [round(p / peak_max, 4) for p in raw_peaks]
-            else:
-                track.waveform_peaks = raw_peaks
-
-        track.analysis_done = True
-
-        from app.services.analysis_cache import put as cache_put
-        cache_put(track)
+        num_peaks = 600
+        mono_abs = np.abs(y)
+        peak_chunk = max(1, len(mono_abs) // num_peaks)
+        raw_peaks = []
+        for i in range(num_peaks):
+            seg = mono_abs[i * peak_chunk:(i + 1) * peak_chunk]
+            raw_peaks.append(float(seg.max()) if len(seg) > 0 else 0.0)
+        peak_max = max(raw_peaks) if raw_peaks else 1.0
+        if peak_max > 0:
+            result["waveform_peaks"] = [round(p / peak_max, 4) for p in raw_peaks]
+        else:
+            result["waveform_peaks"] = raw_peaks
 
     except Exception as e:
-        track.error = f"Audio analysis failed: {str(e)}"
+        result["error"] = f"Audio analysis failed: {str(e)}"
 
+    return result
+
+
+_ANALYSIS_FIELD_MAP = [
+    ("analyzed_bpm", "analyzed_bpm"),
+    ("bpm_from_tags", "bpm_from_tags"),
+    ("bpm_confidence", "bpm_confidence"),
+    ("bpm_corrected", "bpm_corrected"),
+    ("analyzed_key", "analyzed_key"),
+    ("key_confidence", "key_confidence"),
+    ("raw_rms", "raw_rms"),
+    ("duration", "duration"),
+    ("energy_timeline", "energy_timeline"),
+    ("phrase_boundaries", "phrase_boundaries"),
+    ("vocal_flag", "vocal_flag"),
+    ("vocal_confidence", "vocal_confidence"),
+    ("tempo_category", "tempo_category"),
+    ("analyzed_lufs", "analyzed_lufs"),
+    ("analyzed_lufs_range", "analyzed_lufs_range"),
+    ("analyzed_true_peak", "analyzed_true_peak"),
+    ("waveform_data", "waveform_data"),
+    ("waveform_peaks", "waveform_peaks"),
+]
+
+
+def _apply_result_to_track(track, result):
+    for src_key, dst_key in _ANALYSIS_FIELD_MAP:
+        val = result.get(src_key)
+        if val is not None:
+            setattr(track, dst_key, val)
+    track.analysis_done = True
+
+
+def _postprocess_analysis(track):
+    from app.services.analysis_cache import put as cache_put
+    cache_put(track)
+
+
+def analyze_track(track: Track) -> Track:
+    """
+    Analyze audio features: BPM, key (Camelot), energy (1-10), LUFS loudness,
+    energy timeline, and phrase/section boundaries.
+    """
+    if track.error:
+        return track
+    if track.analysis_done:
+        return track
+
+    genre = (track.proposed_genre or track.existing_genre or "").lower()
+    result = _analyze_track_core(track.file_path, genre)
+
+    if result.get("error"):
+        track.error = result["error"]
+        return track
+
+    _apply_result_to_track(track, result)
+
+    try:
+        from app import get_track_store
+        track_store = get_track_store()
+        all_tracks = list(track_store.values()) if isinstance(track_store, dict) else list(track_store)
+    except Exception:
+        all_tracks = [track]
+
+    rescaled = apply_library_percentile_normalization(all_tracks)
+    if rescaled == 0:
+        track.analyzed_energy = _normalize_energy(np.array([track.raw_rms or 0.0]))
+
+    if track.duration is None and result.get("duration"):
+        track.duration = result["duration"]
+
+    _postprocess_analysis(track)
     return track
+
+
+def analyze_tracks_batch(file_paths, track_store, progress_queue=None, num_workers=None):
+    """Analyze multiple tracks in parallel using a multiprocessing worker pool.
+
+    Each worker process runs :func:`_analyze_track_core` on a single file.
+    The parent process applies results back to Track objects, normalizes
+    energy across the library, writes the analysis cache, and can push
+    progress events into *progress_queue* (a ``queue.Queue`` compatible
+    object, matching the SSE progress-reporting semantics).
+
+    Returns:
+        (analyzed_count, errors_list)
+    """
+    import multiprocessing
+    import os as _os
+
+    if num_workers is None:
+        num_workers = min(_os.cpu_count() or 4, len(file_paths))
+    num_workers = max(1, num_workers)
+
+    work_items = []
+    skipped = 0
+    for fp in file_paths:
+        track = track_store.get(fp) if hasattr(track_store, "get") else track_store[fp] if fp in track_store else None
+        if track is None:
+            continue
+        if track.error:
+            skipped += 1
+            continue
+        if track.analysis_done:
+            skipped += 1
+            continue
+        genre = (track.proposed_genre or track.existing_genre or "").lower()
+        work_items.append((fp, genre))
+
+    if not work_items:
+        if progress_queue is not None:
+            progress_queue.put({"done": True, "analyzed": 0, "errors": [], "refetch": True})
+        return 0, []
+
+    analyzed = 0
+    errors = []
+    completed = 0
+    total = len(file_paths)
+    processed_for_progress = 0
+
+    with multiprocessing.Pool(processes=num_workers) as pool:
+        for result in pool.imap_unordered(_analyze_track_worker, work_items):
+            completed += 1
+            fp = result["file_path"]
+            track = track_store.get(fp) if hasattr(track_store, "get") else track_store.get(fp)
+
+            if track is None:
+                continue
+
+            if result.get("error"):
+                errors.append({"path": fp, "error": result["error"]})
+                track.error = result["error"]
+                if progress_queue is not None:
+                    progress_queue.put({
+                        "current": completed,
+                        "total": total,
+                        "error": result["error"],
+                    })
+            else:
+                _apply_result_to_track(track, result)
+                # Fill in duration from analysis if not already set
+                if track.duration is None and result.get("duration"):
+                    track.duration = result["duration"]
+                analyzed += 1
+                processed_for_progress += 1
+                if progress_queue is not None:
+                    progress_queue.put({
+                        "current": completed,
+                        "total": total,
+                        "track": track.display_title,
+                        "analyzed": analyzed,
+                    })
+
+    # Percentile energy normalization across the whole library
+    try:
+        all_tracks = list(track_store.values()) if hasattr(track_store, "values") else list(track_store)
+        apply_library_percentile_normalization(all_tracks)
+    except Exception:
+        pass
+
+    # Cache each successfully analyzed track
+    for fp, _genre in work_items:
+        track = track_store.get(fp) if hasattr(track_store, "get") else track_store.get(fp)
+        if track and track.analysis_done and not track.error:
+            _postprocess_analysis(track)
+
+    if progress_queue is not None:
+        progress_queue.put({"done": True, "analyzed": analyzed, "errors": errors, "refetch": True})
+
+    return analyzed, errors
+
+
+def _analyze_track_worker(args):
+    """Entry point for multiprocessing pool — unpacks args for imap_unordered."""
+    file_path, genre = args
+    return _analyze_track_core(file_path, genre)
