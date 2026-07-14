@@ -242,7 +242,9 @@ def scan_folder(folder_path: str) -> list[Track]:
     return tracks
 
 
-def scan_folder_incremental(folder_path: str, track_store: dict) -> tuple[list[Track], list[str]]:
+def scan_folder_incremental(
+    folder_path: str, track_store: dict
+) -> tuple[list[Track], list[str], set[str]]:
     """
     Recursively scan folder for audio files, skipping unchanged files.
 
@@ -253,11 +255,17 @@ def scan_folder_incremental(folder_path: str, track_store: dict) -> tuple[list[T
       - If the file is new or has changed (different mtime or size), process
         it fully via _scan_single_file.
 
-    Returns (tracks, stale_paths) where:
+    Returns (tracks, stale_paths, unchanged_paths) where:
       - tracks: list of Track objects for ALL current files (unchanged +
         newly scanned)
       - stale_paths: list of file paths that are in the store but no longer
         exist on disk (should be removed from the store by the caller)
+      - unchanged_paths: paths reused verbatim from the store. Callers MUST NOT
+        write these back into the store: a TrackStore hands out a fresh
+        _PersistingTrack wrapper on every read, so an identity check ("is this
+        the object I already hold?") cannot detect reuse, and re-assigning the
+        wrapper is rejected by TrackStore.__setitem__. This set is the only
+        reliable reuse signal.
     """
     import logging
     logger = logging.getLogger(__name__)
@@ -269,7 +277,7 @@ def scan_folder_incremental(folder_path: str, track_store: dict) -> tuple[list[T
 
     store_keys = set(track_store.keys())
     disk_paths: set[str] = set()
-    unchanged_count = 0
+    unchanged_paths: set[str] = set()
     scanned_count = 0
 
     for root, dirs, files in os.walk(folder):
@@ -290,7 +298,7 @@ def scan_folder_incremental(folder_path: str, track_store: dict) -> tuple[list[T
                 if (existing.file_mtime == disk_mtime and
                         existing.file_size == disk_size):
                     tracks.append(existing)
-                    unchanged_count += 1
+                    unchanged_paths.add(file_path)
                     continue
 
             track = _scan_single_file(file_path, filename, suffix)
@@ -299,13 +307,13 @@ def scan_folder_incremental(folder_path: str, track_store: dict) -> tuple[list[T
 
     stale_paths = sorted(store_keys - disk_paths)
 
-    if unchanged_count or scanned_count:
+    if unchanged_paths or scanned_count:
         logger.info(
             "Incremental scan: %d unchanged, %d scanned, %d stale",
-            unchanged_count, scanned_count, len(stale_paths),
+            len(unchanged_paths), scanned_count, len(stale_paths),
         )
 
-    return tracks, stale_paths
+    return tracks, stale_paths, unchanged_paths
 
 
 def _scan_single_file(file_path: str, filename: str, suffix: str) -> Track:

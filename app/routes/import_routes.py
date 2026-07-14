@@ -96,7 +96,9 @@ def import_tracks():
         set_current_folder_path(folder_path)
 
         # Incremental scan: reuse unchanged tracks, only process new/changed files
-        tracks, stale_paths = scan_folder_incremental(folder_path, track_store)
+        tracks, stale_paths, unchanged_paths = scan_folder_incremental(
+            folder_path, track_store
+        )
 
         # Remove stale tracks (files deleted from disk since last import)
         # and upsert newly scanned tracks under _track_store_lock
@@ -112,8 +114,12 @@ def import_tracks():
             newly_scanned_count = 0
             restored_count = 0
             for track in tracks:
-                existing = track_store.get(track.file_path)
-                if existing is not None and existing is track:
+                # Reuse is reported by path, not by object identity: TrackStore
+                # returns a fresh _PersistingTrack wrapper on every read, so an
+                # `is` check never matches and writing the wrapper back raises
+                # ("TrackStore values must be Track instances, got
+                # _PersistingTrack") — which made every re-import 500.
+                if track.file_path in unchanged_paths:
                     continue
                 track_store[track.file_path] = track
                 newly_scanned_count += 1
@@ -122,6 +128,15 @@ def import_tracks():
         if restored_count:
             logger.info("Restored analysis from cache for %d tracks", restored_count)
 
+        # Tracks reused verbatim from the store — the whole point of the
+        # incremental path. Surfaced in the response (and logged) so a re-import
+        # is observably a no-op instead of just being fast.
+        skipped_count = len(unchanged_paths)
+        logger.info(
+            "Import %s: skipped %d unchanged, scanned %d, removed %d stale",
+            folder_path, skipped_count, newly_scanned_count, len(stale_paths),
+        )
+
         # Normalize genres from existing tags (e.g. "Salsa Romántica" → "Salsa")
         from app import get_taxonomy
         from app.services.genre_normalizer import normalize_track_genres
@@ -129,6 +144,9 @@ def import_tracks():
 
         return jsonify({
             "count": len(tracks),
+            "skipped": skipped_count,
+            "scanned": newly_scanned_count,
+            "stale_removed": len(stale_paths),
             "tracks": [t.to_dict() for t in tracks]
         }), 200
 

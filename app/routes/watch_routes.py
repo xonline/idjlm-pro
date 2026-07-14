@@ -25,14 +25,28 @@ def watch_start():
         start_watching(folder_path)
 
         # Also scan existing files in folder and add to track store
-        from app.services.scanner import scan_folder
+        from app.services.scanner import scan_folder_incremental
         from app import get_track_store
 
-        tracks = scan_folder(folder_path)
         track_store = get_track_store()
+
+        # Incremental: files already in the store with an unchanged mtime+size
+        # are reused as-is, so watching a 10k folder does not re-read every
+        # tag / re-hash / re-fingerprint on start.
+        #
+        # stale_paths is deliberately DISCARDED. The track store is global, but
+        # a watched folder may be a subfolder of — or unrelated to — the
+        # imported library, so every track outside folder_path would be listed
+        # stale. Only /api/import (the canonical full-library scan) may act on
+        # it. watch/start stays add-only.
+        tracks, _stale_paths, unchanged_paths = scan_folder_incremental(
+            folder_path, track_store
+        )
 
         added = 0
         for track in tracks:
+            if track.file_path in unchanged_paths:
+                continue
             if track.file_path not in track_store:
                 track_store[track.file_path] = track
                 added += 1
@@ -40,7 +54,8 @@ def watch_start():
         return jsonify({
             "watching": True,
             "folder": folder_path,
-            "existing_tracks_added": added
+            "existing_tracks_added": added,
+            "skipped": len(unchanged_paths),
         }), 200
 
     except Exception as e:
@@ -101,8 +116,9 @@ def watch_poll():
         tracks_data = []
         track_store = get_track_store()
 
-        from app.services.scanner import _read_id3_tags
-        from app.models.track import Track
+        import os
+        from pathlib import Path
+        from app.services.scanner import _scan_single_file
 
         for file_path in new_file_paths:
             try:
@@ -110,24 +126,16 @@ def watch_poll():
                 if file_path in track_store:
                     continue
 
-                # Read tags
-                id3_tags = _read_id3_tags(file_path)
-                import os
+                # Route through the shared single-file scan path rather than
+                # hand-rolling a Track here. It reads non-MP3 formats correctly
+                # and — critically — stamps file_mtime/file_size/content_hash.
+                # Without those, a track that entered via the inbox looks
+                # "changed" to scan_folder_incremental forever, so every later
+                # import would re-scan it and the inbox would quietly defeat
+                # incremental import.
                 filename = os.path.basename(file_path)
-
-                # Create Track object
-                track = Track(
-                    file_path=file_path,
-                    filename=filename,
-                    existing_title=id3_tags['title'],
-                    existing_artist=id3_tags['artist'],
-                    existing_album=id3_tags['album'],
-                    existing_year=id3_tags['year'],
-                    existing_genre=id3_tags['genre'],
-                    existing_comment=id3_tags['comment'],
-                    existing_bpm=id3_tags['bpm'],
-                    existing_key=id3_tags['key'],
-                )
+                suffix = Path(filename).suffix.lower()
+                track = _scan_single_file(file_path, filename, suffix)
 
                 # Add to store
                 track_store[file_path] = track
