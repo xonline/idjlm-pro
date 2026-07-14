@@ -163,3 +163,19 @@ class TestRekordboxIntegration:
         assert resp.status_code == 200
         data = resp.get_json()
         assert "total_rekordbox_tracks" in data
+
+    def test_rekordbox_write_check(self, client):
+        resp = client.post("/api/rekordbox/write-check", json={})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "safe" in data
+
+    def test_rekordbox_write_back(self, client):
+        resp = client.post("/api/rekordbox/write-back", json={})
+        assert resp.status_code in (200, 400)
+        data = resp.get_json()
+        assert "written" in data
+
+    def test_rekordbox_write_xml(self, client):
+        resp = client.get("/api/rekordbox/write-xml")
+        assert resp.status_code in (200, 500)

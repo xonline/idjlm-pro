@@ -208,6 +208,28 @@ class TestExportRoutes:
         resp = client.get("/api/export/rekordbox")
         assert resp.status_code in (200, 500)
 
+    def test_export_rekordbox_cues(self, client):
+        resp = client.get("/api/export/rekordbox-cues")
+        assert resp.status_code in (200, 500)
+
+    def test_export_serato_crate_no_beta(self, client):
+        resp = client.get("/api/export/serato-crate")
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert "beta" in data.get("error", "").lower()
+
+    def test_export_serato_crate_with_beta(self, client):
+        resp = client.get("/api/export/serato-crate?beta=true")
+        assert resp.status_code in (200, 500)
+
+    def test_export_traktor_nml(self, client):
+        resp = client.get("/api/export/traktor-nml")
+        assert resp.status_code in (200, 500)
+
+    def test_export_m3u_with_relative(self, client):
+        resp = client.get("/api/export/m3u?relative=true")
+        assert resp.status_code in (200, 500)
+
 
 # ---------------------------------------------------------------------------
 # Audio routes  (app/routes/audio_routes.py)
