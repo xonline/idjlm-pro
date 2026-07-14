@@ -806,7 +806,8 @@ def analyze_track(track: Track) -> Track:
     return track
 
 
-def analyze_tracks_batch(file_paths, track_store, progress_queue=None, num_workers=None):
+def analyze_tracks_batch(file_paths, track_store, progress_queue=None, num_workers=None,
+                         cancel_event=None):
     """Analyze multiple tracks in parallel using a multiprocessing worker pool.
 
     Each worker process runs :func:`_analyze_track_core` on a single file.
@@ -815,11 +816,23 @@ def analyze_tracks_batch(file_paths, track_store, progress_queue=None, num_worke
     progress events into *progress_queue* (a ``queue.Queue`` compatible
     object, matching the SSE progress-reporting semantics).
 
+    *cancel_event* is a ``threading.Event``; when set, the pool is terminated
+    rather than drained, so a cancelled 10k-track run stops in-flight instead
+    of pinning every core until it finishes. Work already completed is kept.
+
     Returns:
         (analyzed_count, errors_list)
     """
     import multiprocessing
     import os as _os
+
+    def _cancelled():
+        return cancel_event is not None and cancel_event.is_set()
+
+    if _cancelled():
+        if progress_queue is not None:
+            progress_queue.put({"done": True, "cancelled": True, "analyzed": 0, "errors": []})
+        return 0, []
 
     if num_workers is None:
         num_workers = min(_os.cpu_count() or 4, len(file_paths))
@@ -851,8 +864,17 @@ def analyze_tracks_batch(file_paths, track_store, progress_queue=None, num_worke
     total = len(file_paths)
     processed_for_progress = 0
 
+    cancelled = False
+
     with multiprocessing.Pool(processes=num_workers) as pool:
         for result in pool.imap_unordered(_analyze_track_worker, work_items):
+            if _cancelled():
+                # Kill the workers outright — draining the remaining items is
+                # exactly the multi-minute stall cancellation exists to avoid.
+                pool.terminate()
+                cancelled = True
+                break
+
             completed += 1
             fp = result["file_path"]
             track = track_store.get(fp) if hasattr(track_store, "get") else track_store.get(fp)
@@ -898,7 +920,10 @@ def analyze_tracks_batch(file_paths, track_store, progress_queue=None, num_worke
             _postprocess_analysis(track)
 
     if progress_queue is not None:
-        progress_queue.put({"done": True, "analyzed": analyzed, "errors": errors, "refetch": True})
+        terminal = {"done": True, "analyzed": analyzed, "errors": errors, "refetch": True}
+        if cancelled:
+            terminal["cancelled"] = True
+        progress_queue.put(terminal)
 
     return analyzed, errors
 

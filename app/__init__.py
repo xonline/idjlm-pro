@@ -55,6 +55,10 @@ class _LimitedProgressQueues(dict):
         super().__setitem__(key, value)
 
 _progress_queues = _LimitedProgressQueues()
+# Cancel signals: { op_id: threading.Event } — set by /api/progress/<op>/cancel
+# and polled by long-running workers so a cancelled run stops the pool instead
+# of draining it. Capped alongside the progress queues.
+_cancel_events = _LimitedProgressQueues()
 # Last imported folder path (used for auto-save)
 _current_folder_path: str = ""
 
@@ -94,8 +98,18 @@ def get_progress_queues() -> dict:
     return _progress_queues
 
 
+def get_cancel_events() -> dict:
+    return _cancel_events
+
+
+def is_cancelled(op_id: str) -> bool:
+    ev = _cancel_events.get(op_id)
+    return ev is not None and ev.is_set()
+
+
 def cleanup_progress_queue(op_id: str) -> None:
     _progress_queues.pop(op_id, None)
+    _cancel_events.pop(op_id, None)
 
 
 def get_current_folder_path() -> str:
@@ -117,6 +131,7 @@ def create_app() -> Flask:
 
     # Clear any stale progress queues from previous sessions
     _progress_queues.clear()
+    _cancel_events.clear()
 
     # Wire up the SQLite track store (issue #187 — B.1). The previous
     # in-memory dict + session.json pair is replaced by a small

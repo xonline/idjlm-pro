@@ -156,7 +156,7 @@ def analyze_tracks():
         import threading
         import queue as _queue
         from app.services.analyzer import analyze_track, analyze_tracks_batch
-        from app import get_track_store, get_progress_queues
+        from app import get_track_store, get_progress_queues, get_cancel_events
 
         data = request.get_json(silent=True) or {}
         track_paths = data.get("track_paths", [])
@@ -170,6 +170,8 @@ def analyze_tracks():
         op_id = str(uuid.uuid4())[:8]
         q = _queue.Queue()
         get_progress_queues()[op_id] = q
+        cancel_event = threading.Event()
+        get_cancel_events()[op_id] = cancel_event
 
         total = len(track_paths)
 
@@ -177,7 +179,8 @@ def analyze_tracks():
             def run():
                 logger.info(f"Starting parallel analysis for {total} tracks")
                 try:
-                    analyze_tracks_batch(track_paths, track_store, progress_queue=q)
+                    analyze_tracks_batch(track_paths, track_store, progress_queue=q,
+                                         cancel_event=cancel_event)
                 finally:
                     _analyze_lock.release()
         else:
@@ -185,8 +188,13 @@ def analyze_tracks():
                 analyzed = 0
                 errors = []
                 logger.info(f"Starting sequential analysis for {total} tracks")
+                cancelled = False
                 try:
                     for i, file_path in enumerate(track_paths):
+                        if cancel_event.is_set():
+                            logger.info("Analysis cancelled after %d/%d tracks", i, total)
+                            cancelled = True
+                            break
                         if file_path not in track_store:
                             logger.warning(f"Track {file_path} not found in store, skipping")
                             continue
@@ -216,7 +224,10 @@ def analyze_tracks():
                                 'error': error_msg
                             })
                     logger.info(f"Analysis complete: {analyzed}/{total} succeeded, {len(errors)} errors")
-                    q.put({'done': True, 'analyzed': analyzed, 'errors': errors, 'refetch': True})
+                    terminal = {'done': True, 'analyzed': analyzed, 'errors': errors, 'refetch': True}
+                    if cancelled:
+                        terminal['cancelled'] = True
+                    q.put(terminal)
                 finally:
                     _analyze_lock.release()
 
