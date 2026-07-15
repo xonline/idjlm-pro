@@ -139,6 +139,18 @@ function buildDockHTML(track) {
   html += '<div class="dock-hero-cell"><div class="dock-hero-label">Energy</div><div class="dock-hero-value dock-hero-energy">' + energyHtml + '</div></div>';
   html += '</div>';
 
+  // Custom tags chips
+  if (track.custom_tags && Object.keys(track.custom_tags).length > 0) {
+    html += '<div class="dock-tag-list">';
+    Object.keys(track.custom_tags).sort().forEach(function(k) {
+      var v = track.custom_tags[k];
+      if (v) {
+        html += '<span class="dock-tag-chip"><span class="dock-tag-chip-key">' + window.escapeHtml(k) + '</span><span class="dock-tag-chip-value">' + window.escapeHtml(v) + '</span></span>';
+      }
+    });
+    html += '</div>';
+  }
+
   // Metadata grid
   html += metaHtml;
 

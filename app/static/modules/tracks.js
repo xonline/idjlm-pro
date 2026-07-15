@@ -142,6 +142,17 @@ function getFilteredTracks() {
     }
   }
 
+  // Tag filter — AND across tag keys, OR within each key's values (Phase 4.1)
+  if (window.activeTagFilters && Object.keys(window.activeTagFilters).length > 0) {
+    filtered = filtered.filter(function(t) {
+      var tags = t.custom_tags || {};
+      return Object.keys(window.activeTagFilters).every(function(key) {
+        var vals = window.activeTagFilters[key];
+        return vals && vals.size > 0 && vals.has(tags[key]);
+      });
+    });
+  }
+
   return filtered;
 }
 

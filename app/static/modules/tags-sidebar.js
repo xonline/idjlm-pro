@@ -156,6 +156,11 @@ function initTagsSidebar() {
   if (!container) return;
   fetchTagsSidebar();
 
+  // Auto-refresh when tracks change (import, analyse, etc.)
+  store.subscribe('tracks', function() {
+    refreshTagsSidebar();
+  });
+
   var clearBtn = document.getElementById('btn-clear-tag-filters');
   if (clearBtn) {
     clearBtn.addEventListener('click', clearTagFilters);

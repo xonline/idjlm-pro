@@ -35,6 +35,16 @@ document.addEventListener('keydown', (e) => {
       _globalShortcuts['cmdf']();
     }
   }
+
+  // T → quick-tag panel (Phase 4.1)
+  if ((e.key === 't' || e.key === 'T') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+    if (_globalShortcuts['quicktag']) {
+      e.preventDefault();
+      _globalShortcuts['quicktag']();
+    }
+  }
 });
 
 // ============================================================================
