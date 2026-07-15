@@ -513,7 +513,9 @@ function _renderGroupElement(container, group, idx) {
     _debouncedRecompute();
   });
   groupEl.querySelector('.group-remove-btn')?.addEventListener('click', () => {
+    const parent = groupEl.parentElement;
     groupEl.remove();
+    if (parent) _cleanupConnectors(parent);
     _debouncedRecompute();
   });
   groupEl.querySelector('.add-rule-in-group-btn')?.addEventListener('click', () => _addRuleTo(bodyId));
@@ -608,10 +610,17 @@ function _editRuleInline(wrapper, parentContainer) {
     const valEl = editor.querySelector('.rule-editor-value');
     if (valEl) {
       if (newFieldDef && newFieldDef.presetValues) {
-        const selectHTML = '<select class="rule-editor-value">' +
+        valEl.outerHTML = '<select class="rule-editor-value">' +
           newFieldDef.presetValues.map(v => '<option value="' + v + '">' + escapeHtml(v) + '</option>').join('') +
           '</select>';
-        valEl.outerHTML = selectHTML;
+      } else if (newFieldDef && newFieldDef.suggestFrom === 'taxonomy') {
+        const genres = store.state.taxonomy ? Object.keys(store.state.taxonomy) : [];
+        valEl.outerHTML = '<select class="rule-editor-value"><option value="">\u2014</option>' +
+          genres.map(g => '<option value="' + g + '">' + escapeHtml(g) + '</option>').join('') +
+          '</select>';
+      } else {
+        const isNum = newFieldDef && newFieldDef.type === 'number';
+        valEl.outerHTML = '<input type="' + (isNum ? 'number' : 'text') + '" class="rule-editor-value" value="" placeholder="value">';
       }
     }
   });
