@@ -1,0 +1,103 @@
+<!-- Set Planner Tab -->
+<section id="tab-setplan" class="tab">
+  <div class="tab-header">
+    <h2>Set Planner</h2>
+    <p class="tab-desc">Auto-build a DJ set with shaped energy arc — warm-up, peak hour, or cool-down.</p>
+  </div>
+
+  <div class="card">
+    <div class="setplan-controls" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem;">
+      <div class="form-group">
+        <label>Arc Type</label>
+        <div id="arc-selector" style="display:flex;gap:0.5rem;flex-wrap:wrap;"></div>
+      </div>
+      <div class="form-group">
+        <label>Duration (minutes)</label>
+        <input type="number" id="setplan-duration" class="input" value="60" min="15" max="240" style="width:80px;">
+      </div>
+      <div class="form-group">
+        <label>Genre (optional)</label>
+        <select id="setplan-genre" class="input" style="width:140px;">
+          <option value="">All genres</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>BPM range</label>
+        <div style="display:flex;gap:0.4rem;align-items:center;">
+          <input type="number" id="setplan-bpm-min" class="input" placeholder="Min" style="width:65px;">
+          <span>–</span>
+          <input type="number" id="setplan-bpm-max" class="input" placeholder="Max" style="width:65px;">
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btn-generate-set">Generate Set</button>
+    </div>
+
+    <!-- Energy arc visualisation -->
+    <div id="setplan-arc-preview" style="margin-bottom:1rem;display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
+        <span class="arc-preview-label" style="font-size:0.8rem;color:var(--text-muted);">Energy Arc — drag control points to reshape</span>
+        <button class="btn btn-secondary btn-sm" id="btn-reset-arc" onclick="resetArcEditor()" title="Reset arc to default">Reset</button>
+      </div>
+      <canvas id="arc-canvas" height="50" style="width:100%;border-radius:4px;background:var(--bg-secondary);cursor:default;"></canvas>
+    </div>
+
+    <div id="setplan-results"></div>
+  </div>
+
+  <!-- Manual Setlist -->
+  <h2 class="settings-section-title" style="margin-top:32px;padding:0 24px;">Manual Setlist</h2>
+  <div id="setlist-subpanel" style="padding:0 24px 24px;">
+    <div id="setlist-empty-state" class="empty-state">
+      <div class="empty-state-content">
+        <div class="empty-icon">🎵</div>
+        <div class="empty-msg">Build your set</div>
+        <div class="empty-submsg">Add tracks from the Library tab to create your setlist</div>
+      </div>
+    </div>
+
+    <div id="setlist-main" class="setlist-container" style="display: none;">
+      <!-- Current Setlist -->
+      <div class="setlist-panel">
+        <div class="setlist-panel-header">Current Setlist</div>
+        <div id="setlist-tracks" class="setlist-tracks">
+          <div class="setlist-empty">No tracks added yet</div>
+        </div>
+        <div class="setlist-footer">
+          <div class="setlist-footer-info">
+            <span id="setlist-count">0 tracks</span> • <span id="setlist-duration">0:00</span>
+          </div>
+          <div class="setlist-footer-buttons">
+            <button id="btn-setlist-export" class="btn btn-secondary" disabled>
+              📥 Export M3U
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Suggestions Panel -->
+      <div class="setlist-panel">
+        <div class="setlist-panel-header">Harmonic Suggestions</div>
+        <div id="setlist-suggestions-container" class="setlist-suggestions">
+          <p style="color: var(--text-secondary); font-size: 12px;">Select a track to see compatible suggestions</p>
+        </div>
+      </div>
+
+      <!-- Energy Timeline Panel -->
+      <div class="setlist-panel" id="energy-timeline-panel" style="display:none;">
+        <div class="setlist-panel-header">Energy Timeline</div>
+        <div id="energy-timeline-summary" style="padding:8px 16px;font-size:13px;color:var(--text-secondary);"></div>
+        <div class="energy-timeline">
+          <canvas id="chart-energy-timeline" height="200"></canvas>
+        </div>
+      </div>
+
+      <!-- Setlist Timeline View (Phase 3.6) -->
+      <div class="setlist-panel" id="setlist-timeline-view" style="display:none;">
+        <div class="setlist-panel-header">Timeline — BPM · Key · Energy</div>
+        <div class="setlist-timeline-wrap">
+          <canvas id="setlist-timeline-canvas" height="250" style="width:100%;display:block;"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

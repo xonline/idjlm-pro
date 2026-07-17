@@ -63,6 +63,17 @@ function showInDock(track) {
       if (t) showInDock(t);
     }
   });
+
+  // Wire piano key preview (3.5) — click on the Key hero cell
+  var keyCell = body.querySelector('.dock-hero-key');
+  if (keyCell && track.final_key && window.playKeyChord) {
+    keyCell.style.cursor = 'pointer';
+    keyCell.title = 'Play ' + track.final_key + ' chord';
+    keyCell.addEventListener('click', function(e) {
+      e.stopPropagation();
+      window.playKeyChord(track.final_key);
+    });
+  }
 }
 
 function findTrackByPath(filePath) {
