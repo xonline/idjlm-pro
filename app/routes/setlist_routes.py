@@ -86,7 +86,7 @@ def _get_compatible_keys(key: str) -> set:
 def suggest_next():
     """
     Given a track's Camelot key, suggest harmonically compatible tracks.
-    body: {"file_path": "...", "limit": 5}
+    body: {"file_path": "...", "limit": 5, "bpm_weight": 1.0, "energy_weight": 1.0, "genre_weight": 1.0, "key_weight": 1.0}
     Returns tracks with same key, +1/-1 Camelot, or same number different mode.
     """
     from app import get_track_store
@@ -94,6 +94,10 @@ def suggest_next():
     data = request.get_json(silent=True) or {}
     file_path = data.get("file_path")
     limit = int(data.get("limit", 5))
+    key_weight = float(data.get("key_weight", 1.0))
+    bpm_weight = float(data.get("bpm_weight", 1.0))
+    energy_weight = float(data.get("energy_weight", 1.0))
+    genre_weight = float(data.get("genre_weight", 1.0))
     track_store = get_track_store()
 
     if file_path not in track_store:
@@ -125,9 +129,64 @@ def suggest_next():
                 "compatibility": "same" if track.final_key == source_key else "adjacent",
             })
 
-    # Sort by BPM proximity to source
+    # Apply weighted scoring similar to advisor service
     source_bpm = float(source.final_bpm or 0)
-    suggestions.sort(key=lambda t: abs(float(t["bpm"] or 0) - source_bpm))
+    source_energy = track.analyzed_energy if (track := source).analyzed_energy is not None else 5
+    source_genre = (source.override_genre or source.proposed_genre or source.existing_genre or "").lower()
+
+    # Score each suggestion using weighted parameters
+    for s in suggestions:
+        score = 0.0
+        max_score = 0.0
+
+        # Key compatibility
+        max_score += 40 * key_weight
+        track_key = s["key"]
+        if track_key == source_key:
+            score += 40 * key_weight
+        elif track_key and track_key.replace('A', 'B').replace('B', 'A') in [source_key]:
+            score += 35 * key_weight
+        else:
+            score += 25 * key_weight
+
+        # BPM compatibility
+        max_score += 30 * bpm_weight
+        track_bpm = float(s["bpm"] or 0)
+        if source_bpm > 0 and track_bpm > 0:
+            bpm_diff = abs(track_bpm - source_bpm)
+            bpm_pct = (bpm_diff / source_bpm) * 100
+            if bpm_pct <= 3:
+                score += 30 * bpm_weight
+            elif bpm_pct <= 5:
+                score += 25 * bpm_weight
+            elif bpm_pct <= 8:
+                score += 15 * bpm_weight
+            elif bpm_pct <= 15:
+                score += 5 * bpm_weight
+
+        # Energy match
+        max_score += 20 * energy_weight
+        track_energy = s["energy"] or 5
+        energy_diff = abs(track_energy - source_energy)
+        if energy_diff == 0:
+            score += 20 * energy_weight
+        elif energy_diff == 1:
+            score += 15 * energy_weight
+        elif energy_diff == 2:
+            score += 8 * energy_weight
+
+        # Genre continuity
+        max_score += 10 * genre_weight
+        track_genre = (s.get("genre") or "").lower()
+        if source_genre and track_genre == source_genre:
+            score += 10 * genre_weight
+        elif source_genre and track_genre:
+            score += 3 * genre_weight
+
+        s["score"] = round((score / max_score) * 100) if max_score > 0 else 0
+
+    # Sort by score descending
+    suggestions.sort(key=lambda t: t["score"], reverse=True)
 
     return jsonify({"suggestions": suggestions[:limit]}), 200
 

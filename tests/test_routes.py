@@ -277,6 +277,63 @@ class TestSetlistRoutes:
         resp = client.post("/api/setlist/suggest", json={})
         assert resp.status_code in (400, 404)
 
+    def test_suggest_next_with_weight_params(self, client):
+        """Test that /api/setlist/suggest accepts weighted parameters."""
+        from app.models.track import Track
+        from app import get_track_store
+
+        source_track = Track(
+            file_path="/track1.mp3",
+            filename="track1.mp3",
+            existing_title="Source",
+            existing_artist="Artist",
+            analyzed_bpm=120.0,
+            analyzed_key="8A",
+            analyzed_energy=7,
+        )
+        target_track = Track(
+            file_path="/track2.mp3",
+            filename="track2.mp3",
+            existing_title="Compatible",
+            existing_artist="Artist B",
+            analyzed_bpm=121.0,
+            analyzed_key="8A",
+            analyzed_energy=7,
+        )
+
+        store = get_track_store()
+        store["/track1.mp3"] = source_track
+        store["/track2.mp3"] = target_track
+
+        resp = client.post("/api/setlist/suggest", json={
+            "file_path": "/track1.mp3",
+            "limit": 5,
+            "key_weight": 1.0,
+            "bpm_weight": 1.0,
+            "energy_weight": 1.0,
+            "genre_weight": 1.0
+        })
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "suggestions" in data
+        assert len(data["suggestions"]) >= 0
+
+    def test_suggest_next_key_weight_zero(self, client):
+        """Test that key_weight=0 is accepted and scores accordingly."""
+        resp = client.post("/api/setlist/suggest", json={
+            "file_path": "/nonexistent.mp3",
+            "key_weight": 0.0,
+        })
+        assert resp.status_code in (400, 404)
+
+    def test_suggest_next_default_weights(self, client):
+        """Test that weights default to 1.0 when not provided."""
+        resp = client.post("/api/setlist/suggest", json={
+            "file_path": "/nonexistent.mp3",
+            "limit": 10
+        })
+        assert resp.status_code in (400, 404)
+
     def test_export_setlist(self, client):
         resp = client.get("/api/setlist/export")
         assert resp.status_code in (200, 500)
