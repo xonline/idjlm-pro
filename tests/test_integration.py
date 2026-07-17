@@ -148,6 +148,38 @@ class TestNextTrackAdvisor:
         resp = client.post("/api/suggest_next", json={})
         assert resp.status_code == 400
 
+    def test_suggest_next_with_weight_params(self, client):
+        """Test /api/suggest_next accepts weighted parameters."""
+        resp = client.post("/api/suggest_next", json={
+            "file_path": "/nonexistent.mp3",
+            "limit": 5,
+            "key_weight": 0.5,
+            "bpm_weight": 0.3,
+            "energy_weight": 0.2,
+            "genre_weight": 0.8
+        })
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "suggestions" in data
+
+    def test_suggest_next_weight_zero_key(self, client):
+        """Test key_weight=0 is accepted."""
+        resp = client.post("/api/suggest_next", json={
+            "file_path": "/nonexistent.mp3",
+            "key_weight": 0.0,
+        })
+        assert resp.status_code == 200
+
+    def test_suggest_next_default_weights(self, client):
+        """Test that weights default to 1.0 when not provided."""
+        resp = client.post("/api/suggest_next", json={
+            "file_path": "/nonexistent.mp3",
+            "limit": 10
+        })
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "suggestions" in data
+
 
 class TestRekordboxIntegration:
     """Test rekordbox reader endpoints."""

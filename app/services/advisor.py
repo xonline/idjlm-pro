@@ -48,7 +48,15 @@ def _get_genre(track: Track) -> str:
     return (track.override_genre or track.proposed_genre or track.existing_genre or '').lower()
 
 
-def suggest_next_tracks(track_store: dict, source_path: str, limit: int = 5) -> list[dict]:
+def suggest_next_tracks(
+    track_store: dict,
+    source_path: str,
+    limit: int = 5,
+    key_weight: float = 1.0,
+    bpm_weight: float = 1.0,
+    energy_weight: float = 1.0,
+    genre_weight: float = 1.0,
+) -> list[dict]:
     """
     Given a source track, return ranked suggestions from the store.
     Each result: {file_path, score, score_key, score_bpm, score_energy, score_genre, display_title, display_artist}
@@ -69,62 +77,62 @@ def suggest_next_tracks(track_store: dict, source_path: str, limit: int = 5) -> 
         if path == source_path:
             continue
 
-        score = 0
-        max_score = 0
+        score = 0.0
+        max_score = 0.0
 
         # Key compatibility (40 points)
-        max_score += 40
+        max_score += 40 * key_weight
         track_key = _get_key(track)
         if track_key in compatible_keys:
             if track_key == source_key:
-                score += 40  # Same key = perfect
+                score += 40 * key_weight  # Same key = perfect
             elif track_key.replace('A', 'B').replace('B', 'A') in [source_key]:  # Relative major/minor
-                score += 35
+                score += 35 * key_weight
             else:
-                score += 25  # Adjacent
+                score += 25 * key_weight  # Adjacent
         elif track_key:
             # +/- 2 keys
             try:
                 src_num = int(source_key[:-1])
                 tgt_num = int(track_key[:-1])
                 if abs(src_num - tgt_num) <= 2:
-                    score += 15
+                    score += 15 * key_weight
             except (ValueError, IndexError):
                 pass
 
         # BPM compatibility (30 points)
-        max_score += 30
+        max_score += 30 * bpm_weight
         track_bpm = _get_bpm(track)
         if source_bpm > 0 and track_bpm > 0:
             bpm_diff = abs(track_bpm - source_bpm)
             bpm_pct = (bpm_diff / source_bpm) * 100
             if bpm_pct <= 3:
-                score += 30
+                score += 30 * bpm_weight
             elif bpm_pct <= 5:
-                score += 25
+                score += 25 * bpm_weight
             elif bpm_pct <= 8:
-                score += 15
+                score += 15 * bpm_weight
             elif bpm_pct <= 15:
-                score += 5
+                score += 5 * bpm_weight
 
         # Energy match (20 points)
-        max_score += 20
+        max_score += 20 * energy_weight
         track_energy = _get_energy(track)
         energy_diff = abs(track_energy - source_energy)
         if energy_diff == 0:
-            score += 20
+            score += 20 * energy_weight
         elif energy_diff == 1:
-            score += 15
+            score += 15 * energy_weight
         elif energy_diff == 2:
-            score += 8
+            score += 8 * energy_weight
 
         # Genre continuity (10 points)
-        max_score += 10
+        max_score += 10 * genre_weight
         track_genre = _get_genre(track)
         if source_genre and track_genre == source_genre:
-            score += 10
+            score += 10 * genre_weight
         elif source_genre and track_genre:
-            score += 3  # At least has a genre
+            score += 3 * genre_weight  # At least has a genre
 
         if max_score > 0:
             normalized = round((score / max_score) * 100)
