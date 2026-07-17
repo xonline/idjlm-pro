@@ -57,4 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initSyncCenter();
   initInbox();
   initTagsSidebar();
+  initDragDrop();
+  initPreparePanel();
+  initKeyPreview();
+  initSetlistTimeline();
 });

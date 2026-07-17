@@ -785,37 +785,119 @@ async function loadSetplanArcs() {
   } catch(e) { console.error('Failed to load arcs', e); }
 }
 
+var _arcControlPoints = null;
+var _arcDragging = -1;
+
 function drawArcPreview() {
-  const arc = setplanArcs.find(a => a.id === currentSetplanArc);
+  var arc = setplanArcs.find(function(a) { return a.id === currentSetplanArc; });
   if (!arc) return;
-  const canvas = document.getElementById('arc-canvas');
+  var canvas = document.getElementById('arc-canvas');
   if (!canvas) return;
   canvas.width = canvas.offsetWidth || 600;
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width, h = canvas.height;
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
-  const curve = arc.energy_curve;
-  const pts = curve.map((v, i) => ({
-    x: (i / (curve.length - 1)) * (w - 20) + 10,
-    y: h - 6 - ((v - 1) / 9) * (h - 12)
-  }));
+
+  // Use custom control points if edited, else arc defaults
+  if (!_arcControlPoints) {
+    _arcControlPoints = arc.energy_curve.map(function(v) { return v; });
+  }
+  var curve = _arcControlPoints;
+  var pts = curve.map(function(v, i) {
+    return {
+      x: (i / (curve.length - 1)) * (w - 20) + 10,
+      y: h - 6 - ((v - 1) / 9) * (h - 12)
+    };
+  });
+
   // Fill
   ctx.beginPath();
   ctx.moveTo(pts[0].x, h);
-  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  pts.forEach(function(p) { ctx.lineTo(p.x, p.y); });
   ctx.lineTo(pts[pts.length-1].x, h);
   ctx.closePath();
   ctx.fillStyle = 'rgba(0,210,190,0.15)';
   ctx.fill();
+
   // Line
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
-  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  pts.forEach(function(p) { ctx.lineTo(p.x, p.y); });
   ctx.strokeStyle = 'var(--accent, #00d2be)';
   ctx.lineWidth = 2;
   ctx.stroke();
+
+  // Draw draggable control points
+  pts.forEach(function(p, i) {
+    ctx.fillStyle = (i === _arcDragging) ? '#fff' : 'var(--accent, #00d2be)';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, (i === _arcDragging) ? 7 : 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'var(--bg0, #0d0d1a)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+
+  canvas.style.cursor = _arcDragging >= 0 ? 'grabbing' : 'pointer';
   document.getElementById('setplan-arc-preview').style.display = 'block';
 }
+
+function initArcEditor() {
+  var canvas = document.getElementById('arc-canvas');
+  if (!canvas) return;
+
+  canvas.addEventListener('mousedown', function(e) {
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    var w = canvas.width;
+    var h = canvas.height;
+
+    // Find nearest control point within 12px
+    var arc = setplanArcs.find(function(a) { return a.id === currentSetplanArc; });
+    if (!arc) return;
+    var curve = _arcControlPoints || arc.energy_curve;
+    for (var i = 0; i < curve.length; i++) {
+      var px = (i / (curve.length - 1)) * (w - 20) + 10;
+      var py = h - 6 - ((curve[i] - 1) / 9) * (h - 12);
+      var dist = Math.sqrt((mx - px) * (mx - px) + (my - py) * (my - py));
+      if (dist < 12) { _arcDragging = i; break; }
+    }
+  });
+
+  canvas.addEventListener('mousemove', function(e) {
+    if (_arcDragging < 0) return;
+    var rect = canvas.getBoundingClientRect();
+    var my = e.clientY - rect.top;
+    var h = canvas.height;
+
+    // Clamp energy value to 1-10
+    var energy = Math.round(1 + (1 - (my / h)) * 9);
+    energy = Math.max(1, Math.min(10, energy));
+    _arcControlPoints[_arcDragging] = energy;
+    drawArcPreview();
+  });
+
+  canvas.addEventListener('mouseup', function() { _arcDragging = -1; });
+  canvas.addEventListener('mouseleave', function() { _arcDragging = -1; });
+}
+
+function resetArcEditor() {
+  var arc = setplanArcs.find(function(a) { return a.id === currentSetplanArc; });
+  if (!arc) {
+    _arcControlPoints = null;
+  } else {
+    _arcControlPoints = arc.energy_curve.map(function(v) { return v; });
+  }
+  drawArcPreview();
+}
+
+function getEditedArcCurve() {
+  return _arcControlPoints;
+}
+
+window.resetArcEditor = resetArcEditor;
+window.getEditedArcCurve = getEditedArcCurve;
 
 async function generateSet() {
   const btn = document.getElementById('btn-generate-set');
@@ -935,6 +1017,8 @@ function populateSetplanGenres() {
 
 
 // --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+window.drawArcPreview = drawArcPreview;
+window.initArcEditor = initArcEditor;
 window.addTrackToSetlist = addTrackToSetlist;
 window.closeTrackDetail = closeTrackDetail;
 window.connectToProgress = connectToProgress;

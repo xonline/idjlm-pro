@@ -90,6 +90,7 @@ function initSetPlanTab() {
   }
 
   loadSetplanArcs();
+  initArcEditor();
 }
 
 

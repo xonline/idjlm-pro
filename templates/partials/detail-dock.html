@@ -1,0 +1,32 @@
+<!-- DETAIL DOCK v2 — permanently docked right panel (Phase 1.4) -->
+<!-- art, 600-pt waveform + playhead, key/BPM/energy hero row, cues,
+     compatible tracks list from /api/mixes/compatible/ -->
+<aside id="detail-dock" class="detail-dock" aria-label="Track details" hidden>
+  <div class="detail-dock-header">
+    <span class="detail-dock-title">Track Details</span>
+    <button class="detail-dock-close" id="detail-dock-close" title="Collapse (Shift+D)" aria-label="Collapse detail panel">&times;</button>
+  </div>
+  <div class="detail-dock-body" id="detail-dock-body">
+    <!-- Populated by detail-dock.js -->
+  </div>
+  <!-- Prepare Panel (Phase 3.2) — Serato-style staging list -->
+  <div class="prepare-panel" id="prepare-panel" style="display:none;">
+    <div class="prepare-panel-header">
+      <span class="prepare-panel-title">Prepare</span>
+      <button class="prepare-panel-close" title="Clear prepare panel">&times;</button>
+    </div>
+    <div class="prepare-panel-empty" id="prepare-panel-empty">
+      <div class="prepare-empty-text">Drag tracks here or press <kbd>P</kbd> to add</div>
+    </div>
+    <div class="prepare-panel-list" id="prepare-panel-list"></div>
+    <div class="prepare-panel-footer">
+      <div class="prepare-panel-info">
+        <span id="prepare-panel-count">0 tracks</span> · <span id="prepare-panel-duration">0:00</span>
+      </div>
+      <div class="prepare-panel-buttons">
+        <button class="btn btn-secondary btn-sm" id="btn-prepare-clear">Clear</button>
+        <button class="btn btn-primary btn-sm" id="btn-prepare-to-setlist" disabled>→ Setlist</button>
+      </div>
+    </div>
+  </div>
+</aside>
