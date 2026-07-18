@@ -3,29 +3,16 @@
 // ============================================================================
 
 // Global state
-// tracks/selectedTracks/setlist/taxonomy now live in store.state (store.js,
-// loaded before this module) — read/write them via store.state.<key> or
-// store.set('<key>', value); do not re-declare window.* globals for them.
-window.searchResults = null; // null = no active search; array = server-side search results
-window.currentSort = { field: 'display_title', direction: 'asc' };
-window.currentPage = 1;
-const TRACKS_PER_PAGE = 100;
+// tracks/selectedTracks/setlist/taxonomy/searchResults/currentSort/activeChips
+// now live in store.state (store.js, loaded before this module) — read/write
+// them via store.state.<key> or store.set('<key>', value); do not re-declare
+// window.* globals for them.
 window.statsInterval = null;
 window.currentEditPath = null;
 window.currentAudioPlayer = null;
 let isWatching = false;
 let watchPollInterval = null;
 window.searchDebounceTimer = null;
-let chartInstances = {
-  genres: null,
-  bpm: null,
-  years: null,
-  keyDist: null,
-  energyDist: null,
-  decadeDist: null,
-  genreEra: null,
-  energyTimeline: null,
-};
 
 // ============================================================================
 // Utility: HTML Escaping & Safe DOM Creation
@@ -152,7 +139,7 @@ async function undoLastWrite() {
       // Refetch tracks
       const d = await apiFetch('/api/tracks');
       store.set('tracks', d.tracks || []); // renderTracks fires via subscription
-      window.searchResults = null;
+      store.set('searchResults', null);
       updateStats();
       showToast('Tags restored from backup', 'success');
     } else {
@@ -163,12 +150,8 @@ async function undoLastWrite() {
   }
 }
 
-
-window.chartInstances = chartInstances;
-
-// --- ES module bridge (0.4): expose to global scope for cross-module calls ---
-window.TRACKS_PER_PAGE = TRACKS_PER_PAGE;
-window.apiFetch = apiFetch;
+  // --- ES module bridge (0.4): expose to global scope for cross-module calls ---
+  window.apiFetch = apiFetch;
 window.createElement = createElement;
 window.escapeHtml = escapeHtml;
 window.hideSpinner = hideSpinner;

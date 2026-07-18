@@ -1,0 +1,200 @@
+<!-- Library Health Drawer (Phase 4.5) -->
+<div class="health-drawer-overlay" id="health-drawer-overlay"></div>
+<aside id="health-drawer" class="health-drawer" aria-label="Library Health">
+  <div class="health-drawer-header">
+    <span class="health-drawer-title">Library Health</span>
+    <button class="health-drawer-close" id="health-drawer-close" title="Close (Escape)" aria-label="Close drawer">&times;</button>
+  </div>
+  <div class="health-drawer-body">
+    <div class="tab-header">
+      <h2>Organise Library</h2>
+    </div>
+
+    <!-- Library Health Dashboard -->
+    <div class="card" id="health-card">
+      <div class="card-header">
+        <h3>Library Health</h3>
+        <button class="btn btn-sm" id="btn-refresh-health">Refresh</button>
+      </div>
+      <div id="health-stats" class="health-grid">
+        <div class="health-stat"><span class="health-num" id="health-total">—</span><span class="health-label">Total Tracks</span></div>
+        <div class="health-stat"><span class="health-num" id="health-analysed">—</span><span class="health-label">Analysed</span></div>
+        <div class="health-stat"><span class="health-num" id="health-classified">—</span><span class="health-label">Classified</span></div>
+        <div class="health-stat"><span class="health-num" id="health-approved">—</span><span class="health-label">Approved</span></div>
+        <div class="health-stat"><span class="health-num" id="health-written">—</span><span class="health-label">Tags Written</span></div>
+        <div class="health-stat"><span class="health-num" id="health-duplicates">—</span><span class="health-label">Duplicates</span></div>
+      </div>
+      <div id="health-coverage" class="coverage-bars" style="margin-top:1rem;"></div>
+      <div id="health-by-genre" style="margin-top:1rem;"></div>
+    </div>
+
+    <!-- Stats Dashboard (Collection Summary, Charts, Camelot Wheel, Age Analysis) -->
+    <div id="stats-dashboard" class="stats-dashboard" style="display:none; margin-top: 20px;">
+      <!-- Collection Summary -->
+      <div class="collection-summary-card" id="collection-summary">
+        <h3>Collection Summary</h3>
+        <div class="summary-grid">
+          <div class="summary-item"><span class="summary-label">Total Tracks</span><span class="summary-value" id="summary-total">0</span></div>
+          <div class="summary-item"><span class="summary-label">Analysed</span><span class="summary-value" id="summary-analysed-pct">0%</span></div>
+          <div class="summary-item"><span class="summary-label">Classified</span><span class="summary-value" id="summary-classified-pct">0%</span></div>
+          <div class="summary-item"><span class="summary-label">Approved</span><span class="summary-value" id="summary-approved-pct">0%</span></div>
+          <div class="summary-item"><span class="summary-label">Avg LUFS</span><span class="summary-value" id="summary-avg-lufs">—</span></div>
+        </div>
+      </div>
+      <!-- Charts Row -->
+      <div class="stats-charts-row">
+        <div class="chart-container">
+          <h4>Key Distribution</h4>
+          <canvas id="chart-key-dist" height="200"></canvas>
+        </div>
+        <div class="chart-container">
+          <h4>Energy Distribution</h4>
+          <canvas id="chart-energy-dist" height="200"></canvas>
+        </div>
+      </div>
+      <!-- Camelot Wheel -->
+      <div class="chart-container" id="camelot-wheel-container">
+        <h4>Camelot Wheel</h4>
+        <div id="camelot-wheel-wrap" style="display:flex;justify-content:center;padding:16px 0;">
+          <svg id="camelot-wheel-svg" width="300" height="300" style="max-width:100%;"></svg>
+        </div>
+        <div id="camelot-wheel-stats"></div>
+        <div style="text-align:center;margin-top:12px;">
+          <button class="btn btn-secondary btn-sm" id="btn-show-key-graph">Show Key Graph</button>
+        </div>
+      </div>
+
+      <!-- Age Analysis -->
+      <div id="age-analysis-section" style="margin-top: 20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h4 style="margin:0;">Collection Age Analysis</h4>
+          <button class="btn btn-secondary btn-sm" id="btn-refresh-age" style="font-size:12px;padding:4px 10px;">Refresh</button>
+        </div>
+
+        <!-- Age Summary Card -->
+        <div class="collection-summary-card" id="age-summary-card">
+          <div class="summary-grid" id="age-summary-grid">
+            <div class="summary-item"><span class="summary-label">Median Year</span><span class="summary-value" id="age-median-year">--</span></div>
+            <div class="summary-item"><span class="summary-label">Oldest Track</span><span class="summary-value" id="age-oldest-track" style="font-size:12px;">--</span></div>
+            <div class="summary-item"><span class="summary-label">Newest Track</span><span class="summary-value" id="age-newest-track" style="font-size:12px;">--</span></div>
+            <div class="summary-item"><span class="summary-label">Top Decade</span><span class="summary-value" id="age-top-decade" style="font-size:12px;">--</span></div>
+          </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="stats-charts-row">
+          <div class="chart-container">
+            <h4>Decade Distribution</h4>
+            <canvas id="chart-decade-dist" height="200"></canvas>
+          </div>
+          <div class="chart-container">
+            <h4>Genre-Era Breakdown</h4>
+            <canvas id="chart-genre-era" height="200"></canvas>
+          </div>
+        </div>
+
+        <!-- Era Labels -->
+        <div class="chart-container" style="margin-bottom:16px;">
+          <h4>Era Breakdown</h4>
+          <div id="era-labels-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-top:8px;"></div>
+        </div>
+
+        <!-- Genre-Decade Table -->
+        <div class="chart-container">
+          <h4>Genre by Decade</h4>
+          <div id="genre-decade-table-wrap" style="overflow-x:auto;margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filename → Tag Parser -->
+    <div class="card">
+      <div class="card-header">
+        <h3>Filename → Tag Parser</h3>
+        <p class="card-desc">For files named "Artist - Title.mp3" with no tags — parse the filename and apply as metadata.</p>
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+        <button class="btn btn-primary" id="btn-parse-filenames">Scan All Tracks</button>
+      </div>
+      <div id="filename-parse-results"></div>
+    </div>
+
+    <!-- Folder Auto-Organiser -->
+    <div class="card">
+      <div class="card-header">
+        <h3>Folder Auto-Organiser</h3>
+        <p class="card-desc">Move approved tracks into organised folders by genre and comments.</p>
+      </div>
+      <div style="display:flex;gap:0.5rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:0.75rem;">
+        <div class="form-group" style="margin:0;">
+          <label style="font-size:0.75rem;">Destination folder</label>
+          <input type="text" id="organise-dest" class="input" placeholder="/Users/yourname/Music/Organised" style="width:260px;">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label style="font-size:0.75rem;">Structure</label>
+          <select id="organise-pattern" class="input">
+            <option value="genre/subgenre">Genre / Comments</option>
+            <option value="genre">Genre only</option>
+            <option value="genre/subgenre/year">Genre / Comments / Year</option>
+          </select>
+        </div>
+        <button class="btn" id="btn-organise-preview">Preview</button>
+        <button class="btn btn-danger" id="btn-organise-run" disabled>Move Files</button>
+      </div>
+      <div id="organise-preview-results"></div>
+    </div>
+
+    <!-- Key Validator -->
+    <div class="card">
+      <div class="card-header">
+        <h3>Key Accuracy Validator</h3>
+        <p class="card-desc">Compares stored Camelot keys against librosa's detected keys. Flags significant mismatches.</p>
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+        <button class="btn btn-primary" id="btn-validate-keys">Check Keys</button>
+      </div>
+      <div id="key-validation-results"></div>
+    </div>
+
+    <!-- Cleanup Assistant (Lexicon Archive pattern) -->
+    <div class="card">
+      <div class="card-header">
+        <h3>Cleanup Assistant</h3>
+        <p class="card-desc">Find tracks that are stale, unanalyzed, skipped, or missing cue points. Archive them to reclaim space.</p>
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;align-items:flex-end;">
+        <div class="form-group" style="margin:0;">
+          <label style="font-size:0.75rem;color:var(--text-muted);">Filter</label>
+          <div style="display:flex;gap:0.35rem;flex-wrap:wrap;margin-top:2px;">
+            <label class="chip-filter-label"><input type="checkbox" id="cleanup-filter-nocues" checked><span>No Cues</span></label>
+            <label class="chip-filter-label"><input type="checkbox" id="cleanup-filter-unanalyzed" checked><span>Unanalyzed</span></label>
+            <label class="chip-filter-label"><input type="checkbox" id="cleanup-filter-skipped" checked><span>Skipped</span></label>
+            <label class="chip-filter-label"><input type="checkbox" id="cleanup-filter-stale" checked><span>Stale</span></label>
+            <label class="chip-filter-label"><input type="checkbox" id="cleanup-filter-unplayed" checked><span>Unplayed</span></label>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="btn-cleanup-scan">Scan for Candidates</button>
+        <button class="btn btn-danger" id="btn-cleanup-archive" style="display:none;">Archive Selected</button>
+      </div>
+      <div style="margin-bottom:0.75rem;display:flex;align-items:center;gap:0.5rem;">
+        <label style="font-size:0.75rem;color:var(--text-muted);">Archive destination</label>
+        <input type="text" id="cleanup-dest" class="input" placeholder="~/Music/_archive" style="width:240px;">
+      </div>
+      <div id="cleanup-results"></div>
+    </div>
+
+    <!-- Duplicate Detector -->
+    <h2 class="settings-section-title">Duplicate Detector</h2>
+    <div id="duplicates-subpanel">
+      <div class="card-header" style="margin-bottom: 1rem;">
+        <h3>Duplicate Detection</h3>
+        <p class="card-desc">Find and remove duplicate tracks from your library</p>
+      </div>
+      <button id="btn-scan-duplicates" class="btn btn-primary" style="margin-bottom: 1rem;">Scan for Duplicates</button>
+
+      <div id="duplicates-results" class="duplicates-list">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </div>
+</aside>

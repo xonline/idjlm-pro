@@ -34,8 +34,7 @@ function initSearchFeature() {
     window.searchDebounceTimer = setTimeout(async () => {
       const trimmed = query.trim();
       if (!trimmed) {
-        window.searchResults = null;
-        renderTracks();
+        store.set('searchResults', null);
         return;
       }
 
@@ -44,11 +43,9 @@ function initSearchFeature() {
 
       try {
         const data = await apiFetch('/api/tracks/search?q=' + encodeURIComponent(trimmed));
-        window.searchResults = data.tracks || [];
-        renderTracks();
+        store.set('searchResults', data.tracks || []);
       } catch (err) {
-        window.searchResults = null;
-        renderTracks();
+        store.set('searchResults', null);
       } finally {
         searchInput.placeholder = searchLabel || 'Search tracks...';
       }
@@ -58,8 +55,7 @@ function initSearchFeature() {
   if (searchClearBtn) {
     searchClearBtn.addEventListener('click', () => {
       searchInput.value = '';
-      window.searchResults = null;
-      renderTracks();
+      store.set('searchResults', null);
       if (searchClearBtn) searchClearBtn.style.display = 'none';
     });
   }

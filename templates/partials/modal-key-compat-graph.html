@@ -1,0 +1,25 @@
+<!-- Key Compatibility Graph Modal -->
+<div id="key-graph-modal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="key-graph-label" aria-hidden="true">
+  <div class="modal-content modal-lg" style="width:95vw;max-width:95vw;height:90vh;max-height:90vh;">
+    <div class="modal-header">
+      <h3 id="key-graph-label">Key Compatibility Graph</h3>
+      <button class="modal-close" id="key-graph-close">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:12px;overflow:hidden;">
+      <div class="key-graph-toolbar" style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
+        <select id="key-graph-source" class="input-select" style="width:auto;min-width:160px;">
+          <option value="library">Full Library</option>
+          <option value="setlist">Current Setlist</option>
+        </select>
+        <span id="key-graph-info" style="font-size:12px;color:var(--text-secondary);margin-left:auto;"></span>
+      </div>
+      <div class="key-graph" id="key-graph-container">
+        <canvas id="key-graph-canvas"></canvas>
+      </div>
+      <div id="key-graph-tooltip" class="key-graph-tooltip" style="display:none;"></div>
+    </div>
+    <div class="modal-footer">
+      <button id="key-graph-done" class="btn btn-primary">Close</button>
+    </div>
+  </div>
+</div>

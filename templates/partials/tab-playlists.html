@@ -1,0 +1,113 @@
+<!-- Playlists Tab -->
+<section id="tab-playlists" class="tab">
+  <div class="tab-header">
+    <div class="tab-header-left">
+      <h1>Playlists</h1>
+      <p>Create, filter, and export playlists as M3U files.</p>
+    </div>
+  </div>
+
+  <div class="playlists-layout">
+    <!-- Left panel: Saved playlists -->
+    <div class="playlists-sidebar">
+      <div class="playlists-sidebar-header">
+        <h3>Saved Playlists</h3>
+        <button class="btn btn-primary btn-sm" id="btn-new-playlist">+ New</button>
+      </div>
+      <div id="playlists-list" class="playlists-list">
+        <div class="empty-state" style="padding: 32px 12px;">
+          <div class="empty-state-content">
+            <div class="empty-icon">📋</div>
+            <div class="empty-msg" style="font-size:14px;">No playlists</div>
+            <div class="empty-submsg" style="font-size:12px;">Click "+ New" to create one</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right panel: Filter builder + results -->
+    <div class="playlists-main">
+      <div id="playlist-editor" style="display:none;">
+        <div class="playlist-editor-header">
+          <input type="text" id="playlist-name-input" class="input-text" placeholder="Playlist name..." style="flex:1;max-width:320px;">
+          <button class="btn btn-primary btn-sm" id="btn-save-playlist">Save Playlist</button>
+          <button class="btn btn-secondary btn-sm" id="btn-run-playlist">Run</button>
+          <button class="btn btn-secondary btn-sm" id="btn-export-playlist">Export M3U</button>
+          <button class="btn btn-secondary btn-sm" id="btn-delete-playlist">Delete</button>
+        </div>
+
+        <!-- Smart Rule Builder -->
+        <div class="card" style="margin-top: 16px;">
+          <div class="card-header">
+            <h3>Smart Rules</h3>
+            <span class="match-count-badge" id="pl-match-count-badge">0 tracks match</span>
+          </div>
+          <div class="smart-builder" id="pl-smart-builder">
+            <!-- Top-level combinator -->
+            <div class="combinator-bar">
+              <span class="combinator-label">Match</span>
+              <select class="combinator-select" id="pl-top-combinator">
+                <option value="AND">ALL of the following</option>
+                <option value="OR">ANY of the following</option>
+              </select>
+            </div>
+
+            <!-- Rules container -->
+            <div class="rules-container" id="pl-rules-container">
+              <!-- Populated dynamically -->
+            </div>
+
+            <!-- Action buttons -->
+            <div class="rule-actions" style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn btn-secondary btn-sm" id="btn-add-rule">+ Add Rule</button>
+              <button class="btn btn-secondary btn-sm" id="btn-add-group">+ Add Group</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div class="playlist-results" style="margin-top: 16px;">
+          <div class="playlist-results-header">
+            <h3>Results: <span id="pl-results-count">0</span> tracks</h3>
+            <button class="btn btn-secondary btn-sm" id="btn-add-all-to-playlist">Add All to Playlist</button>
+          </div>
+          <div class="table-wrap" style="max-height: 400px; overflow-y: auto;">
+            <table class="tracks-table" id="pl-results-table">
+              <thead>
+                <tr>
+                  <th class="checkbox-col"><input type="checkbox" id="pl-select-all" /></th>
+                  <th>Title</th>
+                  <th>Artist</th>
+                  <th>Genre</th>
+                  <th>BPM</th>
+                  <th>Key</th>
+                  <th>Energy</th>
+                  <th>Year</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="pl-results-tbody">
+                <tr class="empty-state">
+                  <td colspan="10">
+                    <div class="empty-state-content">
+                      <div class="empty-icon">🎵</div>
+                      <div class="empty-msg">Apply filters to find tracks</div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- No playlist selected state -->
+      <div id="playlist-empty-state" class="empty-state" style="padding: 80px 20px; text-align: center;">
+        <div class="empty-icon" style="font-size: 48px; margin-bottom: 16px;">🎵</div>
+        <div class="empty-msg" style="font-size: 16px; margin-bottom: 16px;">Select a playlist or create a new one</div>
+        <button class="btn btn-primary" id="btn-new-playlist-empty">+ New Playlist</button>
+      </div>
+    </div>
+  </div>
+</section>
