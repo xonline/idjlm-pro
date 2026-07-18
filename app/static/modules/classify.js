@@ -6,15 +6,17 @@ function initBulkSelectFeature() {
   if (!selectAllCheckbox || !trackTableBody) return;
 
   selectAllCheckbox.addEventListener('change', (e) => {
-    const checkboxes = trackTableBody.querySelectorAll('input[type="checkbox"]');
-    checkboxes.forEach(cb => {
-      cb.checked = e.target.checked;
+    // Select ALL filtered/sorted tracks, not just visible rows (virtualization)
+    const allTracks = window.totalFilteredSorted || [];
+    allTracks.forEach(track => {
       if (e.target.checked) {
-        store.state.selectedTracks.add(cb.dataset.filePath);
+        store.state.selectedTracks.add(track.file_path);
       } else {
-        store.state.selectedTracks.delete(cb.dataset.filePath);
+        store.state.selectedTracks.delete(track.file_path);
       }
     });
+    // Re-render visible rows to update checkbox states
+    if (typeof renderVisibleRows === 'function') renderVisibleRows();
     updateBulkActionsBar();
   });
 

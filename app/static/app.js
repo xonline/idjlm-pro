@@ -61,4 +61,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initPreparePanel();
   initKeyPreview();
   initSetlistTimeline();
+  initTracksTab();
 });

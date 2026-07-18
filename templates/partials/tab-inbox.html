@@ -1,0 +1,49 @@
+<!-- Inbox Tab (Phase 5.5) -->
+<section id="tab-inbox" class="tab">
+  <div class="tab-header">
+    <div class="tab-header-left">
+      <h1>Inbox</h1>
+      <p>New tracks detected by the watch folder</p>
+      <span id="inbox-watch-status" class="inbox-watch-status">Loading...</span>
+    </div>
+    <div class="tab-header-actions">
+      <label class="inbox-toggle-label" title="Auto-analyse new tracks as they arrive">
+        <input type="checkbox" id="inbox-auto-analyse">
+        <span>Auto-analyse</span>
+      </label>
+      <button class="btn btn-primary btn-sm" id="btn-inbox-poll">Scan Now</button>
+    </div>
+  </div>
+
+  <div class="inbox-config-bar">
+    <label class="inbox-config-label">
+      <span>File-away destination:</span>
+      <input type="text" id="inbox-destination" class="input" placeholder="~/Music/organised" style="width:320px;">
+    </label>
+    <span class="inbox-hint">Press <kbd>F</kbd> to file away the selected track</span>
+  </div>
+
+  <table class="inbox-table">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Artist</th>
+        <th>BPM</th>
+        <th>Key</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="inbox-tbody">
+      <tr class="empty-state">
+        <td colspan="6">
+          <div class="empty-state-content">
+            <div class="empty-icon">&#x1F4e5;</div>
+            <div class="empty-msg">No tracks in inbox</div>
+            <div class="empty-submsg">Start watching a folder to see new tracks here</div>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</section>

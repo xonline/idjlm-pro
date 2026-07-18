@@ -1,0 +1,98 @@
+<!-- Edit Modal -->
+<div id="edit-modal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="edit-modal-label" aria-hidden="true">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="edit-modal-label">Edit Track</h2>
+      <button class="modal-close" id="modal-close">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3>Current Information</h3>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Title:</span>
+            <span class="info-value" id="modal-title"></span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Artist:</span>
+            <span class="info-value" id="modal-artist"></span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">File:</span>
+            <span class="info-value" id="modal-filename" style="font-size: 0.85em;"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h3>Edit Tags</h3>
+        <div class="form-group">
+          <label for="modal-genre">Genre</label>
+          <select id="modal-genre" class="input-select"></select>
+        </div>
+
+        <div class="form-group">
+          <label for="modal-subgenre">Comments</label>
+          <select id="modal-subgenre" class="input-select"></select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="modal-bpm">BPM</label>
+            <input type="number" id="modal-bpm" class="input-text" min="40" max="200">
+          </div>
+
+          <div class="form-group">
+            <label for="modal-key">Key</label>
+            <input type="text" id="modal-key" class="input-text" placeholder="e.g., 8B">
+          </div>
+
+          <div class="form-group">
+            <label for="modal-year">Year</label>
+            <input type="number" id="modal-year" class="input-text" min="1900" max="2100">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="modal-comment">Comment</label>
+          <textarea id="modal-comment" class="input-text" rows="3"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h3>Analysis Results</h3>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Analysed BPM:</span>
+            <span class="info-value" id="modal-analysed-bpm"></span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Energy:</span>
+            <span class="info-value" id="modal-energy"></span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Confidence:</span>
+            <span class="info-value" id="modal-confidence"></span>
+          </div>
+        </div>
+        <div class="info-item" style="margin-top: 10px;">
+          <span class="info-label">Reasoning:</span>
+          <p class="info-value" id="modal-reasoning" style="font-size: 0.9em; margin-top: 5px;"></p>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h3>Camelot Wheel</h3>
+        <div id="camelot-wheel-modal" class="camelot-wheel-container" style="display: flex; justify-content: center; padding: 20px 0;">
+          <svg id="camelot-wheel" width="200" height="200" style="max-width: 100%;"></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button id="modal-cancel" class="btn btn-secondary">Cancel</button>
+      <button id="modal-save" class="btn btn-primary">Save Changes</button>
+    </div>
+  </div>
+</div>

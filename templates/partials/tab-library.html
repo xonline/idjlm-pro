@@ -1,0 +1,266 @@
+<!-- LIBRARY TAB -->
+<div id="tab-library" class="tab active">
+
+  <!-- Toolbar -->
+  <div class="library-toolbar">
+    <button class="btn btn-secondary btn-sm nav-hamburger" id="btn-toggle-sidebar" title="Toggle sidebar (Ctrl+M)">☰</button>
+    <div class="toolbar-import">
+      <span class="toolbar-label">📁</span>
+      <span id="folder-display" class="folder-display">No folder selected</span>
+      <button class="btn btn-secondary btn-sm" id="btn-change-folder">Change</button>
+      <input type="text" id="folder-input" class="folder-input-inline" placeholder="/path/to/music" style="display:none;" />
+      <button class="btn btn-primary btn-sm" id="btn-import" style="display:none;">Import</button>
+    </div>
+    <!-- Pipeline stepper — compact segmented control -->
+    <div class="pipeline-seg" id="pipeline-stepper" role="tablist" aria-label="Pipeline steps">
+      <button class="seg-step" data-step="import" id="step-import" role="tab">
+        <span class="seg-step-icon" id="seg-icon-import">1</span>
+        <span class="seg-step-label">Import</span>
+        <span class="seg-step-count mono" id="count-import">0</span>
+      </button>
+      <span class="seg-sep" aria-hidden="true"></span>
+      <button class="seg-step" data-step="analyse" id="step-analyse" role="tab">
+        <span class="seg-step-icon" id="seg-icon-analyse">2</span>
+        <span class="seg-step-label">Analyse</span>
+        <span class="seg-step-count mono" id="count-analyse">0</span>
+      </button>
+      <span class="seg-sep" aria-hidden="true"></span>
+      <button class="seg-step" data-step="classify" id="step-classify" role="tab">
+        <span class="seg-step-icon" id="seg-icon-classify">3</span>
+        <span class="seg-step-label">Classify</span>
+        <span class="seg-step-count mono" id="count-classify">0</span>
+      </button>
+      <span class="seg-sep" aria-hidden="true"></span>
+      <button class="seg-step" data-step="review" id="step-review" role="tab">
+        <span class="seg-step-icon" id="seg-icon-review">4</span>
+        <span class="seg-step-label">Review</span>
+        <span class="seg-step-count mono" id="count-review">0</span>
+      </button>
+      <span class="seg-sep" aria-hidden="true"></span>
+      <button class="seg-step" data-step="write" id="step-write" role="tab">
+        <span class="seg-step-icon" id="seg-icon-write">5</span>
+        <span class="seg-step-label">Write Tags</span>
+        <span class="seg-step-count mono" id="count-write">0</span>
+      </button>
+    </div>
+    <div class="toolbar-pipeline">
+      <button class="btn pipeline-btn" id="btn-analyse" disabled data-hint="🔒 Requires imported tracks first. Pick a music folder above to get started.">▶ Scan All</button>
+      <button class="btn pipeline-btn" id="btn-classify" disabled data-hint="🔒 Scan tracks first. Click 'Scan All' to detect BPM, key, and energy.">✦ Tag Genres</button>
+      <button class="btn pipeline-btn" id="btn-bulk-approve-toolbar" disabled data-hint="🔒 Tag genres first. Only tracks with confidence ≥ threshold can be approved.">✓ Approve ≥<input type="number" id="toolbar-threshold" value="80" min="1" max="100" title="Confidence threshold">%</button>
+      <button class="btn pipeline-btn pipeline-btn-write" id="btn-write-tags" disabled data-hint="🔒 Approve tracks first. Analyse → Classify → Approve → Write Tags to your files.">✎ Write Tags</button>
+    </div>
+    <button class="btn btn-secondary btn-sm" id="btn-library-health" title="Library Health (H) — coverage, stats, key validator, cleanup" style="font-size:14px;padding:6px 12px;"><span class="health-drawer-btn-icon">♥</span> Health</button>
+    <button class="btn btn-secondary btn-sm" id="btn-shortcuts" title="Keyboard shortcuts (?)" style="font-size:16px;padding:6px 10px;">?</button>
+    <button class="btn btn-secondary btn-sm" id="btn-column-picker" title="Customize columns" style="font-size:14px;padding:6px 10px;">☰ Cols</button>
+    <button class="btn btn-secondary btn-sm" id="btn-toggle-detail-dock" title="Toggle detail panel (Shift+D)" style="font-size:16px;padding:6px 10px;" aria-pressed="false">▮</button>
+  </div>
+
+  <!-- How It Works Guide -->
+  <div class="workflow-guide" id="workflow-guide" style="display:none; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:10px; padding:16px 20px; margin-bottom:12px; font-size:13px; line-height:1.6;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong>📖 How It Works</strong>
+      <button class="btn btn-sm btn-secondary" id="close-workflow-guide" style="padding:2px 8px; font-size:11px;">✕</button>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px 24px;">
+      <div><strong>1. Analyse</strong> — Detects BPM, key, energy, loudness for each track</div>
+      <div><strong>2. Classify</strong> — AI assigns genre + sub-genre with confidence scores</div>
+      <div><strong>3. Approve</strong> — Review AI suggestions. Bulk-approve tracks ≥ confidence threshold</div>
+      <div><strong>4. Write Tags</strong> — Writes approved tags to your audio files (backup created)</div>
+    </div>
+    <div style="margin-top:8px; color:var(--text-muted); font-size:12px;">
+      💡 <strong>"Pending"</strong> means the track hasn't been reviewed yet. After Classifying, click <strong>Approve</strong> to accept the AI's genre suggestion, then <strong>Write Tags</strong> to save to your files.
+    </div>
+  </div>
+
+  <!-- Stats bar -->
+  <div class="stats-bar" id="library-stats-bar">
+    <span class="stat-item"><span id="stat-total">0</span> tracks</span>
+    <span class="stat-sep">•</span>
+    <span class="stat-item"><span id="stat-analysed">0</span> analysed</span>
+    <span class="stat-sep">•</span>
+    <span class="stat-item"><span id="stat-classified">0</span> classified</span>
+    <span class="stat-sep">•</span>
+    <span class="stat-item"><span id="stat-approved">0</span> approved</span>
+    <!-- OpsBar container: rendered dynamically by modules/opsbar.js -->
+    <div class="opsbar" id="opsbar"></div>
+  </div>
+
+  <!-- Session resume banner -->
+  <div class="resume-banner" id="resume-banner" style="display:none;">
+    <span id="resume-info"></span>
+    <button class="btn btn-sm btn-primary" id="btn-resume-session">Resume</button>
+    <button class="btn btn-sm btn-secondary" id="btn-dismiss-session">Dismiss</button>
+  </div>
+
+  <!-- Column picker dropdown -->
+  <div class="column-picker" id="column-picker" style="display:none;">
+    <div class="column-picker-header">Columns <span class="column-picker-hint">drag to reorder</span></div>
+    <div class="column-picker-list" id="column-picker-list"></div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <input type="text" id="search-tracks" class="search-input" placeholder="Search tracks..." />
+    <select id="filter-genre" class="filter-select">
+      <option value="">All Genres</option>
+    </select>
+    <select id="filter-status" class="filter-select">
+      <option value="">All Status</option>
+      <option value="pending">Pending</option>
+      <option value="approved">Approved</option>
+      <option value="skipped">Skipped</option>
+      <option value="written">Written</option>
+    </select>
+    <select id="filter-sort" class="filter-select">
+      <option value="display_title">Sort: Title</option>
+      <option value="display_artist">Sort: Artist</option>
+      <option value="final_genre">Sort: Genre</option>
+      <option value="final_bpm">Sort: BPM</option>
+      <option value="confidence">Sort: Confidence</option>
+    </select>
+    <input type="number" id="filter-bpm-min" class="filter-input-sm" placeholder="BPM min" min="40" max="250" />
+    <input type="number" id="filter-bpm-max" class="filter-input-sm" placeholder="BPM max" min="40" max="250" />
+  </div>
+
+  <!-- Collection filter chips -->
+  <div class="filter-chips-bar" id="filter-chips-bar">
+    <div class="chip-group" data-group="genre">
+      <span class="chip-group-label">Genre</span>
+      <div class="chip-group-items" id="chip-group-genre"></div>
+    </div>
+    <div class="chip-group" data-group="year">
+      <span class="chip-group-label">Year</span>
+      <div class="chip-group-items" id="chip-group-year"></div>
+    </div>
+    <div class="chip-group" data-group="status">
+      <span class="chip-group-label">Status</span>
+      <div class="chip-group-items" id="chip-group-status"></div>
+    </div>
+    <div class="chip-group" data-group="key">
+      <span class="chip-group-label">Key</span>
+      <div class="chip-group-items" id="chip-group-key"></div>
+    </div>
+  </div>
+
+  <!-- Track table -->
+  <div class="table-wrap">
+    <table class="tracks-table" id="tracks-table">
+      <thead>
+        <tr>
+          <th class="col-check"><input type="checkbox" id="select-all-checkbox" /></th>
+          <th class="col-art"></th>
+          <th class="col-waveform" data-col="waveform">Wave</th>
+          <th data-sort="display_title" class="col-title">Title / Artist</th>
+          <th data-sort="final_genre" class="col-genre">Genre</th>
+          <th data-sort="final_subgenre" class="col-subgenre">Sub-genre</th>
+          <th data-sort="confidence" class="col-conf">Conf</th>
+          <th data-sort="final_bpm" class="col-bpm">BPM</th>
+          <th data-sort="final_key" class="col-key">Key</th>
+          <th data-sort="clave_pattern" class="col-clave">Clave</th>
+          <th data-sort="vocal_flag" class="col-vocal">Vocal</th>
+          <th data-sort="tempo_category" class="col-tempo">Tempo</th>
+          <th data-sort="analyzed_lufs" class="col-lufs">LUFS</th>
+          <th data-sort="final_year" class="col-year">Year</th>
+          <th data-sort="review_status" class="col-status">Status</th>
+          <th class="col-approve">Approve</th>
+          <th class="col-action">Action</th>
+        </tr>
+      </thead>
+      <tbody id="tracks-tbody">
+        <!-- Empty state for first-run -->
+        <tr class="empty-state" id="empty-state-row">
+          <td colspan="17">
+            <div class="empty-state-content">
+              <div class="empty-icon">📁</div>
+              <div class="empty-msg">Pick a folder to get started</div>
+              <div class="empty-submsg">Select your music folder to import tracks and begin library management</div>
+              <button class="btn btn-primary" id="btn-get-started">Choose Folder</button>
+            </div>
+          </td>
+        </tr>
+        <!-- Skeleton rows for loading state (hidden by default) -->
+        <tr class="skeleton-row" id="skeleton-row-1" style="display:none;">
+          <td><div class="skeleton-cell" style="width:20px;height:20px;"></div></td>
+          <td><div class="skeleton-cell" style="width:40px;height:40px;"></div></td>
+          <td><div class="skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="skeleton-cell"></div></td>
+          <td><div class="skeleton-cell" style="width:80px;"></div></td>
+          <td><div class="skeleton-cell" style="width:90px;"></div></td>
+          <td><div class="skeleton-cell" style="width:50px;"></div></td>
+          <td><div class="skeleton-cell" style="width:60px;"></div></td>
+          <td><div class="skeleton-cell" style="width:50px;"></div></td>
+          <td><div class="skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="skeleton-cell" style="width:60px;"></div></td>
+          <td><div class="skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="skeleton-cell" style="width:60px;"></div></td>
+          <td><div class="skeleton-cell" style="width:50px;"></div></td>
+          <td><div class="skeleton-cell" style="width:80px;"></div></td>
+          <td><div class="skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="skeleton-cell" style="width:60px;"></div></td>
+        </tr>
+        <tr class="skeleton-row" id="skeleton-row-2" style="display:none;">
+          <td><div class="skeleton-cell" style="width:20px;height:20px;"></div></td>
+          <td><div class="skeleton-cell" style="width:40px;height:40px;"></div></td>
+          <td><div class="skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="skeleton-cell"></div></td>
+          <td><div class="skeleton-cell" style="width:80px;"></div></td>
+          <td><div class="skeleton-cell" style="width:90px;"></div></td>
+          <td><div class="skeleton-cell" style="width:50px;"></div></td>
+          <td><div class="skeleton-cell" style="width:60px;"></div></td>
+          <td><div class="skeleton-cell" style="width:50px;"></div></td>
+          <td><div class="skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="skeleton-cell" style="width:60px;"></div></td>
+          <td><div class="skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="skeleton-cell" style="width:60px;"></div></td>
+          <td><div class="skeleton-cell" style="width:50px;"></div></td>
+          <td><div class="skeleton-cell" style="width:80px;"></div></td>
+          <td><div class="skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="skeleton-cell" style="width:60px;"></div></td>
+        </tr>
+        <tr class="skeleton-row" id="skeleton-row-3" style="display:none;">
+          <td><div class="skeleton-cell" style="width:20px;height:20px;"></div></td>
+          <td><div class="skeleton-cell" style="width:40px;height:40px;"></div></td>
+          <td><div class="skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="skeleton-cell"></div></td>
+          <td><div class="skeleton-cell" style="width:80px;"></div></td>
+          <td><div class="skeleton-cell" style="width:90px;"></div></td>
+          <td><div class="skeleton-cell" style="width:50px;"></div></td>
+          <td><div class="skeleton-cell" style="width:60px;"></div></td>
+          <td><div class="skeleton-cell" style="width:50px;"></div></td>
+          <td><div class="skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="skeleton-cell" style="width:60px;"></div></td>
+          <td><div class="skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="skeleton-cell" style="width:60px;"></div></td>
+          <td><div class="skeleton-cell" style="width:50px;"></div></td>
+          <td><div class="skeleton-cell" style="width:80px;"></div></td>
+          <td><div class="skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="skeleton-cell" style="width:60px;"></div></td>
+        </tr>
+        <tr class="skeleton-row" id="skeleton-row-4" style="display:none;">
+          <td><div class="skeleton-cell" style="width:20px;height:20px;"></div></td>
+          <td><div class="skeleton-cell" style="width:40px;height:40px;"></div></td>
+          <td><div class="skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="skeleton-cell"></div></td>
+          <td><div class="skeleton-cell" style="width:80px;"></div></td>
+          <td><div class="skeleton-cell" style="width:90px;"></div></td>
+          <td><div class="skeleton-cell" style="width:50px;"></div></td>
+          <td><div class="skeleton-cell" style="width:60px;"></div></td>
+          <td><div class="skeleton-cell" style="width:50px;"></div></td>
+          <td><div class="skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="skeleton-cell" style="width:60px;"></div></td>
+          <td><div class="skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="skeleton-cell" style="width:60px;"></div></td>
+          <td><div class="skeleton-cell" style="width:50px;"></div></td>
+          <td><div class="skeleton-cell" style="width:80px;"></div></td>
+          <td><div class="skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="skeleton-cell" style="width:60px;"></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="pagination-info" id="pagination-info"></div>
+
+  <!-- Bulk action bar (populated dynamically by JS) -->
+  <div class="bulk-action-bar" id="bulk-actions-bar" style="display:none;align-items:center;gap:8px;"></div>
+
+</div>

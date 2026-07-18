@@ -193,10 +193,17 @@
           </div>
           <button class="btn btn-secondary btn-sm" id="btn-library-health" title="Library Health (H) — coverage, stats, key validator, cleanup" style="font-size:14px;padding:6px 12px;"><span class="health-drawer-btn-icon">♥</span> Health</button>
           <button class="btn btn-secondary btn-sm" id="btn-shortcuts" title="Keyboard shortcuts (?)" style="font-size:16px;padding:6px 10px;">?</button>
-          <button class="btn btn-secondary btn-sm" id="btn-toggle-detail-dock" title="Toggle detail panel (Shift+D)" style="font-size:16px;padding:6px 10px;" aria-pressed="false">▮</button>
-        </div>
+    <button class="btn btn-secondary btn-sm" id="btn-column-picker" title="Customize columns" style="font-size:14px;padding:6px 10px;">☰ Cols</button>
+    <button class="btn btn-secondary btn-sm" id="btn-toggle-detail-dock" title="Toggle detail panel (Shift+D)" style="font-size:16px;padding:6px 10px;" aria-pressed="false">▮</button>
+  </div>
 
-        <!-- How It Works Guide -->
+  <!-- Column picker dropdown -->
+  <div class="column-picker" id="column-picker" style="display:none;">
+    <div class="column-picker-header">Columns <span class="column-picker-hint">drag to reorder</span></div>
+    <div class="column-picker-list" id="column-picker-list"></div>
+  </div>
+
+  <!-- How It Works Guide -->
         <div class="workflow-guide" id="workflow-guide" style="display:none; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:10px; padding:16px 20px; margin-bottom:12px; font-size:13px; line-height:1.6;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <strong>📖 How It Works</strong>
@@ -279,31 +286,32 @@
 
         <!-- Track table -->
         <div class="table-wrap">
-          <table class="tracks-table" id="tracks-table">
+          <table class="tracks-table" id="tracks-table" role="grid" aria-rowcount="0">
             <thead>
               <tr>
                 <th class="col-check"><input type="checkbox" id="select-all-checkbox" /></th>
-                <th class="col-art"></th>
-                <th data-sort="display_title" class="col-title">Title / Artist</th>
-                <th data-sort="final_genre" class="col-genre">Genre</th>
-                <th data-sort="final_subgenre" class="col-subgenre">Sub-genre</th>
-                <th data-sort="confidence" class="col-conf">Conf</th>
-                <th data-sort="final_bpm" class="col-bpm">BPM</th>
-                <th data-sort="final_key" class="col-key">Key</th>
-                <th data-sort="clave_pattern" class="col-clave">Clave</th>
-                <th data-sort="vocal_flag" class="col-vocal">Vocal</th>
-                <th data-sort="tempo_category" class="col-tempo">Tempo</th>
-                <th data-sort="analyzed_lufs" class="col-lufs">LUFS</th>
-                <th data-sort="final_year" class="col-year">Year</th>
-                <th data-sort="review_status" class="col-status">Status</th>
-                <th class="col-approve">Approve</th>
-                <th class="col-action">Action</th>
+          <th class="col-art"></th>
+          <th class="col-waveform" data-col="waveform">Wave</th>
+          <th data-sort="display_title" class="col-title">Title / Artist</th>
+          <th data-sort="final_genre" class="col-genre">Genre</th>
+          <th data-sort="final_subgenre" class="col-subgenre">Sub-genre</th>
+          <th data-sort="confidence" class="col-conf">Conf</th>
+          <th data-sort="final_bpm" class="col-bpm">BPM</th>
+          <th data-sort="final_key" class="col-key">Key</th>
+          <th data-sort="clave_pattern" class="col-clave">Clave</th>
+          <th data-sort="vocal_flag" class="col-vocal">Vocal</th>
+          <th data-sort="tempo_category" class="col-tempo">Tempo</th>
+          <th data-sort="analyzed_lufs" class="col-lufs">LUFS</th>
+          <th data-sort="final_year" class="col-year">Year</th>
+          <th data-sort="review_status" class="col-status">Status</th>
+          <th class="col-approve">Approve</th>
+          <th class="col-action">Action</th>
               </tr>
             </thead>
             <tbody id="tracks-tbody">
               <!-- Empty state for first-run -->
               <tr class="empty-state" id="empty-state-row">
-                <td colspan="16">
+                <td colspan="17">
                   <div class="empty-state-content">
                     <div class="empty-icon">📁</div>
                     <div class="empty-msg">Pick a folder to get started</div>
@@ -316,6 +324,7 @@
               <tr class="skeleton-row" id="skeleton-row-1" style="display:none;">
                 <td><div class="skeleton-cell" style="width:20px;height:20px;"></div></td>
                 <td><div class="skeleton-cell" style="width:40px;height:40px;"></div></td>
+                <td><div class="skeleton-cell" style="width:70px;"></div></td>
                 <td><div class="skeleton-cell"></div></td>
                 <td><div class="skeleton-cell" style="width:80px;"></div></td>
                 <td><div class="skeleton-cell" style="width:90px;"></div></td>
@@ -334,6 +343,7 @@
               <tr class="skeleton-row" id="skeleton-row-2" style="display:none;">
                 <td><div class="skeleton-cell" style="width:20px;height:20px;"></div></td>
                 <td><div class="skeleton-cell" style="width:40px;height:40px;"></div></td>
+                <td><div class="skeleton-cell" style="width:70px;"></div></td>
                 <td><div class="skeleton-cell"></div></td>
                 <td><div class="skeleton-cell" style="width:80px;"></div></td>
                 <td><div class="skeleton-cell" style="width:90px;"></div></td>
@@ -352,6 +362,7 @@
               <tr class="skeleton-row" id="skeleton-row-3" style="display:none;">
                 <td><div class="skeleton-cell" style="width:20px;height:20px;"></div></td>
                 <td><div class="skeleton-cell" style="width:40px;height:40px;"></div></td>
+                <td><div class="skeleton-cell" style="width:70px;"></div></td>
                 <td><div class="skeleton-cell"></div></td>
                 <td><div class="skeleton-cell" style="width:80px;"></div></td>
                 <td><div class="skeleton-cell" style="width:90px;"></div></td>
@@ -370,6 +381,7 @@
               <tr class="skeleton-row" id="skeleton-row-4" style="display:none;">
                 <td><div class="skeleton-cell" style="width:20px;height:20px;"></div></td>
                 <td><div class="skeleton-cell" style="width:40px;height:40px;"></div></td>
+                <td><div class="skeleton-cell" style="width:70px;"></div></td>
                 <td><div class="skeleton-cell"></div></td>
                 <td><div class="skeleton-cell" style="width:80px;"></div></td>
                 <td><div class="skeleton-cell" style="width:90px;"></div></td>
@@ -388,7 +400,6 @@
             </tbody>
           </table>
         </div>
-        <div class="pagination-info" id="pagination-info"></div>
 
         <!-- Bulk action bar (populated dynamically by JS) -->
         <div class="bulk-action-bar" id="bulk-actions-bar" style="display:none;align-items:center;gap:8px;"></div>
@@ -1635,11 +1646,16 @@
           <div class="shortcut-group-heading">Navigation</div>
           <div class="shortcut-row"><span class="shortcut-key">1</span>–<span class="shortcut-key">4</span><span class="shortcut-desc">Switch tabs</span></div>
           <div class="shortcut-row"><span class="shortcut-key">/</span><span class="shortcut-desc">Focus search</span></div>
+          <div class="shortcut-row"><span class="shortcut-key">↑</span>/<span class="shortcut-key">↓</span><span class="shortcut-desc">Navigate rows (library)</span></div>
           <div class="shortcut-row"><span class="shortcut-key">Esc</span><span class="shortcut-desc">Close panels</span></div>
         </div>
         <div class="shortcut-group">
-          <div class="shortcut-group-heading">Library</div>
-          <div class="shortcut-row"><span class="shortcut-key">Space</span><span class="shortcut-desc">Play / pause preview</span></div>
+          <div class="shortcut-group-heading">Library — Phase 2</div>
+          <div class="shortcut-row"><span class="shortcut-key">A</span><span class="shortcut-desc">Approve + advance</span></div>
+          <div class="shortcut-row"><span class="shortcut-key">R</span><span class="shortcut-desc">Re-classify selected</span></div>
+          <div class="shortcut-row"><span class="shortcut-key">E</span><span class="shortcut-desc">Inline edit genre / BPM / year</span></div>
+          <div class="shortcut-row"><span class="shortcut-key">X</span><span class="shortcut-desc">Toggle selection</span></div>
+          <div class="shortcut-row"><span class="shortcut-key">Space</span><span class="shortcut-desc">Toggle selection (alt)</span></div>
           <div class="shortcut-row"><span class="shortcut-key">Ctrl</span>+<span class="shortcut-key">A</span><span class="shortcut-desc">Select all</span></div>
           <div class="shortcut-row"><span class="shortcut-key">Ctrl</span>+<span class="shortcut-key">⇧</span>+<span class="shortcut-key">A</span><span class="shortcut-desc">Deselect all</span></div>
         </div>

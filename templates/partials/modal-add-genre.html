@@ -1,0 +1,26 @@
+<!-- Add Genre Modal -->
+<div id="add-genre-modal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="add-genre-label" aria-hidden="true">
+  <div class="modal-content modal-sm">
+    <div class="modal-header">
+      <h2 id="add-genre-label">Add Genre</h2>
+      <button class="modal-close" id="add-genre-close">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="new-genre-name">Genre Name</label>
+        <input type="text" id="new-genre-name" class="input-text" placeholder="e.g., Salsa">
+      </div>
+
+      <div class="form-group">
+        <label for="new-genre-description">Description</label>
+        <input type="text" id="new-genre-description" class="input-text" placeholder="Brief description">
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button id="add-genre-cancel" class="btn btn-secondary">Cancel</button>
+      <button id="add-genre-save" class="btn btn-primary">Add Genre</button>
+    </div>
+  </div>
+</div>

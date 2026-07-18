@@ -273,7 +273,7 @@ function applyQuickTags(selection, panel) {
         }
       }
       refreshTagsSidebar();
-      if (typeof renderTracks === 'function') renderTracks();
+      store.notify('tracks');
       if (typeof updateFilterChips === 'function') updateFilterChips();
     })
     .catch(function(err) {

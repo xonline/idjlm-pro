@@ -1,0 +1,54 @@
+<!-- Field Mappings Tab -->
+<section id="tab-field-mappings" class="tab" data-mappings-target="">
+  <div class="tab-header">
+    <div class="tab-header-left">
+      <h1>Field Mappings: <span id="fm-target-name">Rekordbox</span></h1>
+      <p id="fm-target-desc">Define how IDJLM fields map to ID3 frames for Rekordbox XML export.</p>
+    </div>
+    <div class="fm-target-tabs" id="fm-target-tabs">
+      <button class="fm-target-tab active" data-target="rekordbox">Rekordbox</button>
+      <button class="fm-target-tab" data-target="serato">Serato</button>
+      <button class="fm-target-tab" data-target="m3u">M3U</button>
+      <button class="fm-target-tab" data-target="csv">CSV</button>
+    </div>
+    <div class="tab-header-actions" style="display:flex;gap:8px;align-items:center;">
+      <button class="btn btn-secondary btn-sm" id="btn-reset-field-mappings">Reset to Defaults</button>
+      <button class="btn btn-primary btn-sm" id="btn-save-field-mappings">Save Mappings</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="card-header">
+      <h3>Source &rarr; Target Mapping</h3>
+      <span class="settings-hint" style="font-weight:400;">Choose which target field each IDJLM field maps to. Select "Skip" to omit during export.</span>
+    </div>
+    <div class="fm-table-wrap">
+      <table class="fm-table">
+        <thead>
+          <tr>
+            <th class="fm-th-source">IDJLM Source Field</th>
+            <th class="fm-th-arrow"></th>
+            <th class="fm-th-target">Target Field</th>
+          </tr>
+        </thead>
+        <tbody id="fm-table-body">
+          <!-- Populated by field-mappings.js -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px; background:var(--bg-secondary);">
+    <div class="card-header">
+      <h3>How mappings are used</h3>
+    </div>
+    <div class="card-body" style="font-size:13px; color:var(--text-secondary); line-height:1.6;">
+      <p style="margin:0 0 8px 0;">These mappings control what ID3 frames or export fields each IDJLM-track attribute writes to. The defaults match what the tag writer (<code>app/services/tag_writer.py</code>) produces:</p>
+      <ul style="margin:0; padding-left:18px;">
+        <li><strong>Rekordbox &amp; Serato:</strong> writes ID3 frames directly — BPM to TBPM, key to TKEY+TXXX:INITIALKEY, etc.</li>
+        <li><strong>M3U:</strong> populates EXTINF comment strings with the selected fields.</li>
+        <li><strong>CSV:</strong> uses the mapped names as column headers in the exported spreadsheet.</li>
+      </ul>
+    </div>
+  </div>
+</section>

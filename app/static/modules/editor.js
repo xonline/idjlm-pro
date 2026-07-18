@@ -166,7 +166,7 @@ async function saveTrackEdits() {
     }
 
     showToast('Track updated', 'success');
-    renderTracks();
+    store.notify('tracks');
     renderReview();
 
     document.getElementById('edit-modal').style.display = 'none';
