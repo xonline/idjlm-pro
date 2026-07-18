@@ -1214,6 +1214,16 @@ textarea.input-text {
 .col-approve { width: 60px; text-align: center; }
 .col-action  { width: 60px; text-align: center; }
 
+/* BPM + Key typography emphasis (scoped under tracks-table to not affect inbox-table) */
+.tracks-table .col-bpm,
+.tracks-table .col-key-cell {
+  font-size: calc(16px * var(--font-scale));
+  font-weight: 800;
+  color: var(--text-loud);
+  font-family: 'Geist Mono', 'Fira Code', 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Stacked title/artist */
 .track-title-text {
   font-size: 12.5px;
@@ -7120,4 +7130,222 @@ tr.row-selected td { background: rgba(139,92,246,0.15) !important; }
   height: 16px;
   accent-color: var(--accent);
   cursor: pointer;
+}
+
+/* ============================================================================
+   Phase 2 — Pro-grade Track Table
+   ============================================================================ */
+
+/* 2.1 Virtual scroll container */
+.table-wrap {
+  overflow-y: auto;
+  max-height: calc(100vh - 340px);
+  position: relative;
+}
+
+.vscroll-spacer {
+  pointer-events: none;
+  width: 1px;
+}
+
+/* 2.2 Column picker */
+.column-picker {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  min-width: 220px;
+  position: absolute;
+  right: 80px;
+  top: 48px;
+}
+
+.column-picker-header {
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--t1);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+}
+
+.column-picker-hint {
+  font-weight: 400;
+  font-size: 10px;
+  color: var(--t4);
+}
+
+.column-picker-list {
+  padding: 4px 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.column-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  cursor: grab;
+  user-select: none;
+  transition: background 0.1s;
+}
+
+.column-picker-item:hover {
+  background: var(--bg-hover);
+}
+
+.column-picker-item.dragging {
+  opacity: 0.4;
+}
+
+.column-picker-item.drag-over {
+  background: var(--acc-dim);
+  border-radius: 4px;
+}
+
+.column-picker-grippy {
+  font-size: 14px;
+  color: var(--t4);
+  cursor: grab;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.column-picker-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--t2);
+}
+
+.column-picker-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--acc);
+  cursor: pointer;
+}
+
+.column-picker-name {
+  flex: 1;
+}
+
+/* 2.3 Mini-waveform column */
+.col-waveform {
+  width: 80px;
+  min-width: 80px;
+  padding: 0 4px !important;
+  vertical-align: middle !important;
+}
+
+.mini-waveform-canvas {
+  display: block;
+  border-radius: 3px;
+  background: var(--bg-subtle);
+}
+
+/* 2.4 Genre colour stripes */
+.tracks-table tbody tr {
+  border-left: 3px solid transparent;
+  padding-left: 0;
+}
+
+/* 2.6 Inline editing */
+.inline-editable {
+  cursor: pointer;
+  position: relative;
+  border-radius: 3px;
+  transition: background 0.1s, box-shadow 0.1s;
+}
+
+.inline-editable:hover {
+  background: var(--bg-hover);
+  box-shadow: inset 0 0 0 1px var(--acc-dim);
+}
+
+.inline-editable.editing {
+  background: var(--bg-subtle);
+  box-shadow: inset 0 0 0 2px var(--acc);
+  padding: 0;
+}
+
+.inline-edit-select,
+.inline-edit-input {
+  width: 100%;
+  height: 32px;
+  background: var(--bg-page);
+  border: none;
+  color: var(--t1);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 0 6px;
+  outline: none;
+  border-radius: 2px;
+}
+
+.inline-edit-select {
+  cursor: pointer;
+}
+
+.inline-edit-input.mono {
+  font-family: 'Geist Mono', 'Fira Code', 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 2.8 Context menu v2 */
+.ctx-menu {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 4px 0;
+  min-width: 200px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  font-size: 13px;
+  animation: fadeIn 0.1s ease;
+}
+
+.ctx-menu-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--t2);
+  transition: background 0.1s;
+}
+
+.ctx-menu-item:hover {
+  background: var(--bg-hover, rgba(255,255,255,0.06));
+  color: var(--t1);
+}
+
+.ctx-menu-icon {
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.ctx-menu-sep {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 8px;
+}
+
+/* Key compatibility highlights */
+.key-compat-self {
+  box-shadow: inset 3px 0 0 var(--acc) !important;
+}
+
+.key-compat-match {
+  background: var(--acc-dim) !important;
+}
+
+.key-compat-dim {
+  opacity: 0.35;
 }

@@ -1,0 +1,57 @@
+<!-- Onboarding Wizard Modal -->
+<div id="onboarding-overlay" class="onboarding-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="onboard-welcome-title" aria-hidden="true">
+  <div class="onboarding-modal">
+    <button class="onboarding-close" id="onboarding-close">&times;</button>
+
+    <div class="onboarding-step" id="onboard-step-1">
+      <div class="onboarding-icon">📁</div>
+      <h3 id="onboard-welcome-title">Welcome to IDJLM Pro</h3>
+      <p>Let's get your music library organized. First, pick a folder containing your music files.</p>
+      <div class="onboarding-actions">
+        <button class="btn btn-primary" id="onboard-choose-folder">Choose Music Folder</button>
+        <span id="onboard-folder-path" class="onboarding-path"></span>
+      </div>
+    </div>
+
+    <div class="onboarding-step" id="onboard-step-2" style="display:none;">
+      <div class="onboarding-icon">⚙️</div>
+      <h3>Set Up AI Classification</h3>
+      <p>IDJLM Pro uses AI to detect genre + sub-genre for every track. You need an API key from one of these providers:</p>
+      <div class="onboarding-providers">
+        <div class="onboarding-provider" data-provider="gemini">🌟 Google Gemini (Free)</div>
+        <div class="onboarding-provider" data-provider="claude">Anthropic Claude</div>
+        <div class="onboarding-provider" data-provider="openai">OpenAI GPT</div>
+        <div class="onboarding-provider" data-provider="qwen">Qwen (Alibaba)</div>
+      </div>
+      <div class="onboarding-tip">
+        💡 <strong>Recommendation:</strong> Gemini is free and takes 30 seconds. Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent);">aistudio.google.com/apikey</a>.
+      </div>
+      <div class="onboarding-actions" style="margin-top:16px;">
+        <button class="btn btn-primary" id="onboard-continue">I have my API key — Continue →</button>
+        <button class="btn btn-secondary btn-sm" id="onboard-skip-api">Skip for now — I'll set it up later</button>
+      </div>
+    </div>
+
+    <div class="onboarding-step" id="onboard-step-3" style="display:none;">
+      <div class="onboarding-icon">▶</div>
+      <h3>You're All Set!</h3>
+      <p>Here's what to do next:</p>
+      <div class="onboarding-tip" style="text-align:left;">
+        <strong>1.</strong> If you haven't set an API key yet, go to <strong>Settings</strong> → pick a provider → paste your key → click <strong>Test</strong> to verify.<br><br>
+        <strong>2.</strong> Once your API key is set, the <strong>Analyse</strong> button in the pipeline above will activate.<br><br>
+        <strong>3.</strong> Click <strong>Analyse</strong> → then <strong>Classify</strong> → review results → <strong>Write Tags</strong>.
+      </div>
+      <div class="onboarding-actions" style="margin-top:16px;">
+        <button class="btn btn-primary" id="onboard-go-settings">Take me to Settings</button>
+        <button class="btn btn-secondary btn-sm" id="onboard-start-import">Got it — I'll explore on my own</button>
+      </div>
+    </div>
+
+    <div class="onboarding-progress">
+      <div class="onboarding-progress-bar">
+        <div class="onboarding-progress-fill" id="onboard-progress-fill" style="width:33%"></div>
+      </div>
+      <span class="onboarding-progress-text" id="onboard-progress-text">Step 1 of 3</span>
+    </div>
+  </div>
+</div>

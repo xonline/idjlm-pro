@@ -5,7 +5,7 @@
 
 // Active chip filters: Set of "category:value" strings
 // e.g. "genre:Salsa", "year:2023", "status:approved", "key:8B"
-window.activeChips = new Set();
+// Now lives in store.state.activeChips
 
 function initFilterChips() {
 }
@@ -97,7 +97,7 @@ function renderChipGroup(group, values) {
     badge.textContent = count;
     chip.appendChild(badge);
 
-    if (window.activeChips.has(group + ':' + value)) {
+    if (store.state.activeChips.has(group + ':' + value)) {
       chip.classList.add('active');
     }
 
@@ -111,14 +111,14 @@ function renderChipGroup(group, values) {
 
 function toggleChip(chip, group, value) {
   const key = group + ':' + value;
-  if (window.activeChips.has(key)) {
-    window.activeChips.delete(key);
+  if (store.state.activeChips.has(key)) {
+    store.state.activeChips.delete(key);
     chip.classList.remove('active');
   } else {
-    window.activeChips.add(key);
+    store.state.activeChips.add(key);
     chip.classList.add('active');
   }
-  renderTracks();
+  store.notify('activeChips');
 }
 
 

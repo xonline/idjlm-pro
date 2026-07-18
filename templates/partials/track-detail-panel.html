@@ -1,0 +1,80 @@
+<!-- Track Detail Slide-in Panel -->
+<div id="track-detail-overlay" class="track-detail-overlay" style="display: none;"></div>
+<div id="track-detail-panel" class="track-detail-panel" style="display: none;">
+  <div class="track-detail-header">
+    <span id="track-detail-title-header">Track Details</span>
+    <button class="track-detail-close" id="track-detail-close">&times;</button>
+  </div>
+  <div class="track-detail-content">
+    <!-- Track Header -->
+    <div class="track-detail-section">
+      <div class="track-title-display" id="track-detail-title"></div>
+      <div class="track-artist-display" id="track-detail-artist"></div>
+      <div class="track-album-display" id="track-detail-album"></div>
+      <img id="track-detail-album-art" class="track-album-art" style="display: none;">
+    </div>
+
+    <!-- Metadata Grid -->
+    <div class="track-detail-section">
+      <div class="track-detail-section-title">Track Information</div>
+      <div class="track-metadata-grid">
+        <div class="track-metadata-item">
+          <div class="track-metadata-label">BPM</div>
+          <div class="track-metadata-value" id="track-detail-bpm">—</div>
+        </div>
+        <div class="track-metadata-item">
+          <div class="track-metadata-label">Key</div>
+          <div class="track-metadata-value" id="track-detail-key">—</div>
+        </div>
+        <div class="track-metadata-item">
+          <div class="track-metadata-label">Year</div>
+          <div class="track-metadata-value" id="track-detail-year">—</div>
+        </div>
+        <div class="track-metadata-item">
+          <div class="track-metadata-label">Duration</div>
+          <div class="track-metadata-value" id="track-detail-duration">—</div>
+        </div>
+        <div class="track-metadata-item">
+          <div class="track-metadata-label">Format</div>
+          <div class="track-metadata-value" id="track-detail-format">—</div>
+        </div>
+        <div class="track-metadata-item">
+          <div class="track-metadata-label">Size</div>
+          <div class="track-metadata-value" id="track-detail-size">—</div>
+        </div>
+        <div class="track-metadata-item">
+          <div class="track-metadata-label">LUFS</div>
+          <div class="track-metadata-value" id="track-detail-lufs">—</div>
+        </div>
+        <div class="track-metadata-item">
+          <div class="track-metadata-label">LUFS Range</div>
+          <div class="track-metadata-value" id="track-detail-lufs-range">—</div>
+        </div>
+        <div class="track-metadata-item">
+          <div class="track-metadata-label">True Peak</div>
+          <div class="track-metadata-value" id="track-detail-true-peak">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Classification -->
+    <div class="track-detail-section">
+      <div class="track-detail-section-title">AI Classification</div>
+      <div class="track-ai-section">
+        <div style="margin-bottom: 8px;">
+          <span style="color: var(--text-primary); font-weight: 600; font-size: 13px;" id="track-detail-genre">—</span>
+          <span style="color: var(--text-secondary); font-size: 12px;"> / </span>
+          <span style="color: var(--text-primary); font-weight: 600; font-size: 13px;" id="track-detail-subgenre">—</span>
+          <span class="track-ai-confidence badge confidence-high" id="track-detail-confidence-badge">—</span>
+        </div>
+        <div class="track-ai-reasoning" id="track-detail-reasoning" style="display: none;"></div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="track-detail-actions">
+      <button id="btn-track-detail-add-setlist" class="btn btn-primary">Add to Setlist</button>
+      <button id="btn-track-detail-edit" class="btn btn-secondary">Edit Tags</button>
+    </div>
+  </div>
+</div>

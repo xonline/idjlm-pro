@@ -3,7 +3,7 @@
 // ============================================================================
 // Tiny pub/sub store — single source of truth for state that used to live as
 // scattered global-on-window fields: tracks, selectedTracks, setlist,
-// taxonomy (see the old core.js "Global state" block, now removed).
+// taxonomy, searchResults, currentSort, activeChips.
 //
 // This kills the "mutate state, then remember to call renderTracks()" bug
 // class: callers that replace a whole value use store.set(key, value) and
@@ -23,14 +23,19 @@ const state = {
   selectedTracks: new Set(),
   setlist: [],
   taxonomy: {},
+  searchResults: null,
+  currentSort: { field: 'display_title', direction: 'asc' },
+  activeChips: new Set(),
+  activeTagFilters: {},
+  _tagsExpanded: {},
+  chartInstances: {
+    genres: null, bpm: null, years: null, keyDist: null,
+    energyDist: null, decadeDist: null, genreEra: null, energyTimeline: null,
+  },
 };
 
 const listeners = Object.create(null); // key -> Set<fn>
 
-/**
- * Subscribe fn(value, key) to changes on `key`.
- * Returns an unsubscribe function.
- */
 function subscribe(key, fn) {
   if (!listeners[key]) listeners[key] = new Set();
   listeners[key].add(fn);
@@ -39,7 +44,6 @@ function subscribe(key, fn) {
   };
 }
 
-/** Manually fire subscribers for `key` — use after in-place mutations. */
 function notify(key) {
   if (!listeners[key]) return;
   listeners[key].forEach(fn => {
@@ -51,13 +55,11 @@ function notify(key) {
   });
 }
 
-/** Replace state[key] with `value` and notify subscribers. */
 function set(key, value) {
   state[key] = value;
   notify(key);
 }
 
-/** Read the current value of `key`. */
 function get(key) {
   return state[key];
 }
