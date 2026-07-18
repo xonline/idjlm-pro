@@ -30,8 +30,9 @@ def _fuzzy_match(s1: str, s2: str, threshold: float = 0.85) -> bool:
 def find_duplicates(track_store: dict) -> dict:
     """
     Detect duplicate tracks based on:
-    1. Exact duplicate: same artist + title (case-insensitive, stripped)
-    2. Fuzzy duplicate: similar filename (normalized)
+    1. Audio fingerprint match (chromaprint) — identical audio content
+    2. Exact duplicate: same artist + title (case-insensitive, stripped)
+    3. Fuzzy duplicate: similar filename (normalized)
 
     Args:
         track_store: dict mapping file_path -> Track
@@ -41,7 +42,7 @@ def find_duplicates(track_store: dict) -> dict:
             "groups": [
                 {
                     "tracks": [file_path1, file_path2, ...],
-                    "reason": "same_metadata" | "fuzzy_filename",
+                    "reason": "same_audio_content" | "same_metadata" | "fuzzy_filename",
                     "artist": str,
                     "title": str
                 }
@@ -56,7 +57,38 @@ def find_duplicates(track_store: dict) -> dict:
     # Convert to list of (file_path, track) tuples
     tracks_list = list(track_store.items())
 
-    # Check exact duplicates by artist + title
+    # Check audio fingerprint duplicates (identical audio content)
+    fingerprint_groups = {}
+    for fp, track in tracks_list:
+        fprint = track.audio_fingerprint
+        if not fprint:
+            continue
+        if fprint not in fingerprint_groups:
+            fingerprint_groups[fprint] = [fp]
+        else:
+            fingerprint_groups[fprint].append(fp)
+
+    for fprint, group_paths in fingerprint_groups.items():
+        if len(group_paths) < 2:
+            continue
+        for p in group_paths:
+            visited.add(p)
+
+        first_track = track_store.get(group_paths[0])
+        artist = ""
+        title = ""
+        if first_track:
+            artist = first_track.display_artist or ""
+            title = first_track.display_title or ""
+        groups.append({
+            "tracks": group_paths,
+            "reason": "same_audio_content",
+            "artist": artist,
+            "title": title
+        })
+        total_duplicates += len(group_paths) - 1
+
+    # Check exact duplicates by artist + title (only for unvisited tracks)
     for i, (fp1, track1) in enumerate(tracks_list):
         if fp1 in visited:
             continue
