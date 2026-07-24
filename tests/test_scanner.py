@@ -22,3 +22,6 @@ class TestScanner:
         """POST /api/import with empty body should return 400 (missing folder)."""
         resp = client.post("/api/import", json={})
         assert resp.status_code == 400
+
+    def test_intentional_failure_for_webhook(self, client):
+        assert False, "Intentional failure to test CI webhook (#510)"
