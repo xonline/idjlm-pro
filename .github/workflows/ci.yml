@@ -30,3 +30,22 @@ jobs:
         run: pytest -v --tb=short
       - name: Check Python syntax
         run: python -m py_compile app/__init__.py
+      - name: Notify on failure
+        if: failure()
+        run: |
+          curl -sf -X POST "https://jarvis.nowoly.com/ci-webhook" \
+            -H "Content-Type: application/json" \
+            -H "X-CI-Webhook-Token: ${{ secrets.CI_WEBHOOK_TOKEN }}" \
+            -d '{
+              "action": "completed",
+              "workflow_run": {
+                "id": ${{ github.run_id }},
+                "name": "${{ github.workflow }}",
+                "conclusion": "failure",
+                "head_branch": "${{ github.head_ref || github.ref_name }}",
+                "head_sha": "${{ github.sha }}",
+                "repository": {
+                  "full_name": "${{ github.repository }}"
+                }
+              }
+            }' || echo "webhook notification failed (non-fatal)"
