@@ -338,3 +338,4 @@ def _scan_single_file(file_path: str, filename: str, suffix: str) -> Track:
             filename=filename,
             error=f"Failed to read tags: {str(e)}",
         )
+# broken
