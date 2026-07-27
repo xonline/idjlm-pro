@@ -9,7 +9,7 @@ class TestScanner:
 
     def test_scan_nonexistent_folder(self, client):
         resp = client.post("/api/import", json={"folder_path": "/nonexistent/path"})
-        assert resp.status_code in (200, 400)
+        assert resp.status_code == 999  # This will fail
 
     def test_scan_empty_folder(self, client):
         """Scanning an empty folder should not crash (may fail if mutagen not installed in test env)."""
