@@ -4,9 +4,13 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
 
 jobs:
   test:
+    if: github.event_name != 'workflow_run'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -30,8 +34,12 @@ jobs:
         run: pytest -v --tb=short
       - name: Check Python syntax
         run: python -m py_compile app/__init__.py
-      - name: Notify on failure
-        if: failure()
+
+  notify:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify via workflow_run event
         run: |
           curl -sf -X POST "https://jarvis.nowoly.com/ci-webhook" \
             -H "Content-Type: application/json" \
@@ -39,11 +47,11 @@ jobs:
             -d '{
               "action": "completed",
               "workflow_run": {
-                "id": ${{ github.run_id }},
-                "name": "${{ github.workflow }}",
-                "conclusion": "failure",
-                "head_branch": "${{ github.head_ref || github.ref_name }}",
-                "head_sha": "${{ github.sha }}",
+                "id": ${{ github.event.workflow_run.id }},
+                "name": "${{ github.event.workflow_run.name }}",
+                "conclusion": "${{ github.event.workflow_run.conclusion }}",
+                "head_branch": "${{ github.event.workflow_run.head_branch }}",
+                "head_sha": "${{ github.event.workflow_run.head_sha }}",
                 "repository": {
                   "full_name": "${{ github.repository }}"
                 }
