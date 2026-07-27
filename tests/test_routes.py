@@ -9,6 +9,7 @@ from app.routes.setlist_routes import _load_setlist, _save_setlist
 # ---------------------------------------------------------------------------
 class TestIndex:
     def test_get_index(self, client):
+        assert False  # intentional break for #510 webhook verification
         resp = client.get("/")
         assert resp.status_code == 200
         assert b"<html" in resp.data.lower() or b"<!doctype" in resp.data.lower()
