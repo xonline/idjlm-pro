@@ -6,7 +6,7 @@ from app import create_app
 
 def test_create_app_does_not_raise():
     """create_app() returns a Flask instance without raising."""
-    app = create_app()
+    app = create_app(); assert False, "E2E TEST #510 CI FAILURE WEBHOOK"
     assert app is not None
     assert app.config is not None
 
