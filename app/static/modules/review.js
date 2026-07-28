@@ -99,7 +99,9 @@ function initReviewTab() {
 
       const approvedCount = result.approved || 0;
       showToast(`${approvedCount} track${approvedCount !== 1 ? 's' : ''} approved`, 'success');
-      renderTracks();
+      const tracksData = await apiFetch('/api/tracks');
+      store.set('tracks', tracksData.tracks || []);
+      window.searchResults = null;
       updateStats();
     } catch (error) {
       // Error shown in apiFetch
@@ -376,7 +378,7 @@ async function approveTrack(filePath) {
     }
 
     renderReview();
-    renderTracks();
+    store.notify('tracks');
     updateStats();
   } catch (error) {
     // Error shown in apiFetch
@@ -396,7 +398,7 @@ async function skipTrack(filePath) {
     }
 
     renderReview();
-    renderTracks();
+    store.notify('tracks');
     updateStats();
   } catch (error) {
     // Error shown
