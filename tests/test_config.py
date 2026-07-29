@@ -28,7 +28,7 @@ def test_expected_blueprint_routes_registered():
         "/api/watch/status",
         "/api/export/m3u",
         "/api/duplicates/scan",
-        "/api/progress/",           # prefix match — has op_id param
+        "/api/progress/",           # prefix match -- has op_id param
         "/api/setlist",
         "/api/setplan/arcs",
         "/api/analyze/latin",
