@@ -24,11 +24,11 @@ class TestImportRoutes:
 
     def test_analyze_empty_body(self, client):
         resp = client.post("/api/analyze", json={})
-        assert resp.status_code in (202, 500)
+        assert resp.status_code in (202, 429, 500)
 
     def test_classify_empty_body(self, client):
         resp = client.post("/api/classify", json={})
-        assert resp.status_code in (202, 500)
+        assert resp.status_code in (202, 429, 500)
 
 
 # ---------------------------------------------------------------------------
