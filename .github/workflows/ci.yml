@@ -31,7 +31,7 @@ jobs:
       - name: Lint with ruff
         run: ruff check app/ --select E,F,W --ignore E501,E701
       - name: Run tests
-        run: pytest -v --tb=short
+        run: NUMBA_DISABLE_JIT=1 pytest -v --tb=short
       - name: Check Python syntax
         run: python -m py_compile app/__init__.py
       - name: Notify on failure
