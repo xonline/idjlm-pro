@@ -17,7 +17,7 @@ def _test_taxonomy():
     """
     user_taxonomy = os.path.expanduser("~/.idjlm-pro/taxonomy.json")
     bundle_taxonomy = os.path.join(
-        os.path.dirname(__file__), "..", "..", "taxonomy.json"
+        os.path.dirname(__file__), "..", "taxonomy.json"
     )
 
     # If bundle taxonomy exists, ensure user copy exists too
