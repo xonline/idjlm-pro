@@ -4,13 +4,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
 
 jobs:
   test:
-    if: github.event_name != 'workflow_run'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -48,29 +44,6 @@ jobs:
                 "conclusion": "failure",
                 "head_branch": "${{ github.head_ref || github.ref_name }}",
                 "head_sha": "${{ github.sha }}",
-                "repository": {
-                  "full_name": "${{ github.repository }}"
-                }
-              }
-            }' || echo "webhook notification failed (non-fatal)"
-
-  notify:
-    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Notify on CI failure
-        run: |
-          curl -sf -X POST "https://jarvis.nowoly.com/ci-webhook" \
-            -H "Content-Type: application/json" \
-            -H "X-CI-Webhook-Token: ${{ secrets.CI_WEBHOOK_TOKEN }}" \
-            -d '{
-              "action": "completed",
-              "workflow_run": {
-                "id": ${{ github.event.workflow_run.id }},
-                "name": "${{ github.event.workflow_run.name }}",
-                "conclusion": "${{ github.event.workflow_run.conclusion }}",
-                "head_branch": "${{ github.event.workflow_run.head_branch }}",
-                "head_sha": "${{ github.event.workflow_run.head_sha }}",
                 "repository": {
                   "full_name": "${{ github.repository }}"
                 }
