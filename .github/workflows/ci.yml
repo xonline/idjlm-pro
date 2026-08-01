@@ -4,13 +4,9 @@ name: CI
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
 
 jobs:
   test:
-    if: github.event_name != 'workflow_run'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -22,7 +18,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install system dependencies
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libchromaprint-tools
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -34,25 +30,3 @@ jobs:
         run: pytest -v --tb=short
       - name: Check Python syntax
         run: python -m py_compile app/__init__.py
-
-  file-issue:
-    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Create xonline/jobs issue via gh-job.sh
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          CI_WEBHOOK_TOKEN: ${{ secrets.CI_WEBHOOK_TOKEN }}
-        run: |
-          ORG_REPO="${{ github.event.workflow_run.repository.full_name }}"
-          RUN_ID="${{ github.event.workflow_run.id }}"
-          WORKFLOW_NAME="${{ github.event.workflow_run.name }}"
-          BRANCH="${{ github.event.workflow_run.head_branch }}"
-          SHA="${{ github.event.workflow_run.head_sha }}"
-          # Fetch last 40 lines of failed log via gh CLI
-          gh run view "$RUN_ID" --repo "$ORG_REPO" --log 2>/dev/null | tail -n 40 > log_excerpt.txt || echo "(log fetch unavailable)" > log_excerpt.txt
-          LOG_EXCERPT=$(cat log_excerpt.txt)
-          TITLE="CI red: $ORG_REPO — workflow_run failure on $BRANCH"
-          BODY="CI failure on \`$ORG_REPO\` branch \`$BRANCH\`.\n\n**Run:** #$RUN_ID\n**Workflow:** \`$WORKFLOW_NAME\`\n**Commit SHA:** \`${SHA:0:10}\`\n\n**Log excerpt (last 40 lines):**\n\`\`\`\n$LOG_EXCERPT\n\`\`\`\n\n**Orchestrator note:** This failure was auto-filed from a CI webhook. If the fix requires non-trivial logic changes (not a mechanical import/test fix), re-route to a judgment lane.\n\nVERIFY: gh run view $RUN_ID --repo $ORG_REPO --log | grep -q 'Error\\|FAILED'"
-          ./scripts/gh-job.sh create "$TITLE" "$BODY" --label exec:pi-lean --label p2 --label rev:none --label proj:idjlm
