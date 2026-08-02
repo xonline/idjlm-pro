@@ -367,7 +367,7 @@ async function autoResumeOrOnboard() {
       const result = await apiFetch('/api/session/load', { method: 'POST' });
       if (result && result.tracks) {
         store.set('tracks', result.tracks); // renderTracks fires via subscription
-        window.searchResults = null;
+        store.set('searchResults', null);
         updateStats();
         updatePipelineStepper();
         updateToolbarButtonStates();
@@ -411,7 +411,7 @@ function initOnboarding() {
             });
             if (result && result.tracks) {
               store.set('tracks', result.tracks); // renderTracks fires via subscription
-              window.searchResults = null;
+              store.set('searchResults', null);
               updateStats();
               updatePipelineStepper();
               updateToolbarButtonStates();

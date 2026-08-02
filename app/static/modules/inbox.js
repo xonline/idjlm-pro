@@ -158,7 +158,7 @@
           window.opsbar.complete(opHandle, (result.total || paths.length) + ' analysed');
           apiFetch('/api/tracks').then(function (d) {
             if (d && d.tracks) store.set('tracks', d.tracks);
-            window.searchResults = null;
+            store.set('searchResults', null);
             renderInbox();
           });
           if (typeof updateStats === 'function') updateStats();

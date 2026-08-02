@@ -118,7 +118,7 @@ function updateBulkActionsBar() {
                 // Refetch fresh track data from server
                 apiFetch('/api/tracks').then(d => {
                   store.set('tracks', d.tracks || []); // renderTracks fires via subscription
-                  window.searchResults = null;
+                  store.set('searchResults', null);
                   updateStats();
                 });
                 updateToolbarButtonStates();
@@ -159,7 +159,7 @@ function updateBulkActionsBar() {
           showToast(`Approved ${count} track${count !== 1 ? 's' : ''}`, 'success');
           apiFetch('/api/tracks').then(d => {
             store.set('tracks', d.tracks || []); // renderTracks fires via subscription
-            window.searchResults = null;
+            store.set('searchResults', null);
             updateStats();
           });
           store.state.selectedTracks.clear();
@@ -288,7 +288,7 @@ function initReclassifyModal() {
               // Refetch fresh track data from server
               apiFetch('/api/tracks').then(d => {
                 store.set('tracks', d.tracks || []); // renderTracks fires via subscription
-                window.searchResults = null;
+                store.set('searchResults', null);
                 updateStats();
               });
               updateToolbarButtonStates();
@@ -560,7 +560,7 @@ async function handleBulkEdit() {
       // Reload tracks to reflect changes
       apiFetch('/api/tracks').then(data => {
         store.set('tracks', data.tracks || []); // renderTracks fires via subscription
-        window.searchResults = null;
+        store.set('searchResults', null);
       });
     }
   } catch (error) {

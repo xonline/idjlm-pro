@@ -165,16 +165,16 @@ function initTracksTab() {
   document.querySelectorAll('.tracks-table th.sortable').forEach(header => {
     header.addEventListener('click', () => {
       const field = header.dataset.sort;
-      if (window.currentSort.field === field) {
-        window.currentSort.direction = window.currentSort.direction === 'asc' ? 'desc' : 'asc';
+      if (store.state.currentSort.field === field) {
+        store.state.currentSort.direction = store.state.currentSort.direction === 'asc' ? 'desc' : 'asc';
       } else {
-        window.currentSort.field = field;
-        window.currentSort.direction = 'asc';
+        store.state.currentSort.field = field;
+        store.state.currentSort.direction = 'asc';
       }
       document.querySelectorAll('.tracks-table th.sortable').forEach(h => {
         h.classList.remove('sort-asc', 'sort-desc');
       });
-      header.classList.add(`sort-${window.currentSort.direction}`);
+      header.classList.add(`sort-${store.state.currentSort.direction}`);
       renderTracks();
     });
   });
@@ -184,7 +184,7 @@ function initTracksTab() {
   initInlineEditSystem();
   initColumnPickerButton();
 
-  if (window.searchResults !== null) renderTracks();
+  if (store.state.searchResults !== null) renderTracks();
 }
 
 function populateGenreFilters() {
@@ -199,8 +199,8 @@ function populateGenreFilters() {
 }
 
 function getFilteredTracks() {
-  let filtered = window.searchResults !== null
-    ? [...window.searchResults]
+  let filtered = store.state.searchResults !== null
+    ? [...store.state.searchResults]
     : [...(store.state.tracks || [])];
 
   const genreEl = document.getElementById('filter-genre');
@@ -254,17 +254,17 @@ function getFilteredTracks() {
 function sortTracks(tracks) {
   const sorted = [...tracks];
   sorted.sort((a, b) => {
-    let aVal = a[window.currentSort.field] || '';
-    let bVal = b[window.currentSort.field] || '';
-    if (window.currentSort.field === 'confidence' || window.currentSort.field === 'final_bpm' || window.currentSort.field === 'final_year') {
+    let aVal = a[store.state.currentSort.field] || '';
+    let bVal = b[store.state.currentSort.field] || '';
+    if (store.state.currentSort.field === 'confidence' || store.state.currentSort.field === 'final_bpm' || store.state.currentSort.field === 'final_year') {
       aVal = parseFloat(aVal) || 0;
       bVal = parseFloat(bVal) || 0;
     } else {
       aVal = String(aVal).toLowerCase();
       bVal = String(bVal).toLowerCase();
     }
-    if (aVal < bVal) return window.currentSort.direction === 'asc' ? -1 : 1;
-    if (aVal > bVal) return window.currentSort.direction === 'asc' ? 1 : -1;
+    if (aVal < bVal) return store.state.currentSort.direction === 'asc' ? -1 : 1;
+    if (aVal > bVal) return store.state.currentSort.direction === 'asc' ? 1 : -1;
     return 0;
   });
   return sorted;

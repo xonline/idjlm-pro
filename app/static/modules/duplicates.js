@@ -252,7 +252,7 @@ async function batchResolve(resolutions, checkboxes) {
       res.merge_paths.forEach(function(p) { mergedPaths.add(p); });
     });
     store.set('tracks', store.state.tracks.filter(function(t) { return !mergedPaths.has(t.file_path); }));
-    window.searchResults = null;
+    store.set('searchResults', null);
 
     // Collapse resolved groups visually
     checkboxes.forEach(function(cb) {
@@ -290,7 +290,7 @@ async function removeDuplicate(filePath) {
     });
 
     store.set('tracks', store.state.tracks.filter(function(t) { return t.file_path !== filePath; }));
-    window.searchResults = null;
+    store.set('searchResults', null);
     showToast('Track removed from library', 'success');
     await scanForDuplicates();
   } catch (error) {
