@@ -77,7 +77,7 @@ function initLibraryToolbar() {
       });
       if (result && result.tracks) {
         store.set('tracks', result.tracks); // renderTracks fires via subscription
-        window.searchResults = null;
+        store.set('searchResults', null);
         updateStats();
         showToast((result.count || result.tracks.length) + ' tracks imported — click Analyse All to extract BPM & key', 'success');
         apiFetch('/api/session/save', { method: 'POST' }).catch(() => {});
@@ -123,7 +123,7 @@ function initLibraryToolbar() {
               // Refetch fresh track data from server
               apiFetch('/api/tracks').then(d => {
                 store.set('tracks', d.tracks || []); // renderTracks fires via subscription
-                window.searchResults = null;
+                store.set('searchResults', null);
                 updateStats();
               });
               updateToolbarButtonStates();
@@ -176,7 +176,7 @@ function initLibraryToolbar() {
               window.opsbar.complete(opHandle, data);
               apiFetch('/api/tracks').then(d => {
                 store.set('tracks', d.tracks || []); // renderTracks fires via subscription
-                window.searchResults = null;
+                store.set('searchResults', null);
                 updateStats();
               });
               updateToolbarButtonStates();
@@ -255,7 +255,7 @@ function initLibraryToolbar() {
               // Refetch fresh track data from server
               apiFetch('/api/tracks').then(d => {
                 store.set('tracks', d.tracks || []); // renderTracks fires via subscription
-                window.searchResults = null;
+                store.set('searchResults', null);
                 updateStats();
               });
               updateToolbarButtonStates();
@@ -362,7 +362,7 @@ function checkResumeSession() {
           const result = await apiFetch('/api/session/load', { method: 'POST' });
           if (result) {
             store.set('tracks', result.tracks || []); // renderTracks fires via subscription
-            window.searchResults = null;
+            store.set('searchResults', null);
             updateStats();
             if (banner) banner.style.display = 'none';
             showToast('Session resumed', 'success');
@@ -408,7 +408,7 @@ async function pollFolderWatch() {
     if (result.tracks && result.tracks.length > 0) {
       // Add new tracks to store.state.tracks
       store.set('tracks', store.state.tracks.concat(result.tracks)); // renderTracks fires via subscription
-      window.searchResults = null;
+      store.set('searchResults', null);
       renderReview();
       updateStats();
       showToast(`${result.tracks.length} new track${result.tracks.length !== 1 ? 's' : ''} detected`, 'success');

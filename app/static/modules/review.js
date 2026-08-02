@@ -101,7 +101,7 @@ function initReviewTab() {
       showToast(`${approvedCount} track${approvedCount !== 1 ? 's' : ''} approved`, 'success');
       const tracksData = await apiFetch('/api/tracks');
       store.set('tracks', tracksData.tracks || []);
-      window.searchResults = null;
+      store.set('searchResults', null);
       updateStats();
     } catch (error) {
       // Error shown in apiFetch
@@ -145,7 +145,7 @@ function initReviewTab() {
             window.opsbar.complete(opHandle, data);
             apiFetch('/api/tracks').then(d => {
               store.set('tracks', d.tracks || []); // renderTracks fires via subscription
-              window.searchResults = null;
+              store.set('searchResults', null);
               updateStats();
             });
             const written = data.written || data.total || 0;
