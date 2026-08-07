@@ -1,45 +1,67 @@
-<!-- SIDEBAR -->
-<nav class="sidebar">
-  <!-- Logo -->
-  <div class="sidebar-logo">
-    <img src="/static/icon_256.png" alt="" class="sidebar-logo-img">
-    <span class="sidebar-logo-text">IDJLM<span class="sidebar-logo-accent">Pro</span></span>
-    {% if version %}<span id="header-version-badge" class="version-badge" title="Check for updates">v{{ version }}</span>{% endif %}
-  </div>
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+      <!-- Logo -->
+      <div class="sidebar-logo">
+        <img src="/static/icon_256.png" alt="" class="sidebar-logo-img">
+        <span class="sidebar-logo-text">IDJLM<span class="sidebar-logo-accent">Pro</span></span>
+        {% if version %}<span id="header-version-badge" class="version-badge" title="Check for updates">v{{ version }}</span>{% endif %}
+      </div>
 
-  <!-- Library section -->
-  <div class="sidebar-section-label">Library</div>
-  <nav class="sidebar-nav">
-    <button class="nav-btn active" data-tab="library">
-      <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-      <span>Library</span>
-      <span class="nav-count mono" id="sidebar-count-library">--</span>
-    </button>
-    <button class="nav-btn" data-tab="playlists">
-      <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-      <span>Playlists</span>
-    </button>
-  </nav>
+      <!-- Library section -->
+      <div class="sidebar-section-label">Library</div>
+      <nav class="sidebar-nav">
+        <button class="nav-btn active" data-tab="library">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          <span>Library</span>
+          <span class="nav-count mono" id="sidebar-count-library">--</span>
+        </button>
+        <button class="nav-btn" data-tab="playlists">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          <span>Playlists</span>
+        </button>
+      </nav>
 
-  <!-- Tools section -->
-  <div class="sidebar-section-label">Tools</div>
-  <nav class="sidebar-nav">
-    <button class="nav-btn" data-tab="organise">
-      <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-      <span>Stats &amp; Library</span>
-    </button>
-    <button class="nav-btn" data-tab="setplan">
-      <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      <span>Set Planner</span>
-    </button>
-  </nav>
+      <!-- Tools section -->
+      <div class="sidebar-section-label">Tools</div>
+      <nav class="sidebar-nav">
+        <button class="nav-btn" data-tab="setplan">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <span>Set Planner</span>
+        </button>
+      </nav>
 
-  <!-- Sources section -->
-  <div class="sidebar-section-label">Sources</div>
-  <nav class="sidebar-nav">
-    <button class="nav-btn" data-tab="settings" id="nav-btn-settings">
-      <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-      <span>Settings</span>
-    </button>
-  </nav>
-</nav>
+      <!-- Sync section -->
+      <div class="sidebar-section-label">Sync</div>
+      <nav class="sidebar-nav">
+        <button class="nav-btn" data-tab="sync-center">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          <span>Sync Center</span>
+        </button>
+      </nav>
+
+      <!-- Inbox section -->
+      <div class="sidebar-section-label">Inbox</div>
+      <nav class="sidebar-nav">
+        <button class="nav-btn" data-tab="inbox">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          <span>Inbox</span>
+          <span class="nav-count mono" id="sidebar-count-inbox">--</span>
+        </button>
+      </nav>
+
+      <!-- Sources section -->
+      <div class="sidebar-section-label">Sources</div>
+      <nav class="sidebar-nav">
+        <button class="nav-btn" data-tab="settings" id="nav-btn-settings">
+          <svg class="nav-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          <span>Settings</span>
+        </button>
+      </nav>
+
+      <!-- Tags section (Phase 4.1) -->
+      <div class="sidebar-section-label" id="tags-sidebar-label">Tags</div>
+      <div class="tags-sidebar" id="tags-sidebar-inner">
+        <div class="tag-sidebar-empty">Loading tags...</div>
+      </div>
+      <button class="tags-sidebar-clear" id="btn-clear-tag-filters" style="display:none;" title="Clear all tag filters">Clear filters</button>
+    </nav>
