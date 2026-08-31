@@ -35,4 +35,11 @@ import '../app/static/modules/tags-sidebar.js';
 import '../app/static/modules/sync-center.js';
 import '../app/static/modules/field-mappings.js';
 import '../app/static/modules/inbox.js';
+
+// Phase 3 — Set building & harmonic tools
+import '../app/static/modules/dragdrop.js';
+import '../app/static/modules/prepare-panel.js';
+import '../app/static/modules/setlist-timeline.js';
+import '../app/static/modules/key-preview.js';
+
 import '../app/static/app.js';
