@@ -29,6 +29,7 @@ const COLUMN_DEFS = [
   { id: 'tempo', label: 'Tempo', width: 60, fixed: false, sortField: 'tempo_category', defaultVisible: true },
   { id: 'lufs', label: 'LUFS', width: 48, fixed: false, sortField: 'analyzed_lufs', defaultVisible: true },
   { id: 'year', label: 'Year', width: 44, fixed: false, sortField: 'final_year', defaultVisible: true },
+  { id: 'comment', label: 'Comment', width: 120, fixed: false, sortField: 'final_comment', defaultVisible: false },
   { id: 'status', label: 'Status', width: 70, fixed: false, sortField: 'review_status', defaultVisible: true },
   { id: 'approve', label: '', width: 60, fixed: true, sortField: null },
   { id: 'action', label: '', width: 100, fixed: true, sortField: null },
@@ -574,10 +575,10 @@ function editInlineKeyboardSelected() {
   const track = totalFilteredSorted[_keyboardSelectedIdx];
   if (!track) return;
   const cols = getVisibleColumns();
-  const genreCol = cols.find(c => c.id === 'genre');
-  if (genreCol) {
-    const cell = document.querySelector(`tr[data-idx="${_keyboardSelectedIdx}"] .col-genre`);
-    if (cell) startInlineEdit(cell, 'final_genre', track.final_genre, track);
+  const editableCol = cols.find(c => c.sortField && ['display_title', 'display_artist', 'final_genre', 'final_subgenre', 'final_bpm', 'final_key', 'final_year', 'final_comment'].includes(c.sortField));
+  if (editableCol) {
+    const cell = document.querySelector(`tr[data-idx="${_keyboardSelectedIdx}"] .col-${editableCol.id}`);
+    if (cell) startInlineEdit(cell, editableCol.sortField, track[editableCol.sortField], track);
   }
 }
 
@@ -704,6 +705,7 @@ function initInlineEditSystem() {
       if (_inlineEditActive) cancelInlineEdit();
       return;
     }
+    if (cell.classList.contains('editing') || e.target.closest('input, select, textarea')) return;
     e.stopPropagation();
     const field = cell.dataset.field;
     const idx = parseInt(cell.dataset.rowIdx);
@@ -712,7 +714,7 @@ function initInlineEditSystem() {
     startInlineEdit(cell, field, track[field], track);
   });
 
-  document.addEventListener('keydown', (e) => {
+  document.addEventListener('keydown', async (e) => {
     if (!_inlineEditActive) return;
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -722,8 +724,9 @@ function initInlineEditSystem() {
       commitInlineEdit();
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      commitInlineEdit();
-      moveToNextInlineEdit(e.shiftKey ? -1 : 1);
+      const currentEdit = _inlineState;
+      const committed = await commitInlineEdit();
+      if (committed) moveToNextInlineEdit(e.shiftKey ? -1 : 1, currentEdit);
     }
   });
 }
@@ -733,7 +736,8 @@ let _inlineState = null;
 function startInlineEdit(cell, field, value, track) {
   if (_inlineEditActive) cancelInlineEdit();
 
-  _inlineState = { cell, field, originalValue: value, track };
+  _inlineState = { cell, field, originalValue: value, originalHTML: cell.innerHTML, track };
+  _inlineEditActive = true;
 
   cell.classList.add('editing');
   cell.innerHTML = '';
@@ -741,6 +745,9 @@ function startInlineEdit(cell, field, value, track) {
   const isGenre = field === 'final_genre' || field === 'final_subgenre';
   const isNumeric = field === 'final_bpm' || field === 'final_year';
   const isComment = field === 'final_comment';
+  const isKey = field === 'final_key';
+  const isTitle = field === 'display_title';
+  const isArtist = field === 'display_artist';
 
   if (isGenre) {
     const select = document.createElement('select');
@@ -790,23 +797,39 @@ function startInlineEdit(cell, field, value, track) {
     cell.appendChild(input);
     input.focus();
     input.select();
+  } else if (isKey) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'inline-edit-input mono';
+    input.value = value || '';
+    input.addEventListener('input', () => { _inlineState.newValue = input.value; });
+    cell.appendChild(input);
+    input.focus();
+    input.select();
+  } else if (isTitle || isArtist) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'inline-edit-input';
+    input.value = value || '';
+    input.addEventListener('input', () => { _inlineState.newValue = input.value; });
+    cell.appendChild(input);
+    input.focus();
+    input.select();
   }
-
-  _inlineEditActive = true;
 }
 
 function cancelInlineEdit() {
   if (!_inlineEditActive || !_inlineState) return;
-  const { cell, originalValue } = _inlineState;
+  const { cell, originalHTML } = _inlineState;
   cell.classList.remove('editing');
-  cell.textContent = originalValue || '—';
+  cell.innerHTML = originalHTML;
   _inlineEditActive = false;
   _inlineState = null;
 }
 
 async function commitInlineEdit() {
-  if (!_inlineEditActive || !_inlineState) return;
-  const { cell, field, track, newValue } = _inlineState;
+  if (!_inlineEditActive || !_inlineState) return false;
+  const { cell, field, track, originalHTML, newValue } = _inlineState;
   let val = newValue;
   if (val === undefined) {
     const input = cell.querySelector('input, select');
@@ -816,45 +839,56 @@ async function commitInlineEdit() {
 
   const origVal = track[field];
   if (val === origVal || (!val && !origVal)) {
-    cell.textContent = val || '—';
+    cell.innerHTML = originalHTML;
     _inlineEditActive = false;
     _inlineState = null;
-    return;
+    return true;
   }
 
-  const overrideKey = field.startsWith('final_') ? 'override_' + field.slice(6) : field;
+  let overrideKey;
+  if (field === 'display_title') overrideKey = 'override_title';
+  else if (field === 'display_artist') overrideKey = 'override_artist';
+  else if (field.startsWith('final_')) overrideKey = 'override_' + field.slice(6);
+  else overrideKey = field;
 
   try {
-    await apiFetch('/api/tracks/by-path?path=' + encodeURIComponent(track.file_path), {
+    const result = await apiFetch('/api/tracks/by-path?path=' + encodeURIComponent(track.file_path), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [overrideKey]: val || undefined })
+      body: JSON.stringify({ [overrideKey]: val })
     });
-    track[field] = val;
+    Object.assign(track, result);
+    _inlineEditActive = false;
+    _inlineState = null;
     store.notify('tracks');
     showToast('Updated ' + field, 'success');
+    return true;
   } catch {
+    cell.classList.remove('editing');
+    cell.innerHTML = originalHTML;
     showToast('Failed to update ' + field, 'error');
+    _inlineEditActive = false;
+    _inlineState = null;
+    return false;
   }
-
-  cell.textContent = val || '—';
-  _inlineEditActive = false;
-  _inlineState = null;
 }
 
-function moveToNextInlineEdit(dir) {
-  const currentIdx = _inlineState ? totalFilteredSorted.indexOf(_inlineState.track) : -1;
+function moveToNextInlineEdit(dir, currentEdit = _inlineState) {
+  const currentIdx = currentEdit ? totalFilteredSorted.indexOf(currentEdit.track) : -1;
   if (currentIdx < 0) return;
   const cols = getVisibleColumns();
-  const currentColIdx = cols.findIndex(c => c.id === _inlineState?.field);
+  const currentColIdx = cols.findIndex(c => c.sortField === currentEdit?.field);
   if (currentColIdx < 0) return;
   const nextCol = cols[currentColIdx + dir];
   if (!nextCol) {
     const nextRow = totalFilteredSorted[currentIdx + dir];
     if (nextRow) {
       scrollToRow(currentIdx + dir);
-      const nextCell = document.querySelector(`tr[data-idx="${currentIdx + dir}"] .col-${nextCol.id}`);
-      if (nextCell) startInlineEdit(nextCell, nextCol.sortField || nextCol.id, nextRow[nextCol.sortField || nextCol.id], nextRow);
+      const firstCol = cols[dir > 0 ? 0 : cols.length - 1];
+      if (firstCol && firstCol.sortField) {
+        const nextCell = document.querySelector(`tr[data-idx="${currentIdx + dir}"] .col-${firstCol.id}`);
+        if (nextCell) startInlineEdit(nextCell, firstCol.sortField, nextRow[firstCol.sortField], nextRow);
+      }
     }
     return;
   }
@@ -1012,7 +1046,7 @@ function buildTrackRow(track, globalIdx) {
         row.appendChild(buildWaveformCell(track));
         break;
       case 'title':
-        row.appendChild(buildTitleCell(track));
+        row.appendChild(buildTitleCell(track, globalIdx));
         break;
       case 'genre':
         row.appendChild(buildGenreCell(track, globalIdx));
@@ -1027,7 +1061,10 @@ function buildTrackRow(track, globalIdx) {
         row.appendChild(buildBpmCell(track, globalIdx));
         break;
       case 'key':
-        row.appendChild(buildKeyCell(track));
+        row.appendChild(buildKeyCell(track, globalIdx));
+        break;
+      case 'comment':
+        row.appendChild(buildCommentCell(track, globalIdx));
         break;
       case 'clave':
         row.appendChild(buildClaveCell(track));
@@ -1173,15 +1210,24 @@ function buildWaveformCell(track) {
   return td;
 }
 
-function buildTitleCell(track) {
+function buildTitleCell(track, globalIdx) {
   const td = document.createElement('td');
   td.className = 'col-title';
+
   const titleDiv = document.createElement('div');
-  titleDiv.className = 'track-title-text';
+  titleDiv.className = 'track-title-text inline-editable';
+  titleDiv.dataset.field = 'display_title';
+  titleDiv.dataset.rowIdx = globalIdx;
+  titleDiv.title = 'Click to edit title';
   titleDiv.textContent = track.display_title || '—';
+
   const artistDiv = document.createElement('div');
-  artistDiv.className = 'track-artist-text';
+  artistDiv.className = 'track-artist-text inline-editable';
+  artistDiv.dataset.field = 'display_artist';
+  artistDiv.dataset.rowIdx = globalIdx;
+  artistDiv.title = 'Click to edit artist';
   artistDiv.textContent = track.display_artist || '—';
+
   td.appendChild(titleDiv);
   td.appendChild(artistDiv);
   return td;
@@ -1224,9 +1270,12 @@ function buildBpmCell(track, globalIdx) {
   return td;
 }
 
-function buildKeyCell(track) {
+function buildKeyCell(track, globalIdx) {
   const td = document.createElement('td');
-  td.className = 'mono col-key-cell col-key-emph';
+  td.className = 'mono col-key-cell col-key-emph inline-editable';
+  td.dataset.field = 'final_key';
+  td.dataset.rowIdx = globalIdx;
+  td.title = 'Click to edit';
   if (track.final_key) {
     td.style.color = 'var(--acc)';
   }
@@ -1301,6 +1350,16 @@ function buildYearCell(track, globalIdx) {
   td.dataset.rowIdx = globalIdx;
   td.title = 'Click to edit';
   td.textContent = track.final_year || '—';
+  return td;
+}
+
+function buildCommentCell(track, globalIdx) {
+  const td = document.createElement('td');
+  td.className = 'col-comment inline-editable';
+  td.dataset.field = 'final_comment';
+  td.dataset.rowIdx = globalIdx;
+  td.title = 'Click to edit';
+  td.textContent = track.final_comment || '—';
   return td;
 }
 

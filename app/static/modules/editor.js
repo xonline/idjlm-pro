@@ -60,8 +60,8 @@ function openEditModal(filePath) {
   window.currentEditPath = filePath;
 
   // Populate current info
-  document.getElementById('modal-title').textContent = track.display_title || track.filename;
-  document.getElementById('modal-artist').textContent = track.display_artist || 'Unknown';
+  document.getElementById('modal-title').value = track.final_title || '';
+  document.getElementById('modal-artist').value = track.final_artist || '';
   document.getElementById('modal-filename').textContent = track.filename;
 
   // Populate editable fields
@@ -145,6 +145,8 @@ async function saveTrackEdits() {
   if (!window.currentEditPath) return;
 
   const override = {
+    override_title: document.getElementById('modal-title').value || undefined,
+    override_artist: document.getElementById('modal-artist').value || undefined,
     override_genre: document.getElementById('modal-genre').value || undefined,
     override_subgenre: document.getElementById('modal-subgenre').value || undefined,
     override_bpm: document.getElementById('modal-bpm').value || undefined,
