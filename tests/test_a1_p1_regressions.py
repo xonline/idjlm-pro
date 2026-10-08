@@ -95,11 +95,20 @@ class TestNavigationStatIdsMatch:
             return f.read()
 
     def _read_template(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "templates", "index.html",
+        # index.html is now a skeleton of {% include %} partials; the stat-*
+        # ids live in the partials, so read the rendered output (index + all
+        # partials) to keep the DOM-id regression guard meaningful.
+        base = os.path.join(os.path.dirname(__file__), "..", "templates")
+        parts = [os.path.join(base, "index.html")]
+        parts += sorted(
+            os.path.join(base, "partials", p)
+            for p in os.listdir(os.path.join(base, "partials"))
         )
-        with open(path) as f:
-            return f.read()
+        html = ""
+        for p in parts:
+            with open(p) as f:
+                html += f.read()
+        return html
 
     @pytest.mark.parametrize("dom_id", STAT_IDS)
     def test_navigation_js_references_id(self, dom_id):
@@ -161,11 +170,19 @@ class TestPipelineHealthIdsMatch:
             return f.read()
 
     def _read_template(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "templates", "index.html",
+        # index.html is now a Jinja skeleton; the health-* ids live in the
+        # partials, so read the rendered output (index + all partials).
+        base = os.path.join(os.path.dirname(__file__), "..", "templates")
+        parts = [os.path.join(base, "index.html")]
+        parts += sorted(
+            os.path.join(base, "partials", p)
+            for p in os.listdir(os.path.join(base, "partials"))
         )
-        with open(path) as f:
-            return f.read()
+        html = ""
+        for p in parts:
+            with open(p) as f:
+                html += f.read()
+        return html
 
     @pytest.mark.parametrize("dom_id", HEALTH_IDS)
     def test_pipeline_js_references_id(self, dom_id):
