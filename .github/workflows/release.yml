@@ -68,11 +68,11 @@ jobs:
           npm ci
           npm run build
 
-      - name: Install Python 3.12 (arm64)
+      - name: Install Python 3.11 (arm64)
         uses: actions/setup-python@v5
         id: py-arm64
         with:
-          python-version: "3.12"
+          python-version: "3.11"
           architecture: arm64
 
       - name: Build PyInstaller sidecar
@@ -176,11 +176,11 @@ jobs:
           npm ci
           npm run build
 
-      - name: Install Python 3.12 (x86_64)
+      - name: Install Python 3.11 (x86_64)
         uses: actions/setup-python@v5
         id: py-x64
         with:
-          python-version: "3.12"
+          python-version: "3.11"
           architecture: x64
 
       - name: Build PyInstaller sidecar
@@ -285,10 +285,10 @@ jobs:
           npm ci
           npm run build
 
-      - name: Install Python 3.12
+      - name: Install Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
           architecture: x64
 
       - name: Build PyInstaller sidecar
