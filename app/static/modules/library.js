@@ -37,13 +37,6 @@ function initLibraryToolbar() {
       return;
     }
 
-    // pywebview native dialog (legacy PyInstaller build — kept for rollback)
-    if (window.pywebview && window.pywebview.api) {
-      const path = await window.pywebview.api.choose_folder();
-      if (path) doImport(path);
-      return;
-    }
-
     // Dev-mode / plain browser fallback: show text input
     _showTextInput();
   }

@@ -38,11 +38,28 @@ fn wait_for_flask(timeout: Duration) -> bool {
 }
 
 /// Resolve path to the `idjlm-server` sidecar binary.
-/// Production: Tauri places it in resource_dir (triple suffix stripped).
+/// Production: Tauri places it beside the app executable (triple suffix stripped).
 /// Dev: src-tauri/binaries/idjlm-server-{triple} (built locally via PyInstaller).
 fn find_sidecar(app: &AppHandle) -> PathBuf {
+    let bundled_name = if cfg!(target_os = "windows") {
+        "idjlm-server.exe"
+    } else {
+        "idjlm-server"
+    };
+
+    // Tauri bundles externalBin sidecars alongside the installed app executable
+    // on macOS and Windows. Check this location before the development fallback.
+    if let Ok(executable) = std::env::current_exe() {
+        if let Some(executable_dir) = executable.parent() {
+            let candidate = executable_dir.join(bundled_name);
+            if candidate.exists() {
+                return candidate;
+            }
+        }
+    }
+
     if let Ok(resource_dir) = app.path().resource_dir() {
-        let candidate = resource_dir.join("idjlm-server");
+        let candidate = resource_dir.join(bundled_name);
         if candidate.exists() {
             return candidate;
         }
@@ -62,9 +79,16 @@ fn find_sidecar(app: &AppHandle) -> PathBuf {
 
     std::env::current_exe()
         .ok()
-        .and_then(|p| p.parent().and_then(|d| d.parent()).and_then(|d| d.parent())
-            .map(|root| root.join("src-tauri").join("binaries")
-                .join(format!("idjlm-server-{}", triple))))
+        .and_then(|p| {
+            p.parent()
+                .and_then(|d| d.parent())
+                .and_then(|d| d.parent())
+                .map(|root| {
+                    root.join("src-tauri")
+                        .join("binaries")
+                        .join(format!("idjlm-server-{}", triple))
+                })
+        })
         .unwrap_or_else(|| PathBuf::from(format!("idjlm-server-{}", triple)))
 }
 
@@ -78,7 +102,8 @@ fn pick_folder(app: AppHandle) -> Option<String> {
         .file()
         .set_title("Select Music Folder")
         .blocking_pick_folder()
-        .and_then(|p| p.into_path().ok()).map(|p| p.to_string_lossy().into_owned())
+        .and_then(|p| p.into_path().ok())
+        .map(|p| p.to_string_lossy().into_owned())
 }
 
 /// Navigate the named webview window to Flask URL.

@@ -1,6 +1,6 @@
 [package]
 name = "idjlm-pro"
-version = "3.5.0"
+version = "4.2.0"
 description = "IDJLM Pro — Intelligent DJ Library Manager"
 authors = ["xonline"]
 license = "MIT"
@@ -17,7 +17,7 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["webview-data-url"] }
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }

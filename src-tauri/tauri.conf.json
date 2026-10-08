@@ -11,20 +11,6 @@
   },
   "app": {
     "withGlobalTauri": true,
-    "windows": [
-      {
-        "title": "IDJLM Pro",
-        "width": 1280,
-        "height": 800,
-        "minWidth": 960,
-        "minHeight": 640,
-        "resizable": true,
-        "fullscreen": false,
-        "decorations": true,
-        "center": true,
-        "url": "about:blank"
-      }
-    ],
     "security": {
       "csp": null
     }
@@ -58,16 +44,6 @@
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "timestampUrl": ""
-    }
-  },
-  "plugins": {
-    "shell": {
-      "open": false,
-      "sidecar": true
-    },
-    "dialog": {
-      "open": true,
-      "save": false
     }
   }
 }

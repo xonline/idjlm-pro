@@ -1,5 +1,7 @@
 # IDJLM Pro — Desktop App Modernization Analysis
 
+> **Superseded:** This is a 2026-04-05 pywebview evaluation. The supported desktop distribution is now the Tauri wrapper with a PyInstaller Flask sidecar. Retained for historical context only.
+
 **Date:** 2026-04-05  
 **Summary:** Research into turning IDJLM Pro from a PyInstaller + pywebview bundle into a proper native desktop app.
 
@@ -276,4 +278,3 @@ Professional, true native desktop app. Only justified if you're building a compl
 4. **Run the app:** Confirm no browser UI is visible to user
 
 Then assess: Is the pywebview experience good enough? If yes, done. If no, revisit in 3–6 months.
-
