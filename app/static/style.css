@@ -1210,6 +1210,7 @@ textarea.input-text {
 .col-tempo   { width: 60px; }
 .col-lufs    { width: 48px; text-align: right; }
 .col-year    { width: 44px; text-align: center; }
+.col-comment { width: 120px; }
 .col-status  { width: 70px; }
 .col-approve { width: 60px; text-align: center; }
 .col-action  { width: 60px; text-align: center; }

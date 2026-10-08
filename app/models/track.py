@@ -76,6 +76,8 @@ class Track:
     override_key: Optional[str] = None
     override_year: Optional[str] = None
     override_comment: Optional[str] = None
+    override_title: Optional[str] = None
+    override_artist: Optional[str] = None
 
     # Write state
     tags_written: bool = False
@@ -152,6 +154,8 @@ class Track:
         d['final_key'] = self.final_key
         d['final_year'] = self.final_year
         d['final_comment'] = self.final_comment
+        d['final_title'] = self.final_title
+        d['final_artist'] = self.final_artist
         return d
 
     @property
@@ -189,3 +193,11 @@ class Track:
     @property
     def final_comment(self) -> Optional[str]:
         return self.override_comment or self.proposed_subgenre or self.existing_comment
+
+    @property
+    def final_title(self) -> Optional[str]:
+        return self.override_title or self.existing_title or self.spotify_title or self.filename
+
+    @property
+    def final_artist(self) -> Optional[str]:
+        return self.override_artist or self.existing_artist or self.spotify_artist or "Unknown"

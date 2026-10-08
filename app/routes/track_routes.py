@@ -248,13 +248,46 @@ def update_track(file_path):
                 except (ValueError, TypeError):
                     return jsonify({"error": "Year must be a 4-digit number"}), 400
 
+        # Validate Comment: string up to 500 chars
+        if "override_comment" in data:
+            comment = data["override_comment"]
+            if comment == "" or comment is None:
+                track.override_comment = ""
+            else:
+                if not isinstance(comment, str) or len(comment) > 500:
+                    return jsonify({"error": "Comment must be a string up to 500 characters"}), 400
+                track.override_comment = comment
+
+        # Validate Title: string up to 200 chars
+        if "override_title" in data:
+            title = data["override_title"]
+            if title == "" or title is None:
+                track.override_title = ""
+            else:
+                if not isinstance(title, str) or len(title) > 200:
+                    return jsonify({"error": "Title must be a string up to 200 characters"}), 400
+                track.override_title = title
+
+        # Validate Artist: string up to 200 chars
+        if "override_artist" in data:
+            artist = data["override_artist"]
+            if artist == "" or artist is None:
+                track.override_artist = ""
+            else:
+                if not isinstance(artist, str) or len(artist) > 200:
+                    return jsonify({"error": "Artist must be a string up to 200 characters"}), 400
+                track.override_artist = artist
+
         # Recompute review_status based on whether any overrides are set
         has_overrides = any([
             track.override_genre,
             track.override_subgenre,
             track.override_bpm,
             track.override_key,
-            track.override_year
+            track.override_year,
+            track.override_comment,
+            track.override_title,
+            track.override_artist
         ])
         if has_overrides:
             track.review_status = "edited"
