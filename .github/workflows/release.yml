@@ -90,7 +90,7 @@ jobs:
       - name: Build Tauri app
         run: tauri build --target aarch64-apple-darwin
 
-      - name: Verify DMG install layout and sidecar startup
+      - name: Verify installed desktop wrapper startup
         shell: bash
         run: |
           dmg=$(find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -name '*.dmg' -print -quit)
@@ -100,7 +100,8 @@ jobs:
           mkdir -p "$mount_dir" "$install_dir"
           hdiutil attach "$dmg" -nobrowse -mountpoint "$mount_dir"
           cleanup() {
-            [ -n "${sidecar_pid:-}" ] && kill "$sidecar_pid" 2>/dev/null || true
+            [ -n "${wrapper_pid:-}" ] && kill "$wrapper_pid" 2>/dev/null || true
+            for pid in $(lsof -tiTCP:5050 -sTCP:LISTEN 2>/dev/null || true); do kill "$pid" 2>/dev/null || true; done
             hdiutil detach "$mount_dir" -quiet || true
           }
           trap cleanup EXIT
@@ -109,15 +110,18 @@ jobs:
           cp -R "$app" "$install_dir/"
           installed_app="$install_dir/$(basename "$app")"
           test -x "$installed_app/Contents/MacOS/idjlm-pro"
-          sidecar=$(find "$installed_app" -type f -name 'idjlm-server*' -print -quit)
-          test -n "$sidecar" && test -x "$sidecar"
-          IDJLM_HEADLESS=1 FLASK_PORT=5057 "$sidecar" >"$RUNNER_TEMP/idjlm-sidecar-arm64.log" 2>&1 &
-          sidecar_pid=$!
+          ! lsof -nP -iTCP:5050 -sTCP:LISTEN
+          SECONDS=0
+          "$installed_app/Contents/MacOS/idjlm-pro" >"$RUNNER_TEMP/idjlm-wrapper-arm64.log" 2>&1 &
+          wrapper_pid=$!
           for _ in {1..60}; do
-            curl --fail --silent http://127.0.0.1:5057/api/version >/dev/null && exit 0
+            curl --fail --silent http://127.0.0.1:5050/api/version >/dev/null && {
+              echo "Cold packaged wrapper readiness: ${SECONDS}s" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            }
             sleep 1
           done
-          cat "$RUNNER_TEMP/idjlm-sidecar-arm64.log"
+          cat "$RUNNER_TEMP/idjlm-wrapper-arm64.log"
           exit 1
 
       - name: Upload macOS Apple Silicon installer
@@ -198,7 +202,7 @@ jobs:
       - name: Build Tauri app
         run: tauri build --target x86_64-apple-darwin
 
-      - name: Verify DMG install layout and sidecar startup
+      - name: Verify installed desktop wrapper startup
         shell: bash
         run: |
           dmg=$(find src-tauri/target/x86_64-apple-darwin/release/bundle/dmg -name '*.dmg' -print -quit)
@@ -208,7 +212,8 @@ jobs:
           mkdir -p "$mount_dir" "$install_dir"
           hdiutil attach "$dmg" -nobrowse -mountpoint "$mount_dir"
           cleanup() {
-            [ -n "${sidecar_pid:-}" ] && kill "$sidecar_pid" 2>/dev/null || true
+            [ -n "${wrapper_pid:-}" ] && kill "$wrapper_pid" 2>/dev/null || true
+            for pid in $(lsof -tiTCP:5050 -sTCP:LISTEN 2>/dev/null || true); do kill "$pid" 2>/dev/null || true; done
             hdiutil detach "$mount_dir" -quiet || true
           }
           trap cleanup EXIT
@@ -217,15 +222,18 @@ jobs:
           cp -R "$app" "$install_dir/"
           installed_app="$install_dir/$(basename "$app")"
           test -x "$installed_app/Contents/MacOS/idjlm-pro"
-          sidecar=$(find "$installed_app" -type f -name 'idjlm-server*' -print -quit)
-          test -n "$sidecar" && test -x "$sidecar"
-          IDJLM_HEADLESS=1 FLASK_PORT=5057 "$sidecar" >"$RUNNER_TEMP/idjlm-sidecar-intel.log" 2>&1 &
-          sidecar_pid=$!
+          ! lsof -nP -iTCP:5050 -sTCP:LISTEN
+          SECONDS=0
+          "$installed_app/Contents/MacOS/idjlm-pro" >"$RUNNER_TEMP/idjlm-wrapper-intel.log" 2>&1 &
+          wrapper_pid=$!
           for _ in {1..60}; do
-            curl --fail --silent http://127.0.0.1:5057/api/version >/dev/null && exit 0
+            curl --fail --silent http://127.0.0.1:5050/api/version >/dev/null && {
+              echo "Cold packaged wrapper readiness: ${SECONDS}s" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            }
             sleep 1
           done
-          cat "$RUNNER_TEMP/idjlm-sidecar-intel.log"
+          cat "$RUNNER_TEMP/idjlm-wrapper-intel.log"
           exit 1
 
       - name: Upload macOS Intel installer
@@ -310,21 +318,22 @@ jobs:
       - name: Build Tauri app
         run: tauri build --target x86_64-pc-windows-msvc
 
-      - name: Verify MSI installation and desktop startup
+      - name: Verify NSIS installation and desktop startup
         shell: pwsh
         run: |
-          $msi = Get-ChildItem src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi | Select-Object -First 1
-          if (-not $msi) { throw "MSI installer was not created" }
+          $installerFile = Get-ChildItem src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe | Select-Object -First 1
+          if (-not $installerFile) { throw "NSIS installer was not created" }
           $installDir = Join-Path $env:RUNNER_TEMP "idjlm-installed-windows"
-          $installer = Start-Process msiexec.exe -ArgumentList @('/i', $msi.FullName, '/qn', '/norestart', "INSTALLDIR=$installDir") -PassThru
+          $installer = Start-Process $installerFile.FullName -ArgumentList @('/S', "/D=$installDir") -PassThru
           if (-not $installer.WaitForExit(120000)) {
             Stop-Process -Id $installer.Id -Force
-            throw "MSI installation exceeded the two-minute verification timeout"
+            throw "NSIS installation exceeded the two-minute verification timeout"
           }
           $installer.Refresh()
-          if ($installer.ExitCode -ne 0) { throw "MSI installation failed with exit code $($installer.ExitCode)" }
+          if ($installer.ExitCode -ne 0) { throw "NSIS installation failed with exit code $($installer.ExitCode)" }
           $app = Get-ChildItem $installDir -Recurse -Filter idjlm-pro.exe | Select-Object -First 1
           if (-not $app) { throw "Installed app executable was not found" }
+          $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
           $process = Start-Process $app.FullName -PassThru
           $ready = $false
           try {
@@ -338,6 +347,8 @@ jobs:
           } finally {
             if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
           }
+          $stopwatch.Stop()
+          if ($ready) { "Cold packaged wrapper readiness: $($stopwatch.Elapsed.TotalSeconds.ToString('F1'))s" | Out-File -Append $env:GITHUB_STEP_SUMMARY }
           if (-not $ready) { throw "Installed desktop app did not start its local server" }
 
       - name: Upload Windows MSI installer
@@ -356,30 +367,17 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  publish:
-    name: Publish GitHub release
+  trusted-release-gate:
+    name: Block untrusted public release
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs:
       - build-macos-arm64
       - build-macos-intel
       - build-windows
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: Download installers
-        uses: actions/download-artifact@v4
-        with:
-          pattern: idjlm-pro-*
-          path: release-assets
-          merge-multiple: true
-
-      - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-          files: |
-            release-assets/**/*.dmg
-            release-assets/**/*.msi
-            release-assets/**/*.exe
+      - name: Refuse unsigned publication
+        run: |
+          echo "No signed and notarized release workflow is configured."
+          echo "Build artifacts remain private CI validation outputs."
+          exit 1
