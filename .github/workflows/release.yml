@@ -316,20 +316,28 @@ jobs:
           $msi = Get-ChildItem src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi | Select-Object -First 1
           if (-not $msi) { throw "MSI installer was not created" }
           $installDir = Join-Path $env:RUNNER_TEMP "idjlm-installed-windows"
-          $installer = Start-Process msiexec.exe -ArgumentList @('/i', $msi.FullName, '/qn', '/norestart', "INSTALLDIR=$installDir") -Wait -PassThru
+          $installer = Start-Process msiexec.exe -ArgumentList @('/i', $msi.FullName, '/qn', '/norestart', "INSTALLDIR=$installDir") -PassThru
+          if (-not $installer.WaitForExit(120000)) {
+            Stop-Process -Id $installer.Id -Force
+            throw "MSI installation exceeded the two-minute verification timeout"
+          }
+          $installer.Refresh()
           if ($installer.ExitCode -ne 0) { throw "MSI installation failed with exit code $($installer.ExitCode)" }
           $app = Get-ChildItem $installDir -Recurse -Filter idjlm-pro.exe | Select-Object -First 1
           if (-not $app) { throw "Installed app executable was not found" }
           $process = Start-Process $app.FullName -PassThru
           $ready = $false
-          for ($i = 0; $i -lt 60; $i++) {
-            try {
-              $response = Invoke-WebRequest http://127.0.0.1:5050/api/version -UseBasicParsing -TimeoutSec 2
-              if ($response.StatusCode -eq 200) { $ready = $true; break }
-            } catch {}
-            Start-Sleep -Seconds 1
+          try {
+            for ($i = 0; $i -lt 60; $i++) {
+              try {
+                $response = Invoke-WebRequest http://127.0.0.1:5050/api/version -UseBasicParsing -TimeoutSec 2
+                if ($response.StatusCode -eq 200) { $ready = $true; break }
+              } catch {}
+              Start-Sleep -Seconds 1
+            }
+          } finally {
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
           }
-          if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
           if (-not $ready) { throw "Installed desktop app did not start its local server" }
 
       - name: Upload Windows MSI installer
