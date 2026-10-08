@@ -148,6 +148,8 @@ cd idjlm-pro
 
 `start.sh` creates a virtual environment, installs dependencies, and launches the app at `http://localhost:5050`.
 
+For isolated repository work in Codex Cloud, see [the Cloud pilot guide](docs/CODEX_CLOUD.md). Cloud does not use `.env` files or validate native desktop installers.
+
 **Configure AI:** Copy `config.example.env` to `.env` and add at least one AI key. Gemini has a free tier.
 
 ```bash
