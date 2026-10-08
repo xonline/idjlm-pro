@@ -62,8 +62,7 @@
   },
   "plugins": {
     "shell": {
-      "open": false,
-      "sidecar": true
+      "open": false
     },
     "dialog": {
       "open": true,

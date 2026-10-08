@@ -9,8 +9,9 @@ The fix (commit 25630ba) deleted ``release-auto.yml``.  These tests
 prevent re-introduction of a second release-creating workflow:
 
 1. ``release-auto.yml`` must not exist.
-2. Scanning every workflow file, exactly one workflow uses the
-   ``gh-release`` / ``create-release`` action — ``release.yml``.
+2. Scanning every workflow file, no workflow uses the
+   ``gh-release`` / ``create-release`` action until trusted signing and
+   notarization are configured.
 3. ``release.yml``'s tag glob matches stable semver (``vX.Y.Z``)
    but NOT non-semver ``v*`` tags, so an accidental ``v*`` re-add
    won't collide with it.
@@ -129,7 +130,7 @@ NON_V_TAG = "release-2026-07"
 
 
 class TestReleaseCIDoubleFire:
-    """Issue #200: pushing a stable tag must create exactly one GitHub Release."""
+    """Issue #200: a stable tag must never create duplicate public releases."""
 
     def test_release_auto_yml_is_absent(self):
         """The buggy release-auto.yml must not exist in the workflows dir.
@@ -146,22 +147,21 @@ class TestReleaseCIDoubleFire:
             f"any gh-release action from it."
         )
 
-    def test_exactly_one_workflow_creates_release(self):
-        """Across every workflow file, only ONE may use a release action.
+    def test_no_workflow_creates_release_without_trusted_signing(self):
+        """No workflow may create a public release while signing is absent.
 
-        Scanning prevents the bug from sneaking back via a renamed or
-        new workflow file (not just release-auto.yml).
+        The tag workflow produces CI validation artifacts then fails closed.
+        Scanning prevents a release action from slipping back in through a
+        renamed or new workflow file before a trusted signing workflow exists.
         """
         creators = []
         for name, path in _workflow_files():
             text = _read_path(path)
             if _uses_release_action(text):
                 creators.append(name)
-        assert creators == ["release.yml"], (
-            f"Exactly one workflow (release.yml) may create a GitHub "
-            f"Release; found {len(creators)}: {creators}. The double-fire "
-            f"bug from issue #200 returns if more than one workflow calls "
-            f"a release-creating action."
+        assert creators == [], (
+            f"No workflow may create a public GitHub Release before trusted "
+            f"signing is configured; found {len(creators)}: {creators}."
         )
 
     def test_release_yml_triggers_on_stable_semver_tag(self):
@@ -214,10 +214,8 @@ class TestReleaseCIDoubleFire:
             f"globs={globs}"
         )
 
-    def test_no_workflow_other_than_release_yml_matches_stable_tag_and_creates_release(self):
-        """End-to-end: for stable tag v4.2.0, count workflows that BOTH
-        match the tag AND create a release. Must be exactly 1 (release.yml).
-        """
+    def test_stable_tag_has_no_release_creating_workflow(self):
+        """A stable tag must have no automatic public-release action."""
         stable_matchers_with_release = []
         for name, path in _workflow_files():
             text = _read_path(path)
@@ -226,9 +224,14 @@ class TestReleaseCIDoubleFire:
             globs = _parse_tag_globs(text)
             if globs and _matches_any(STABLE_TAG, globs):
                 stable_matchers_with_release.append(name)
-        assert stable_matchers_with_release == ["release.yml"], (
-            f"Stable tag {STABLE_TAG} triggers {len(stable_matchers_with_release)} "
-            f"release-creating workflows ({stable_matchers_with_release}); must "
-            f"be exactly 1 (release.yml). This is the double-fire bug from "
-            f"issue #200."
+        assert stable_matchers_with_release == [], (
+            f"Stable tag {STABLE_TAG} must not trigger a public-release action; "
+            f"found {stable_matchers_with_release}."
         )
+
+    def test_release_yml_fails_closed_without_trusted_signing(self):
+        """The tag job must stop rather than publish unsigned installers."""
+        text = _read("release.yml")
+        assert "trusted-release-gate" in text
+        assert "Refuse unsigned publication" in text
+        assert "exit 1" in text
