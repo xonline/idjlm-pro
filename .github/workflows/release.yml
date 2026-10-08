@@ -90,6 +90,36 @@ jobs:
       - name: Build Tauri app
         run: tauri build --target aarch64-apple-darwin
 
+      - name: Verify DMG install layout and sidecar startup
+        shell: bash
+        run: |
+          dmg=$(find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -name '*.dmg' -print -quit)
+          test -n "$dmg"
+          mount_dir="$RUNNER_TEMP/idjlm-dmg-arm64"
+          install_dir="$RUNNER_TEMP/idjlm-installed-arm64"
+          mkdir -p "$mount_dir" "$install_dir"
+          hdiutil attach "$dmg" -nobrowse -mountpoint "$mount_dir"
+          cleanup() {
+            [ -n "${sidecar_pid:-}" ] && kill "$sidecar_pid" 2>/dev/null || true
+            hdiutil detach "$mount_dir" -quiet || true
+          }
+          trap cleanup EXIT
+          app=$(find "$mount_dir" -maxdepth 1 -name '*.app' -type d -print -quit)
+          test -n "$app"
+          cp -R "$app" "$install_dir/"
+          installed_app="$install_dir/$(basename "$app")"
+          test -x "$installed_app/Contents/MacOS/idjlm-pro"
+          sidecar=$(find "$installed_app" -type f -name 'idjlm-server*' -print -quit)
+          test -n "$sidecar" && test -x "$sidecar"
+          IDJLM_HEADLESS=1 FLASK_PORT=5057 "$sidecar" >"$RUNNER_TEMP/idjlm-sidecar-arm64.log" 2>&1 &
+          sidecar_pid=$!
+          for _ in {1..60}; do
+            curl --fail --silent http://127.0.0.1:5057/api/version >/dev/null && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/idjlm-sidecar-arm64.log"
+          exit 1
+
       - name: Upload macOS Apple Silicon installer
         uses: actions/upload-artifact@v4
         with:
@@ -167,6 +197,36 @@ jobs:
 
       - name: Build Tauri app
         run: tauri build --target x86_64-apple-darwin
+
+      - name: Verify DMG install layout and sidecar startup
+        shell: bash
+        run: |
+          dmg=$(find src-tauri/target/x86_64-apple-darwin/release/bundle/dmg -name '*.dmg' -print -quit)
+          test -n "$dmg"
+          mount_dir="$RUNNER_TEMP/idjlm-dmg-intel"
+          install_dir="$RUNNER_TEMP/idjlm-installed-intel"
+          mkdir -p "$mount_dir" "$install_dir"
+          hdiutil attach "$dmg" -nobrowse -mountpoint "$mount_dir"
+          cleanup() {
+            [ -n "${sidecar_pid:-}" ] && kill "$sidecar_pid" 2>/dev/null || true
+            hdiutil detach "$mount_dir" -quiet || true
+          }
+          trap cleanup EXIT
+          app=$(find "$mount_dir" -maxdepth 1 -name '*.app' -type d -print -quit)
+          test -n "$app"
+          cp -R "$app" "$install_dir/"
+          installed_app="$install_dir/$(basename "$app")"
+          test -x "$installed_app/Contents/MacOS/idjlm-pro"
+          sidecar=$(find "$installed_app" -type f -name 'idjlm-server*' -print -quit)
+          test -n "$sidecar" && test -x "$sidecar"
+          IDJLM_HEADLESS=1 FLASK_PORT=5057 "$sidecar" >"$RUNNER_TEMP/idjlm-sidecar-intel.log" 2>&1 &
+          sidecar_pid=$!
+          for _ in {1..60}; do
+            curl --fail --silent http://127.0.0.1:5057/api/version >/dev/null && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/idjlm-sidecar-intel.log"
+          exit 1
 
       - name: Upload macOS Intel installer
         uses: actions/upload-artifact@v4
@@ -249,6 +309,28 @@ jobs:
 
       - name: Build Tauri app
         run: tauri build --target x86_64-pc-windows-msvc
+
+      - name: Verify MSI installation and desktop startup
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi | Select-Object -First 1
+          if (-not $msi) { throw "MSI installer was not created" }
+          $installDir = Join-Path $env:RUNNER_TEMP "idjlm-installed-windows"
+          $installer = Start-Process msiexec.exe -ArgumentList @('/i', $msi.FullName, '/qn', '/norestart', "INSTALLDIR=$installDir") -Wait -PassThru
+          if ($installer.ExitCode -ne 0) { throw "MSI installation failed with exit code $($installer.ExitCode)" }
+          $app = Get-ChildItem $installDir -Recurse -Filter idjlm-pro.exe | Select-Object -First 1
+          if (-not $app) { throw "Installed app executable was not found" }
+          $process = Start-Process $app.FullName -PassThru
+          $ready = $false
+          for ($i = 0; $i -lt 60; $i++) {
+            try {
+              $response = Invoke-WebRequest http://127.0.0.1:5050/api/version -UseBasicParsing -TimeoutSec 2
+              if ($response.StatusCode -eq 200) { $ready = $true; break }
+            } catch {}
+            Start-Sleep -Seconds 1
+          }
+          if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          if (-not $ready) { throw "Installed desktop app did not start its local server" }
 
       - name: Upload Windows MSI installer
         uses: actions/upload-artifact@v4
