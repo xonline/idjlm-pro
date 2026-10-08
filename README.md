@@ -128,12 +128,12 @@ Choose from **6 AI providers** — or run completely free with no API key:
 | Platform | Get It |
 |----------|--------|
 | **macOS** (Intel + Apple Silicon) | [Latest DMG →](../../releases/latest) |
-| **Windows** | [Latest ZIP →](../../releases/latest) |
+| **Windows** | [Latest installer (MSI or EXE) →](../../releases/latest) |
 | **From source** (Linux / dev) | See below ↓ |
 
 No Python, no terminal, no config files needed for the desktop apps. Just open and go.
 
-**In-app updates:** Click the version badge in the header or "Check for Updates" in Settings. Downloads and opens the new version for you.
+**In-app updates:** Click the version badge in the header or "Check for Updates" in Settings. On macOS, the app selects the matching Apple Silicon or Intel installer. Windows releases are available from the release page.
 
 ---
 

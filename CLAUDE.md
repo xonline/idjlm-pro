@@ -1,9 +1,9 @@
 # IDJLM Pro — Claude Learnings
 
-## PyInstaller / macOS Bundle
+## Tauri Sidecar / Runtime Data
 
-- All runtime data files (config, session state, user data) must write to `~/Library/Application Support/IDJLM Pro/` — the PyInstaller `.app` bundle is codesigned and read-only at runtime. On Linux, use `~/.idjlm-pro/` instead.
-- On startup, load user-overridable files by checking the user-writable path first, falling back to the bundle copy: `user_path if os.path.exists(user_path) else bundle_path`
+- All runtime data files (config, session state, user data) must write to `~/Library/Application Support/IDJLM Pro/`. On Linux, use `~/.idjlm-pro/` instead.
+- Tauri packages the Python Flask sidecar with PyInstaller. Keep provider settings in the user-writable path; do not bundle `.env` files or desktop release secrets.
 
 ## JavaScript Initialisation
 

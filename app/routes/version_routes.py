@@ -2,6 +2,7 @@ import os
 import ssl
 import json
 import logging
+import platform
 import subprocess
 import urllib.request
 import urllib.error
@@ -74,6 +75,34 @@ def _parse_semver(version_str):
 def _is_newer(latest, current):
     """Return True if latest semver > current semver."""
     return _parse_semver(latest) > _parse_semver(current)
+
+
+def _select_macos_dmg_asset(assets, machine=None):
+    """Return the matching macOS installer, or None when selection is unsafe."""
+    machine = (machine or platform.machine()).lower()
+    if machine in {"arm64", "aarch64"}:
+        markers = ("aarch64", "arm64")
+    elif machine in {"x86_64", "amd64", "x64"}:
+        markers = ("x86_64", "amd64", "intel")
+    else:
+        return None
+
+    dmg_assets = [
+        asset for asset in assets
+        if str(asset.get("name", "")).lower().endswith(".dmg")
+        and asset.get("browser_download_url")
+    ]
+    for asset in dmg_assets:
+        name = str(asset.get("name", "")).lower()
+        if any(marker in name for marker in markers):
+            return asset["browser_download_url"]
+
+    # Releases made before architecture-specific installers had one DMG. It is
+    # safe to preserve that update path, but a release with multiple ambiguous
+    # assets must send the user to the release page rather than choose blindly.
+    if len(dmg_assets) == 1:
+        return dmg_assets[0]["browser_download_url"]
+    return None
 
 
 # In-memory download state: { "url": ..., "path": ..., "size": ..., "downloaded": ..., "error": ..., "done": ... }
@@ -155,14 +184,13 @@ def check_for_updates():
         published_at = data.get("published_at", "")
         release_notes = data.get("body", "") or "No release notes available."
 
-        # Find macOS .dmg asset if on macOS
+        # Find the installer matching this Mac's CPU architecture. Never take
+        # the first DMG: releases now contain separate Apple Silicon and Intel
+        # installers.
         download_url = None
         assets = data.get("assets", [])
-        for asset in assets:
-            name = asset.get("name", "")
-            if is_macos and (name.endswith(".dmg") or "macOS" in name):
-                download_url = asset.get("browser_download_url")
-                break
+        if is_macos:
+            download_url = _select_macos_dmg_asset(assets)
 
         # Fallback: use the HTML URL for the release
         if not download_url:

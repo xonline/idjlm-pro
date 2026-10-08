@@ -398,34 +398,8 @@ function initOnboarding() {
   var chooseBtn = document.getElementById('onboard-choose-folder');
   if (chooseBtn) {
     chooseBtn.addEventListener('click', async function() {
-      if (window.pywebview && window.pywebview.api) {
-        var path = await window.pywebview.api.choose_folder();
-        if (path) {
-          document.getElementById('onboard-folder-path').textContent = path;
-          // Actually import the folder — not just show the path
-          try {
-            var result = await apiFetch('/api/import', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ folder_path: path })
-            });
-            if (result && result.tracks) {
-              store.set('tracks', result.tracks); // renderTracks fires via subscription
-              store.set('searchResults', null);
-              updateStats();
-              updatePipelineStepper();
-              updateToolbarButtonStates();
-              showToast((result.count || result.tracks.length) + ' tracks imported', 'success');
-            }
-          } catch (e) {
-            showToast('Import failed: ' + e.message, 'error');
-          }
-          updateOnboardingStep(2);
-        }
-      } else {
-        document.getElementById('btn-get-started')?.click();
-        updateOnboardingStep(2);
-      }
+    document.getElementById('btn-get-started')?.click();
+    updateOnboardingStep(2);
     });
   }
 

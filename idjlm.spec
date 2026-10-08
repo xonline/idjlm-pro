@@ -56,7 +56,7 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[
         'IPython', 'jupyter', 'matplotlib', 'tkinter', 'PyQt5', 'PyQt6',
-        'wx', 'gi', 'cv2', 'tensorflow', 'torch', 'torchvision', 'pywebview',
+        'wx', 'gi', 'cv2', 'tensorflow', 'torch', 'torchvision',
     ],
     cipher=block_cipher,
     noarchive=False,
