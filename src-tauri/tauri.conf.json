@@ -59,14 +59,5 @@
       "digestAlgorithm": "sha256",
       "timestampUrl": ""
     }
-  },
-  "plugins": {
-    "shell": {
-      "open": false
-    },
-    "dialog": {
-      "open": true,
-      "save": false
-    }
   }
 }
