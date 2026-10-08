@@ -94,12 +94,9 @@ class TestNavigationStatIdsMatch:
         with open(path) as f:
             return f.read()
 
-    def _read_template(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "templates", "index.html",
-        )
-        with open(path) as f:
-            return f.read()
+    def _read_template(self, client):
+        # ids live in partials after the index.html split (#176); render the page.
+        return client.get("/").get_data(as_text=True)
 
     @pytest.mark.parametrize("dom_id", STAT_IDS)
     def test_navigation_js_references_id(self, dom_id):
@@ -118,11 +115,11 @@ class TestNavigationStatIdsMatch:
         )
 
     @pytest.mark.parametrize("dom_id", STAT_IDS)
-    def test_template_contains_id(self, dom_id):
-        """Every stat-* id must exist in templates/index.html."""
-        html = self._read_template()
+    def test_template_contains_id(self, client, dom_id):
+        """Every stat-* id must exist in the rendered page."""
+        html = self._read_template(client)
         assert f'id="{dom_id}"' in html, (
-            f"templates/index.html missing id=\"{dom_id}\""
+            f"rendered page missing id=\"{dom_id}\""
         )
 
     def test_no_american_stat_analyzed_in_navigation_js(self):
@@ -160,12 +157,9 @@ class TestPipelineHealthIdsMatch:
         with open(path) as f:
             return f.read()
 
-    def _read_template(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "templates", "index.html",
-        )
-        with open(path) as f:
-            return f.read()
+    def _read_template(self, client):
+        # index.html lives in partials now (#176); render the page.
+        return client.get("/").get_data(as_text=True)
 
     @pytest.mark.parametrize("dom_id", HEALTH_IDS)
     def test_pipeline_js_references_id(self, dom_id):
@@ -179,11 +173,11 @@ class TestPipelineHealthIdsMatch:
         )
 
     @pytest.mark.parametrize("dom_id", HEALTH_IDS)
-    def test_template_contains_id(self, dom_id):
-        """Every health-* id must exist in templates/index.html."""
-        html = self._read_template()
+    def test_template_contains_id(self, client, dom_id):
+        """Every health-* id must exist in the rendered page."""
+        html = self._read_template(client)
         assert f'id="{dom_id}"' in html, (
-            f"templates/index.html missing id=\"{dom_id}\""
+            f"rendered page missing id=\"{dom_id}\""
         )
 
     def test_no_american_health_analyzed_in_pipeline_js(self):
