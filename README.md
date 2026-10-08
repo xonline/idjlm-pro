@@ -123,17 +123,15 @@ Choose from **6 AI providers** — or run completely free with no API key:
 
 ---
 
-## Download
+## Desktop installers
 
-| Platform | Get It |
-|----------|--------|
-| **macOS** (Intel + Apple Silicon) | [Latest DMG →](../../releases/latest) |
-| **Windows** | [Latest installer (MSI or EXE) →](../../releases/latest) |
-| **From source** (Linux / dev) | See below ↓ |
+The Tauri pipeline builds Apple Silicon and Intel macOS DMGs plus Windows MSI and NSIS installers as CI validation artifacts.
 
-No Python, no terminal, no config files needed for the desktop apps. Just open and go.
+- CI verifies an installed Tauri wrapper reaches its local health endpoint on both macOS architectures and through the Windows **NSIS** installer.
+- The Windows MSI is built, but its installation path is not yet validated in CI.
+- Public installer releases are deliberately blocked until macOS signing/notarization and Windows code-signing setup are configured. Do not treat CI artifacts as trusted public downloads.
 
-**In-app updates:** Click the version badge in the header or "Check for Updates" in Settings. On macOS, the app selects the matching Apple Silicon or Intel installer. Windows releases are available from the release page.
+**In-app updates:** The app will select the matching macOS installer from a future signed public release. Pre-release CI artifacts are not offered through the updater.
 
 ---
 
