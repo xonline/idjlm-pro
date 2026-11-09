@@ -1,0 +1,26 @@
+{
+  "registry_version": 1,
+  "models": [
+    {
+      "id": "laion-clap-htsat-unfused",
+      "adapter": "transformers_clap",
+      "repo_id": "laion/clap-htsat-unfused",
+      "revision": "8fa0f1c6d0433df6e97c127f64b2a1d6c0dcda8a",
+      "license": "Apache-2.0",
+      "license_url": "https://huggingface.co/laion/clap-htsat-unfused",
+      "source_url": "https://huggingface.co/laion/clap-htsat-unfused",
+      "feature_version": "clap-zero-shot-audio-v1",
+      "sample_rate_hz": 48000,
+      "window_seconds": 10.0,
+      "max_windows": 5,
+      "required_files": [
+        "config.json",
+        "preprocessor_config.json",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "special_tokens_map.json"
+      ]
+    }
+  ]
+}

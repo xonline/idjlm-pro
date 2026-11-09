@@ -10,6 +10,8 @@ on:
       - "idjlm.spec"
       - "run_app.py"
       - "requirements.txt"
+      - "requirements-audio.txt"
+      - "scripts/verify_audio_runtime.py"
       - "package.json"
       - "package-lock.json"
       - "src-tauri/**"
@@ -77,9 +79,11 @@ jobs:
 
       - name: Build PyInstaller sidecar
         run: |
-          "${{ steps.py-arm64.outputs.python-path }}" -m pip install -r requirements.txt pyinstaller
+          "${{ steps.py-arm64.outputs.python-path }}" -m pip install -r requirements.txt -r requirements-audio.txt pyinstaller
+          "${{ steps.py-arm64.outputs.python-path }}" scripts/verify_audio_runtime.py
           "${{ steps.py-arm64.outputs.python-path }}" -m PyInstaller idjlm.spec --clean \
             --distpath src-tauri/binaries/tmp
+          src-tauri/binaries/tmp/idjlm-server --verify-audio-runtime
           mkdir -p src-tauri/binaries
           mv src-tauri/binaries/tmp/idjlm-server \
             src-tauri/binaries/idjlm-server-aarch64-apple-darwin

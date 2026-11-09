@@ -1,5 +1,28 @@
 """Flask sidecar entry point for the Tauri desktop application."""
 import os
+import sys
+
+
+def _verify_audio_runtime() -> int:
+    """Read-only frozen-sidecar check; never downloads model weights."""
+    import soundfile
+    import torch
+    from transformers import AutoProcessor, ClapModel
+    from app.services.audio_classification import ModelRegistry
+
+    spec = ModelRegistry().get()
+    assert spec.adapter == "transformers_clap"
+    assert spec.required_files
+    assert torch.__version__ and soundfile.__version__
+    assert AutoProcessor and ClapModel
+    print(f"audio runtime ready: {spec.id}@{spec.revision} torch={torch.__version__}")
+    return 0
+
+
+# Keep this before dotenv/app creation: build verification must neither read
+# user configuration nor create an app data directory.
+if "--verify-audio-runtime" in sys.argv:
+    raise SystemExit(_verify_audio_runtime())
 
 from dotenv import load_dotenv
 import platform as _platform

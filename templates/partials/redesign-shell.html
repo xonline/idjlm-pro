@@ -1,0 +1,133 @@
+<div class="latin-shell" id="latin-shell" aria-label="Latin music library">
+  <aside class="latin-sidebar" aria-label="Main navigation">
+    <a class="latin-brand" href="#library" aria-label="IDJLM Pro home">IDJLM<span>Pro</span></a>
+    <nav class="latin-nav" aria-label="Primary">
+      <button class="latin-nav-item active" data-page="library"><span aria-hidden="true">▦</span>Library <span class="latin-nav-count" id="latin-nav-library-count">—</span></button>
+      <button class="latin-nav-item" data-page="review"><span aria-hidden="true">◉</span>Review <span class="latin-nav-count" id="latin-nav-review-count">—</span></button>
+      <button class="latin-nav-item" data-page="categories"><span aria-hidden="true">◇</span>Categories</button>
+      <button class="latin-nav-item" data-page="export"><span aria-hidden="true">↗</span>Export</button>
+      <button class="latin-nav-item" data-page="activity"><span aria-hidden="true">◷</span>Activity</button>
+      <button class="latin-nav-item" data-page="settings"><span aria-hidden="true">⚙</span>Settings</button>
+    </nav>
+    <div class="latin-sidebar-bottom">
+      <button class="latin-advanced-link" id="latin-open-advanced">Advanced tools <span aria-hidden="true">↗</span></button>
+      <div class="latin-local-status"><span class="latin-status-dot"></span><span id="latin-connection-label">Local library</span></div>
+      <button class="latin-shortcut-link" id="latin-help-shortcuts">Keyboard shortcuts <kbd>?</kbd></button>
+    </div>
+  </aside>
+
+  <main class="latin-main">
+    <header class="latin-topbar">
+      <div><span class="latin-eyebrow" id="latin-breadcrumb">YOUR MUSIC</span><h1 id="latin-page-title">Library</h1></div>
+      <div class="latin-top-actions">
+        <button class="latin-button quiet" id="latin-refresh">Refresh</button>
+        <button class="latin-button primary" id="latin-add-folder">＋ Add folder</button>
+        <span class="latin-avatar" aria-label="Local library profile">♪</span>
+      </div>
+    </header>
+
+    <div class="latin-announcer" id="latin-announcer" role="status" aria-live="polite"></div>
+
+    <section class="latin-page active" id="latin-page-library" data-title="Library">
+      <div class="latin-library-summary" id="latin-library-summary"></div>
+      <div class="latin-card latin-browser-card">
+        <div class="latin-toolbar">
+          <label class="latin-search"><span aria-hidden="true">⌕</span><span class="sr-only">Search tracks, artists, or comments</span><input id="latin-search" type="search" placeholder="Search tracks, artists, comments…" autocomplete="off"><kbd>/</kbd></label>
+          <button class="latin-button quiet" id="latin-filter-toggle" aria-expanded="true">Filters</button>
+          <select id="latin-saved-view-select" class="latin-select" aria-label="Saved views"><option value="">Saved views</option></select>
+          <button class="latin-button quiet" id="latin-save-view">Save view</button>
+        </div>
+        <div class="latin-filter-area" id="latin-filter-area">
+          <div class="latin-filter-row"><span class="latin-filter-label">GENRE</span><div id="latin-family-chips" class="latin-chips"></div></div>
+          <div class="latin-filter-row"><span class="latin-filter-label">STYLE</span><div id="latin-style-chips" class="latin-chips"></div></div>
+          <div class="latin-filter-row"><span class="latin-filter-label">COMMENTS</span><div id="latin-comment-chips" class="latin-chips"></div><button class="latin-chip-add" id="latin-add-comment-chip" title="Add a personal comment filter">＋ Add</button></div>
+          <div class="latin-active-filters" id="latin-active-filters"></div>
+        </div>
+        <div class="latin-selection-bar" id="latin-selection-bar" hidden>
+          <span id="latin-selected-count">0 selected</span>
+          <button class="latin-text-button" id="latin-select-visible">Select visible</button>
+          <button class="latin-text-button" id="latin-select-all-filtered">Select all filtered</button>
+          <span class="latin-selection-spacer"></span>
+          <button class="latin-button quiet" id="latin-batch-edit">Edit fields</button>
+          <button class="latin-button quiet" id="latin-batch-catalogue">Catalogue tags</button>
+          <button class="latin-button quiet" id="latin-batch-review">Review selected</button>
+          <button class="latin-button quiet" id="latin-batch-classify">Analyze audio · experimental</button>
+          <button class="latin-button quiet" id="latin-batch-export">Prepare export</button>
+          <button class="latin-text-button" id="latin-clear-selection">Clear</button>
+        </div>
+        <div class="latin-table-wrap" id="latin-table-wrap">
+          <table class="latin-table" aria-label="Music library">
+            <thead><tr>
+              <th class="latin-check-col"><span class="sr-only">Select</span></th>
+              <th>TRACK</th><th>GENRE · COMMENT</th><th>PROPOSED LABELS</th><th>STATUS</th><th class="latin-number">BPM · KEY</th><th></th>
+            </tr></thead>
+            <tbody id="latin-library-rows"><tr><td colspan="7" class="latin-table-message">Loading your library…</td></tr></tbody>
+          </table>
+        </div>
+        <footer class="latin-table-footer"><span id="latin-result-count">—</span><div class="latin-pager"><button class="latin-button quiet" id="latin-page-prev">Previous</button><button class="latin-button quiet" id="latin-page-next">Next</button></div></footer>
+      </div>
+    </section>
+
+    <section class="latin-page" id="latin-page-review" data-title="Review">
+      <div class="latin-page-intro"><p>Review uncertain suggestions and keep accepted, corrected, written, and delivered states separate.</p><div class="latin-metric-row" id="latin-review-metrics"></div></div>
+      <div class="latin-card">
+        <div class="latin-toolbar"><div class="latin-segmented" id="latin-review-tabs"><button class="active" data-review-state="needs_review">Needs review</button><button data-review-state="ready">Ready in bulk</button><button data-review-state="unreviewed">Unreviewed</button><button data-review-state="conflict">Conflicts</button></div></div>
+        <div class="latin-selection-bar" id="latin-review-selection-bar" hidden><span id="latin-review-selected-count"></span><button class="latin-button quiet" id="latin-review-approve">Review field changes</button><button class="latin-text-button" id="latin-review-clear">Clear</button></div>
+        <div class="latin-table-wrap"><table class="latin-table"><thead><tr><th></th><th>TRACK</th><th>EXISTING</th><th>PROPOSAL</th><th>FAMILY</th><th>STYLE</th><th>DECISION</th><th></th></tr></thead><tbody id="latin-review-rows"><tr><td colspan="8" class="latin-table-message">Loading review queue…</td></tr></tbody></table></div>
+        <footer class="latin-table-footer"><span id="latin-review-result-count"></span><div class="latin-pager"><button class="latin-button quiet" id="latin-review-prev">Previous</button><button class="latin-button quiet" id="latin-review-next">Next</button></div></footer>
+      </div>
+    </section>
+
+    <section class="latin-page" id="latin-page-categories" data-title="Categories">
+      <div class="latin-page-intro"><p>Your tags stay familiar. The classifier keeps music family, style, dance use, language, and production as separate facts.</p></div>
+      <div class="latin-category-priority" id="latin-priority-chips"></div>
+      <div class="latin-card latin-category-card"><div class="latin-card-heading"><div><h2>My category vocabulary</h2><p>Personal labels remain literal until you map them.</p></div><div class="latin-heading-actions"><button class="latin-button quiet" id="latin-category-import">Import OneTagger labels</button><input id="latin-taxonomy-file" type="file" accept="application/json,.json" hidden><button class="latin-button primary" id="latin-category-add">＋ Add label</button></div></div><div id="latin-taxonomy-content"><div class="latin-empty">Loading categories…</div></div></div>
+      <div class="latin-card latin-note-card"><strong>Recognition status</strong><span>Adding a label makes it available in your vocabulary. It does not mean the audio model can recognize it.</span></div>
+    </section>
+
+    <section class="latin-page" id="latin-page-export" data-title="Export">
+      <div class="latin-page-intro"><p>Prepare a checked copy and use a transfer route that leaves tracks findable in djay.</p></div>
+      <div class="latin-card latin-export-scope"><div><span class="latin-filter-label">EXPORT SCOPE</span><h2 id="latin-export-scope-label">Choose tracks from Library</h2><p id="latin-export-scope-count">No tracks selected</p></div><button class="latin-button quiet" id="latin-export-change-scope">Choose from saved views</button></div>
+      <div class="latin-export-layout">
+        <div class="latin-card"><div class="latin-card-heading"><div><h2>Transfer route</h2><p>Files must be indexed and searchable in djay. Playback alone is not enough.</p></div></div><div id="latin-export-routes" class="latin-route-list"></div></div>
+        <div class="latin-card"><div class="latin-card-heading"><div><h2>Copy profile</h2><p>Profiles change tags on staged copies only. Source files remain untouched.</p></div></div><label class="latin-field-label" for="latin-export-profile">Profile</label><select id="latin-export-profile" class="latin-select full"><option value="broad_genre_raw_comment">Broad Genre + existing Comments</option><option value="djay_extended_genre">Extended Genre · Genre and Style labels</option></select><div class="latin-export-destination"><label class="latin-field-label" for="latin-export-destination">Destination folder</label><div class="latin-input-row"><input class="latin-input" id="latin-export-destination" placeholder="Choose a folder on this Mac" readonly><button class="latin-button quiet" id="latin-export-pick-destination">Choose</button></div></div><button class="latin-button primary full" id="latin-export-preview">Preview export</button></div>
+      </div>
+      <div class="latin-card latin-export-preview" id="latin-export-preview-card" hidden></div>
+      <div class="latin-card"><div class="latin-card-heading"><div><h2>Export history</h2><p>Prepared, transferred, and verified are different states.</p></div></div><div id="latin-export-history" class="latin-empty">No export jobs yet.</div></div>
+    </section>
+
+    <section class="latin-page" id="latin-page-activity" data-title="Activity">
+      <div class="latin-page-intro"><p>Every import, analysis, write, export, and restore job stays here with per-file results.</p></div>
+      <div class="latin-job-summary" id="latin-job-summary"></div>
+      <div class="latin-card"><div class="latin-table-wrap"><table class="latin-table"><thead><tr><th>JOB</th><th>TYPE</th><th>STATE</th><th>PROGRESS</th><th>UPDATED</th><th></th></tr></thead><tbody id="latin-job-rows"><tr><td colspan="6" class="latin-table-message">Loading activity…</td></tr></tbody></table></div></div>
+      <div class="latin-card"><div class="latin-card-heading"><div><h2>Restore a previous write</h2><p>Restore is blocked if the file changed after its backup.</p></div></div><div id="latin-restore-list" class="latin-empty">Loading verified backups…</div></div>
+    </section>
+
+    <section class="latin-page" id="latin-page-settings" data-title="Settings">
+      <div class="latin-page-intro"><p>Classification runs locally after an optional model download. No API key is needed for the local workflow.</p></div>
+      <div class="latin-card"><div class="latin-card-heading"><div><h2>Local model</h2><p id="latin-model-note">Model and capability state comes from this installation.</p></div></div><div id="latin-model-state" class="latin-model-state">Checking local model…</div><div class="latin-settings-actions" id="latin-model-actions"></div></div>
+      <div class="latin-settings-grid"><div class="latin-card"><h2>Library and storage</h2><div id="latin-library-settings"></div></div><div class="latin-card"><h2>Accessibility</h2><label class="latin-setting-row"><span>Text size</span><select class="latin-select" id="latin-text-scale"><option value="1">Standard</option><option value="1.15">Large</option><option value="1.3">Extra large</option></select></label><label class="latin-setting-row"><span>Reduce motion</span><input type="checkbox" id="latin-reduced-motion"></label><label class="latin-setting-row"><span>Theme</span><select class="latin-select" id="latin-theme"><option value="dark">Dark</option><option value="light">Light</option></select></label></div></div>
+      <details class="latin-card latin-advanced-settings"><summary>Advanced and legacy settings</summary><p>Existing provider, enrichment, model mappings, and utility settings remain available below.</p><button class="latin-button quiet" id="latin-open-legacy-settings">Open legacy Settings</button></details>
+    </section>
+
+    <footer class="latin-footer"><span>LOCAL LIBRARY · ORIGINAL FILES STAY IN PLACE</span><button class="latin-text-button" id="latin-footer-advanced">Advanced tools</button></footer>
+  </main>
+</div>
+
+<div class="latin-overlay" id="latin-drawer-overlay" hidden></div>
+<aside class="latin-drawer" id="latin-track-drawer" aria-labelledby="latin-drawer-title" aria-modal="true" role="dialog" hidden>
+  <header class="latin-drawer-header"><div><span class="latin-eyebrow">TRACK INSPECTOR</span><h2 id="latin-drawer-title">Track details</h2></div><button class="latin-icon-button" id="latin-drawer-close" aria-label="Close track inspector">×</button></header>
+  <div id="latin-drawer-body" class="latin-drawer-body"></div>
+</aside>
+
+<div class="latin-modal-backdrop" id="latin-modal-backdrop" hidden>
+  <section class="latin-modal" role="dialog" aria-modal="true" aria-labelledby="latin-modal-title" tabindex="-1">
+    <header><div><span class="latin-eyebrow" id="latin-modal-kicker">REVIEW CHANGES</span><h2 id="latin-modal-title"></h2></div><button class="latin-icon-button" id="latin-modal-close" aria-label="Close">×</button></header>
+    <div class="latin-modal-body" id="latin-modal-body"></div>
+    <footer class="latin-modal-footer" id="latin-modal-footer"></footer>
+  </section>
+</div>
+
+<section class="latin-advanced-banner" id="latin-advanced-banner" hidden>
+  <span>You are in Advanced tools. Your library and saved data are unchanged.</span><button class="latin-button primary" id="latin-return-primary">Return to redesigned library</button>
+</section>

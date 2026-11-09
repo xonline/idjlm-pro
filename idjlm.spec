@@ -1,6 +1,7 @@
 # idjlm.spec
 import sys
 import platform
+from importlib.util import find_spec
 from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules
 
 # Stable extraction dir: PyInstaller reuses extracted files when dir exists with matching CRC.
@@ -18,6 +19,25 @@ librosa_datas, librosa_binaries, librosa_hiddenimports = collect_all('librosa')
 soundfile_datas, soundfile_binaries, soundfile_hiddenimports = collect_all('soundfile')
 sklearn_datas, sklearn_binaries, sklearn_hiddenimports = collect_all('sklearn')
 numpy_datas, numpy_binaries, numpy_hiddenimports = collect_all('numpy')
+# CLAP is lazily imported by the local worker. Precise hidden imports trigger
+# PyInstaller's maintained package hooks (including Torch/Tokenizers native
+# libraries) without recursively collecting every Torch/Transformers model.
+# Model weights are never bundled; users install the pinned checkpoint in app
+# data separately.
+audio_runtime_hiddenimports = []
+if all(find_spec(name) is not None for name in ('torch', 'transformers', 'huggingface_hub', 'tokenizers', 'safetensors')):
+    audio_runtime_hiddenimports = [
+        'torch',
+        'transformers',
+        'transformers.models.clap.configuration_clap',
+        'transformers.models.clap.feature_extraction_clap',
+        'transformers.models.clap.modeling_clap',
+        'transformers.models.clap.processing_clap',
+        'huggingface_hub',
+        'tokenizers',
+        'safetensors',
+        'safetensors.torch',
+    ]
 
 a = Analysis(
     ['run_app.py'],
@@ -38,6 +58,7 @@ a = Analysis(
         *soundfile_hiddenimports,
         *sklearn_hiddenimports,
         *numpy_hiddenimports,
+        *audio_runtime_hiddenimports,
         *collect_submodules('scipy'),
         *collect_submodules('flask'),
         *collect_submodules('flask_cors'),
@@ -56,7 +77,7 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[
         'IPython', 'jupyter', 'matplotlib', 'tkinter', 'PyQt5', 'PyQt6',
-        'wx', 'gi', 'cv2', 'tensorflow', 'torch', 'torchvision',
+        'wx', 'gi', 'cv2', 'tensorflow', 'torchvision',
     ],
     cipher=block_cipher,
     noarchive=False,

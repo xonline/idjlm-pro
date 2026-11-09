@@ -6,6 +6,7 @@
 // taxonomy as reactive store.state, so every module below can use it.
 import '../app/static/modules/store.js';
 import '../app/static/modules/core.js';
+import '../app/static/modules/latin-redesign.js';
 import '../app/static/modules/loading.js';
 import '../app/static/modules/navigation.js';
 import '../app/static/modules/opsbar.js';
@@ -23,6 +24,7 @@ import '../app/static/modules/setplan.js';
 import '../app/static/modules/search.js';
 import '../app/static/modules/chips.js';
 import '../app/static/modules/classify.js';
+import '../app/static/modules/dragdrop.js';
 import '../app/static/modules/advisor.js';
 import '../app/static/modules/shortcuts.js';
 import '../app/static/modules/responsive.js';
@@ -34,5 +36,8 @@ import '../app/static/modules/detail-dock.js';
 import '../app/static/modules/tags-sidebar.js';
 import '../app/static/modules/sync-center.js';
 import '../app/static/modules/field-mappings.js';
+import '../app/static/modules/key-preview.js';
+import '../app/static/modules/prepare-panel.js';
+import '../app/static/modules/setlist-timeline.js';
 import '../app/static/modules/inbox.js';
 import '../app/static/app.js';

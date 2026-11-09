@@ -34,6 +34,9 @@ def app_user_dir() -> str:
 
     Created lazily by callers; this function only resolves the path.
     """
+    override = os.environ.get("IDJLM_USER_DATA_DIR")
+    if override:
+        return os.path.abspath(os.path.expanduser(override))
     if _IS_DARWIN:
         return os.path.expanduser("~/Library/Application Support/IDJLM Pro")
     home = os.path.expanduser("~/.idjlm-pro")
