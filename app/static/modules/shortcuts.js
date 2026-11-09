@@ -21,6 +21,10 @@
 const _globalShortcuts = {};
 const _globalShortcutMeta = {}; // key -> { key, description, context, handler }
 
+function isLatinPrimaryMode() {
+  return Boolean(window.__latinRedesignActive && !document.querySelector('.app-body')?.classList.contains('latin-legacy-active'));
+}
+
 function registerGlobalShortcut(key, handler, meta) {
   _globalShortcuts[key] = handler;
   if (meta) {
@@ -34,6 +38,8 @@ function getGlobalShortcutMeta() {
 
 // Initialise the registry listener once - handles ALL registered shortcuts
 document.addEventListener('keydown', (e) => {
+  if (isLatinPrimaryMode()) return;
+  if (document.querySelector('.latin-modal-backdrop:not([hidden])')) return;
   // Skip if focus is in an input/textarea/select
   const tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
@@ -172,6 +178,7 @@ function initKeyboardShortcuts() {
   }
 
   document.addEventListener('keydown', (e) => {
+    if (isLatinPrimaryMode()) return;
     const reviewTab = document.getElementById('tab-review');
     if (!reviewTab.classList.contains('active')) return;
 
@@ -200,6 +207,7 @@ function initKeyboardShortcuts() {
 
   // Global shortcut: ? or Cmd+/ to open keyboard shortcuts reference
   document.addEventListener('keydown', (e) => {
+    if (isLatinPrimaryMode()) return;
     if (e.key === 'Escape') {
       const shortcutsModal = document.getElementById('shortcuts-modal');
       if (shortcutsModal && shortcutsModal.style.display !== 'none') {

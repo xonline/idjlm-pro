@@ -31,7 +31,7 @@
     </div>
   </div>
 
-  <div class="app" id="app-content" style="opacity:0; transition: opacity 0.4s ease 0.3s;">
+  <div class="app latin-shell-active" id="app-content" style="opacity:0; transition: opacity 0.4s ease 0.3s;">
 
     <!-- PLAYER BAR — top, full width -->
     <div id="audio-player-bar" class="player-bar">
@@ -64,6 +64,9 @@
       </div>
     </div>
 
+    {% include "partials/redesign-shell.html" %}
+
+    <!-- Legacy application surface stays available through Advanced tools. -->
     <!-- SIDEBAR + CONTENT ROW -->
     <div class="app-body">
     <!-- SIDEBAR -->
@@ -1617,7 +1620,7 @@
   <audio id="audio-player" style="display:none;"></audio>
 
   <!-- Onboarding Modal -->
-  <div id="onboarding-modal" class="modal-overlay" style="display:none">
+  <div id="onboarding-modal" class="modal-overlay" hidden style="display:none">
     <div class="modal-box onboarding-box">
       <h2>Welcome to IDJLM Pro</h2>
       <p>Here's how to classify your DJ library in 6 steps:</p>
@@ -1737,7 +1740,7 @@
   </div>
 
   <!-- Onboarding Wizard Modal -->
-  <div id="onboarding-overlay" class="onboarding-overlay" style="display:none;">
+  <div id="onboarding-overlay" class="onboarding-overlay" hidden style="display:none;">
     <div class="onboarding-modal">
       <button class="onboarding-close" id="onboarding-close">&times;</button>
 

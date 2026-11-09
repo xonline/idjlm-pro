@@ -1,8 +1,10 @@
 """Smoke tests for every route -- catch 500 errors from broken imports, bad get_json calls, etc."""
+
 import json
 from unittest import mock
 import pytest
 from app.routes.setlist_routes import _load_setlist, _save_setlist
+
 
 # ---------------------------------------------------------------------------
 # Root page
@@ -73,8 +75,7 @@ class TestReviewRoutes:
 
     def test_write_tags_empty_body(self, client):
         resp = client.post("/api/review/write", json={})
-        # 202 = accepted (no approved tracks), 500 = service import failure
-        assert resp.status_code in (202, 500)
+        assert resp.status_code == 410
 
 
 # ---------------------------------------------------------------------------
@@ -117,13 +118,18 @@ class TestSettingsRoutes:
         assert resp.status_code == 400
 
     def test_list_models_claude_without_key_returns_400(self, client):
-        resp = client.post("/api/list_models", json={"provider": "claude", "api_key": ""})
+        resp = client.post(
+            "/api/list_models", json={"provider": "claude", "api_key": ""}
+        )
         assert resp.status_code == 400
 
     def test_list_models_gemini_without_key_returns_400(self, client):
         from app.routes.settings_routes import load_env
+
         with mock.patch("app.routes.settings_routes.load_env", return_value={}):
-            resp = client.post("/api/list_models", json={"provider": "gemini", "api_key": ""})
+            resp = client.post(
+                "/api/list_models", json={"provider": "gemini", "api_key": ""}
+            )
             assert resp.status_code == 400
 
     def test_list_models_ollama_returns_models_or_error(self, client):
@@ -305,14 +311,17 @@ class TestSetlistRoutes:
         store["/track1.mp3"] = source_track
         store["/track2.mp3"] = target_track
 
-        resp = client.post("/api/setlist/suggest", json={
-            "file_path": "/track1.mp3",
-            "limit": 5,
-            "key_weight": 1.0,
-            "bpm_weight": 1.0,
-            "energy_weight": 1.0,
-            "genre_weight": 1.0
-        })
+        resp = client.post(
+            "/api/setlist/suggest",
+            json={
+                "file_path": "/track1.mp3",
+                "limit": 5,
+                "key_weight": 1.0,
+                "bpm_weight": 1.0,
+                "energy_weight": 1.0,
+                "genre_weight": 1.0,
+            },
+        )
         assert resp.status_code == 200
         data = resp.get_json()
         assert "suggestions" in data
@@ -320,18 +329,20 @@ class TestSetlistRoutes:
 
     def test_suggest_next_key_weight_zero(self, client):
         """Test that key_weight=0 is accepted and scores accordingly."""
-        resp = client.post("/api/setlist/suggest", json={
-            "file_path": "/nonexistent.mp3",
-            "key_weight": 0.0,
-        })
+        resp = client.post(
+            "/api/setlist/suggest",
+            json={
+                "file_path": "/nonexistent.mp3",
+                "key_weight": 0.0,
+            },
+        )
         assert resp.status_code in (400, 404)
 
     def test_suggest_next_default_weights(self, client):
         """Test that weights default to 1.0 when not provided."""
-        resp = client.post("/api/setlist/suggest", json={
-            "file_path": "/nonexistent.mp3",
-            "limit": 10
-        })
+        resp = client.post(
+            "/api/setlist/suggest", json={"file_path": "/nonexistent.mp3", "limit": 10}
+        )
         assert resp.status_code in (400, 404)
 
     def test_export_setlist(self, client):
@@ -439,7 +450,9 @@ class TestTagRoutes:
         assert resp.status_code == 404
 
     def test_set_track_tag(self, client):
-        resp = client.put("/api/tracks/nonexistent%2Ffile.mp3/tags", json={"key": "X", "value": "Y"})
+        resp = client.put(
+            "/api/tracks/nonexistent%2Ffile.mp3/tags", json={"key": "X", "value": "Y"}
+        )
         assert resp.status_code == 404
 
     def test_delete_track_tag(self, client):

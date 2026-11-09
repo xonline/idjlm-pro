@@ -142,6 +142,24 @@ def import_tracks():
             folder_path, skipped_count, newly_scanned_count, len(stale_paths),
         )
 
+        # Populate the redesign inventory from the scanner's raw observation
+        # before legacy normalization mutates its in-memory display value. This
+        # is explicit import work, never a side effect of a library read.
+        from app import get_v2_store
+        v2_store = get_v2_store()
+        if v2_store is not None:
+            for track in tracks:
+                source_revision = ":".join(str(value or "") for value in (
+                    track.file_mtime, track.file_size, track.content_hash,
+                ))
+                v2_store.upsert_item(
+                    path=track.file_path,
+                    original=track.to_dict(),
+                    source_revision=source_revision,
+                    availability="present" if os.path.isfile(track.file_path) else "missing",
+                    conflict=bool(track.error),
+                )
+
         # Normalize genres from existing tags (e.g. "Salsa Romántica" → "Salsa")
         from app import get_taxonomy
         from app.services.genre_normalizer import normalize_track_genres

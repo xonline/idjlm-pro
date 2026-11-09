@@ -404,6 +404,15 @@ class TrackStore:
             "db_path": self._db_path,
         }
 
+    @property
+    def db_path(self) -> str:
+        """Database location for companion local stores.
+
+        Callers must use their own connection and schema; exposing the path
+        avoids reaching into this store's private SQLite connection.
+        """
+        return self._db_path
+
     def close(self) -> None:
         with self._rw_lock:
             try:

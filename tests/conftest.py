@@ -2,8 +2,14 @@
 import json
 import os
 import shutil
+import tempfile
 
 import pytest
+
+# Tests must never open or modify the operator's IDJLM library.  Set this
+# before importing app modules, whose path constants resolve at import time.
+_TEST_DATA_DIR = tempfile.mkdtemp(prefix="idjlm-tests-")
+os.environ["IDJLM_USER_DATA_DIR"] = _TEST_DATA_DIR
 
 from app import create_app
 
@@ -15,7 +21,7 @@ def _test_taxonomy():
     On Linux the app checks ~/.idjlm-pro/taxonomy.json, then falls back to
     the bundle copy at <project>/taxonomy.json.
     """
-    user_taxonomy = os.path.expanduser("~/.idjlm-pro/taxonomy.json")
+    user_taxonomy = os.path.join(_TEST_DATA_DIR, "taxonomy.json")
     bundle_taxonomy = os.path.join(
         os.path.dirname(__file__), "..", "taxonomy.json"
     )
@@ -34,9 +40,8 @@ def _test_taxonomy():
             json.dump(minimal, f)
         yield user_taxonomy
 
-    # Cleanup: remove test-created file
-    if os.path.exists(user_taxonomy):
-        os.remove(user_taxonomy)
+    # The complete isolated directory is left for the OS temporary-file
+    # cleaner. Never delete or alter a real user taxonomy from tests.
 
 
 @pytest.fixture(scope="session")
@@ -61,28 +66,12 @@ def _cleanup_setlist_between_tests(request):
     from app.routes.setlist_routes import SETLIST_PATH as setlist_path
     default_content = json.dumps({"tracks": [], "name": "My Set"})
 
-    # Read valid original content (only if it has the expected structure)
-    original = None
-    if os.path.exists(setlist_path):
-        with open(setlist_path) as f:
-            raw = f.read()
-        try:
-            parsed = json.loads(raw)
-            if "tracks" in parsed and "name" in parsed:
-                original = raw
-        except json.JSONDecodeError:
-            pass
-
     # Reset to defaults before test
     with open(setlist_path, "w") as f:
         f.write(default_content)
 
     yield
 
-    # Restore valid original, or clean up to defaults
-    if original is not None:
-        with open(setlist_path, "w") as f:
-            f.write(original)
-    else:
-        with open(setlist_path, "w") as f:
-            f.write(default_content)
+    # This is an isolated temporary path, so leave deterministic defaults.
+    with open(setlist_path, "w") as f:
+        f.write(default_content)

@@ -1,4 +1,5 @@
 import os
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -62,10 +63,24 @@ def _read_id3_tags(file_path: str) -> dict:
     tags['bpm'] = _extract_id3_text(audio.tags.get('TBPM'))
     tags['key'] = _extract_id3_text(audio.tags.get('TKEY'))
 
-    # COMM (comment) frame: desc, lang, text
-    comm_frame = audio.tags.get('COMM')
-    if comm_frame and hasattr(comm_frame, 'text') and comm_frame.text:
-        tags['comment'] = str(comm_frame.text[0])
+    # COMM frames are keyed by description and language (for example
+    # ``COMM:subgenre:eng``). Preserve every value without guessing a
+    # delimiter; choose the first non-empty value only for legacy
+    # ``existing_comment`` and retain the rest as named observations.
+    comments = []
+    for comm_frame in audio.tags.getall('COMM'):
+        if hasattr(comm_frame, 'text') and comm_frame.text:
+            values = [str(value) for value in comm_frame.text if str(value)]
+            if values:
+                comments.extend(values)
+                desc = getattr(comm_frame, 'desc', '') or 'comment'
+                lang = getattr(comm_frame, 'lang', '') or 'und'
+                # Keep the full ordered list and language under a distinct
+                # observation key. ``existing_comment`` remains one legacy
+                # display value; it is never reconstructed by splitting.
+                tags['custom_tags'][f'COMM:{desc}:{lang}'] = json.dumps(values, ensure_ascii=False)
+    if comments:
+        tags['comment'] = comments[0]
 
     # Read TXXX custom tags (skip INITIALKEY which is managed internally)
     for txxx in audio.tags.getall('TXXX'):
