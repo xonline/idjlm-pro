@@ -6,10 +6,12 @@ latest public release.
 
 ## Checks that passed
 
-- The isolated Python suite was run with `PYTHONDONTWRITEBYTECODE=1` and
-  `-p no:cacheprovider`: **387 passed, 14 skipped, 6 warnings** in 5m55s.
-  The run sets `IDJLM_USER_DATA_DIR` before importing the application; it did
-  not open a personal library or runtime database.
+- A fresh temporary Python 3.12 environment installed from
+  `requirements.txt` ran the isolated suite with
+  `PYTHONDONTWRITEBYTECODE=1`, `-p no:cacheprovider`, and native-crash output
+  detection: **388 passed, 14 skipped, 2 warnings** in 5m04s. The run sets
+  `IDJLM_USER_DATA_DIR` before importing the application; it did not open a
+  personal library or runtime database.
 - `ruff check app/ --select E,F,W --ignore E501,E701` passed.
 - Focused route, store, settings-isolation, safe-format, and warm-import
   checks passed: **28 passed**.
@@ -18,6 +20,10 @@ latest public release.
   there were no page or request errors. It covered additive import/rescan,
   review decisions, safe write/restore, export preview/commit/replacement, and
   stale-preview invalidation.
+- The sidecar's synthetic analyzer verifier ran two disposable WAV tracks in a
+  spawned worker on that pinned environment and exited successfully in 14.4 s.
+  It checked completed analysis records with positive duration and RMS plus
+  waveform data; it did not use a music library or model download.
 
 ## Synthetic 15,000-item catalogue check
 
@@ -51,17 +57,21 @@ or model throughput, music-classification accuracy, transfer performance, or a
   store. Normal source-tree upgrades may perform the existing one-time legacy
   JSON migration; an explicit `IDJLM_USER_DATA_DIR` never probes project-root
   JSON or `.env` files.
+- Legacy `librosa` analysis now uses one spawned worker for a batch instead of
+  inheriting native state through `fork` or compiling cold Numba kernels in
+  parallel. A two-worker cold-cache probe timed out after 240 s; the serial
+  limit is deliberate pending a target-hardware concurrency measurement. This
+  is a reliability guard, not an analysis-throughput result.
 - Obsolete tracked runtime JSON/bytecode, screenshots, and superseded planning
   files were copied to `~/.restore-bin/idjlm-repository-cleanup-2026-11-19/`
-  before removal from the review branch. The initial modified tracked bytecode
-  file was preserved there exactly, never reset.
+  before removal from the review branch. The then-current modified tracked
+  bytecode copy was preserved there, never reset to its Git version.
 
 ## Remaining gates
 
-The local suite emitted native `librosa`/`numba` child-worker segmentation
-fault traces while exercising the legacy analyzer, although pytest completed
-with exit status zero. This host-runtime signal needs clean CI confirmation and
-separate diagnosis; it is not evidence that the legacy analyzer is reliable.
+Fresh CI and frozen installer checks must confirm this review head on the
+supported platforms. Local Linux evidence does not establish M3 performance or
+installer behavior.
 
 Issue #879 remains open for representative Latin corpus accuracy evaluation,
 M3 16 GB real-library scale measurement, real iPad/djay transfer discovery,

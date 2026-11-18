@@ -56,9 +56,9 @@ This inventory records tracked files that appear obsolete or misplaced. It does 
 
 On 19 November 2026, the 28 reviewed paths above were copied with their
 relative paths to `~/.restore-bin/idjlm-repository-cleanup-2026-11-19/` before
-being removed from version control. The modified tracked
-`app/models/__pycache__/track.cpython-312.pyc` was preserved there exactly; it
-was never reset to its Git version. The now-unused tracked `setlist.json` was
+being removed from version control. The then-current modified tracked
+`app/models/__pycache__/track.cpython-312.pyc` copy was preserved there; it was
+never reset to its Git version. The now-unused tracked `setlist.json` was
 also preserved in that restore-bin directory and removed after the Setlist
 route moved to the user-data SQLite document store. `setlist.json` is now
 ignored alongside `playlists.json`, so runtime state cannot be recommitted.

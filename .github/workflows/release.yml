@@ -1,4 +1,4 @@
-name: Desktop release
+name: Desktop installer checks
 
 on:
   push:
@@ -9,6 +9,8 @@ on:
       - ".github/workflows/release.yml"
       - "idjlm.spec"
       - "run_app.py"
+      - "app/services/analyzer.py"
+      - "app/models/track.py"
       - "requirements.txt"
       - "requirements-audio.txt"
       - "scripts/verify_audio_runtime.py"
@@ -87,6 +89,10 @@ jobs:
           mkdir -p src-tauri/binaries
           mv src-tauri/binaries/tmp/idjlm-server \
             src-tauri/binaries/idjlm-server-aarch64-apple-darwin
+
+      - name: Verify spawned analyzer batch
+        timeout-minutes: 5
+        run: src-tauri/binaries/idjlm-server-aarch64-apple-darwin --verify-analyzer-runtime
 
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli@^2.5.0
@@ -199,6 +205,10 @@ jobs:
           mkdir -p src-tauri/binaries
           mv src-tauri/binaries/tmp/idjlm-server \
             src-tauri/binaries/idjlm-server-x86_64-apple-darwin
+
+      - name: Verify spawned analyzer batch
+        timeout-minutes: 5
+        run: src-tauri/binaries/idjlm-server-x86_64-apple-darwin --verify-analyzer-runtime
 
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli@^2.5.0
@@ -315,6 +325,11 @@ jobs:
           New-Item -ItemType Directory -Force -Path src-tauri/binaries
           Move-Item src-tauri/binaries/tmp/idjlm-server.exe `
             src-tauri/binaries/idjlm-server-x86_64-pc-windows-msvc.exe
+
+      - name: Verify spawned analyzer batch
+        timeout-minutes: 5
+        shell: pwsh
+        run: src-tauri/binaries/idjlm-server-x86_64-pc-windows-msvc.exe --verify-analyzer-runtime
 
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli@^2.5.0

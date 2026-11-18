@@ -4,6 +4,11 @@ import librosa
 
 from app.models.track import Track
 
+# Librosa/Numba native kernels are not safe to inherit through Linux ``fork``.
+# A single isolated worker avoids concurrent cold NumPy/Numba compilation on
+# the supported 16 GB desktop target. It is reused for the whole batch.
+_MAX_BATCH_ANALYSIS_WORKERS = 1
+
 
 # Camelot wheel mapping: pitch class (0-11) to major/minor keys
 # Index corresponds to chromatic scale: C=0, C#=1, D=2, D#=3, E=4, F=5, F#=6, G=7, G#=8, A=9, A#=10, B=11
@@ -821,10 +826,6 @@ def analyze_tracks_batch(file_paths, track_store, progress_queue=None, num_worke
     import multiprocessing
     import os as _os
 
-    if num_workers is None:
-        num_workers = min(_os.cpu_count() or 4, len(file_paths))
-    num_workers = max(1, num_workers)
-
     work_items = []
     skipped = 0
     for fp in file_paths:
@@ -845,13 +846,20 @@ def analyze_tracks_batch(file_paths, track_store, progress_queue=None, num_worke
             progress_queue.put({"done": True, "analyzed": 0, "errors": [], "refetch": True})
         return 0, []
 
+    if num_workers is None:
+        num_workers = _os.cpu_count() or 1
+    num_workers = max(1, min(int(num_workers), len(work_items), _MAX_BATCH_ANALYSIS_WORKERS))
+
     analyzed = 0
     errors = []
     completed = 0
     total = len(file_paths)
     processed_for_progress = 0
 
-    with multiprocessing.Pool(processes=num_workers) as pool:
+    # Never inherit loaded NumPy/Numba state through ``fork``.  ``spawn``
+    # starts a clean interpreter in every worker and is also the macOS default.
+    context = multiprocessing.get_context("spawn")
+    with context.Pool(processes=num_workers) as pool:
         for result in pool.imap_unordered(_analyze_track_worker, work_items):
             completed += 1
             fp = result["file_path"]

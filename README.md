@@ -15,12 +15,14 @@ git clone --branch feat/latin-library-redesign-implementation https://github.com
 cd idjlm-pro
 npm ci
 npm run build
+# Use Python 3.11 if 3.12 is unavailable; start.sh reuses this environment.
+python3.12 -m venv .venv
 ./start.sh
 ```
 
 Open `http://localhost:5050` after the service starts. On macOS Apple Silicon, the source app starts the same way. `start.sh` creates `.venv`, installs the base Python requirements, and starts the local service. The primary Library, Review, Categories, Export, Activity, and Settings workflow does not need a cloud API key.
 
-The [Desktop release workflow](https://github.com/xonline/idjlm-pro/actions/workflows/release.yml) builds installers. Its [PR #44 run](https://github.com/xonline/idjlm-pro/actions/runs/42702191055) passed packaging and installed-startup checks on Apple Silicon, Intel, and Windows. Downloadable artifacts are temporary CI review builds, retained for 30 days. They are not public installers. The release workflow still blocks publication because signed and notarized release support is not configured.
+The [Desktop installer checks workflow](https://github.com/xonline/idjlm-pro/actions/workflows/release.yml) builds review installers for [PR #44](https://github.com/xonline/idjlm-pro/pull/44). Downloadable artifacts are temporary CI review builds, retained for 30 days. They are not public installers. The release workflow still blocks publication because signed and notarized release support is not configured.
 
 To try the Apple Silicon build on an M3 Mac, download the `idjlm-pro-dmg-aarch64-apple-darwin` artifact from the PR run, unzip it, open the DMG, and move the app to Applications. macOS may block this unsigned review build. If it does, follow [Apple’s steps to open an app by overriding security settings](https://support.apple.com/en-au/102445).
 
@@ -48,10 +50,14 @@ Model download requires an internet connection. Local import, review, metadata w
 
 ## Development checks
 
-For isolated browser checks with synthetic audio, run:
+For isolated browser checks with synthetic audio, use a separate verification
+environment rather than assuming the application environment includes Playwright:
 
 ```bash
-/home/ubuntu/.local/share/uv/tools/playwright/bin/python scripts/verify_latin_ui.py
+python3 -m venv /tmp/idjlm-ui-check
+/tmp/idjlm-ui-check/bin/pip install playwright
+/tmp/idjlm-ui-check/bin/playwright install chromium
+PYTHONDONTWRITEBYTECODE=1 /tmp/idjlm-ui-check/bin/python scripts/verify_latin_ui.py
 ```
 
 The harness uses a temporary data directory. It does not scan a personal library or download a model. See the [implementation status](docs/implementation-status-2026-11-10.md) for the recorded test results.
