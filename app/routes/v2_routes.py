@@ -143,6 +143,7 @@ def _source_revision(track) -> str:
         for value in (
             getattr(track, "file_mtime", None),
             getattr(track, "file_size", None),
+            getattr(track, "file_ctime_ns", None),
             getattr(track, "content_hash", None),
         )
     )
@@ -738,6 +739,23 @@ def _run_import_job(store, job_id: str, folder_path: str):
                     _finish_stopped_job(store, job_id)
                     return
                 path = str(Path(directory) / filename)
+                try:
+                    stat = os.stat(path)
+                except OSError:
+                    continue
+                # On Windows Python exposes creation time as ``st_ctime``.
+                # It cannot detect in-place tag edits that preserve size and
+                # mtime, so keep correctness by rescanning there.
+                unchanged_id = None
+                if os.name != "nt":
+                    unchanged_id = store.unchanged_item_id(
+                        path, stat.st_mtime, stat.st_size, stat.st_ctime_ns
+                    )
+                if unchanged_id:
+                    store.append_job_item(job_id, unchanged_id)
+                    store.update_job_item(job_id, unchanged_id, "running")
+                    store.update_job_item(job_id, unchanged_id, "completed")
+                    continue
                 track = _scan_single_file(path, filename, Path(filename).suffix.lower())
                 original = track.to_dict()
                 # A root is weak import provenance only. It cannot silently
@@ -1725,7 +1743,9 @@ def export_preview():
                 "invalid_tag_fields": "Refresh the export preview before continuing",
                 "invalid_target_path": "Choose a valid local staging folder",
             }
-            return _error(str(exc), messages.get(str(exc), "Could not prepare this export"))
+            return _error(
+                str(exc), messages.get(str(exc), "Could not prepare this export")
+            )
         raise
 
 

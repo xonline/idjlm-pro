@@ -1,49 +1,71 @@
 # IDJLM Pro
 
-IDJLM Pro is a Tauri desktop app with a local Flask service and SQLite library. The current working tree makes the Latin music workspace the primary interface for importing folders, listening, applying personal tags, reviewing audio-model suggestions, writing metadata, and preparing copies for another library.
+IDJLM Pro is a desktop app for managing a Latin music library with local import, listening, human review, tagging, and export tools.
 
-## Latin music workspace
+## Current review build
 
-The workspace has Library, Review, Categories, Export, Activity, and Settings pages. Folder scans keep source files in place. The library separates original metadata, model proposals, and human decisions. Personal tags are stored as exact literal values, including commas; they are not split into genre axes. Review choices remain human decisions, and the UI reports unsupported or unanalyzed tracks without inventing model evidence.
+The latest public release is [v4.1.0](https://github.com/xonline/idjlm-pro/releases/tag/v4.1.0), published on 1 June 2026. The repository version is 4.2.0, and the new Latin library workflow is in [review PR #44](https://github.com/xonline/idjlm-pro/pull/44). That work is not in a public release yet. The published release will not show the new workspace.
 
-The prior metadata classifier remains available through Advanced tools. It analyzes track text and file metadata; it does not identify Latin music by listening. The redesigned audio path uses a local pretrained audio model when the runtime and model are installed. It is experimental: no accuracy promise, calibrated Latin subgenre performance, or 15,000-track completion time is claimed. Manual import, tagging, review, and metadata operations do not require a cloud API key. Optional audio analysis needs the local runtime and model; legacy AI features may use their configured provider.
+Before you start, install Git, Python 3.11 or 3.12, and Node.js 20 with npm.
 
-The personal comment palette and the music taxonomy are separate. The taxonomy can represent music family, style, dance use, version, vocal language, and other supported axes without flattening them into one internal genre string. A profile can map approved labels to standard Genre or Comment fields on staged copies. A staged copy is not proof that a file reached an iPad or is searchable in djay.
-
-See the [implementation status](docs/implementation-status-2026-11-10.md) for verified behavior and limits, the [competitor refresh](docs/competitor-refresh-2026-11-10.md) for current product references, and the [redesign brief](docs/jb-latin-redesign-2026-10-18/README.md), [engineering specification](docs/jb-latin-redesign-2026-10-18/engineering-spec.md), and [UX/UI specification](docs/jb-latin-redesign-2026-10-18/ux-ui-spec.md) for implementation detail. The [18 October audit](docs/latin-classifier-redesign-2026-10-18.md) records the original requirements and verified defects.
-
-## Source development
-
-With Python 3 and Node.js installed, build the frontend bundle and start the app:
+To review the new workflow, check out the PR branch:
 
 ```bash
-npm install
+git clone --branch feat/latin-library-redesign-implementation https://github.com/xonline/idjlm-pro.git
+cd idjlm-pro
+npm ci
 npm run build
 ./start.sh
 ```
 
-`start.sh` creates the Python virtual environment if needed, installs the base requirements, and starts the Flask sidecar. It listens on port 5050 by default; `FLASK_PORT` can select another port. No `.env` or cloud provider key is needed for local import, playback, review, tagging, safe writes, or export preparation. Legacy cloud-enrichment features can use optional values from `.env`.
+Open `http://localhost:5050` after the service starts. On macOS Apple Silicon, the source app starts the same way. `start.sh` creates `.venv`, installs the base Python requirements, and starts the local service. The primary Library, Review, Categories, Export, Activity, and Settings workflow does not need a cloud API key.
 
-For isolated repository work in Codex Cloud, see [the Cloud pilot guide](docs/CODEX_CLOUD.md). Cloud does not use `.env` files or validate native desktop installers.
+The [Desktop release workflow](https://github.com/xonline/idjlm-pro/actions/workflows/release.yml) builds installers. Its [PR #44 run](https://github.com/xonline/idjlm-pro/actions/runs/42702191055) passed packaging and installed-startup checks on Apple Silicon, Intel, and Windows. Downloadable artifacts are temporary CI review builds, retained for 30 days. They are not public installers. The release workflow still blocks publication because signed and notarized release support is not configured.
 
-For live Vite development, start `npm run dev` in one terminal and run `IDJLM_VITE_DEV=1 .venv/bin/python run_app.py` in another. Keep any provider credentials in the platform's private user configuration, not in source control. Audio analysis is optional: the supported Apple Silicon source environment installs its extra runtime with `.venv/bin/pip install -r requirements-audio.txt`, then downloads the pinned model from Settings. The base environment intentionally omits the audio runtime; no model weights are silently bundled or downloaded.
+To try the Apple Silicon build on an M3 Mac, download the `idjlm-pro-dmg-aarch64-apple-darwin` artifact from the PR run, unzip it, open the DMG, and move the app to Applications. macOS may block this unsigned review build. If it does, follow [Apple’s steps to open an app by overriding security settings](https://support.apple.com/en-au/102445).
 
-The isolated browser harness creates synthetic MP3 fixtures and sets `IDJLM_USER_DATA_DIR` to a temporary directory before importing the app. It does not scan a personal music library or download a model:
+## What the review build does
+
+![Current Library workspace with generated review tracks](docs/screenshots/latin-library-workspace.png)
+
+The primary workspace has six pages: Library, Review, Categories, Export, Activity, and Settings. It imports folders without moving the source files, keeps existing metadata, model suggestions, and human decisions distinct, and stores personal tags as literal values. Previewed tag writes keep backups and support guarded restore. Export profiles create staged copies and verify metadata on those copies.
+
+Audio classification runs through an optional local pretrained model. It is experimental. There is no measured Latin-family or fine-style accuracy, no calibrated acceptance threshold, and no 15,000-track performance result. Manual import, review, tagging, and export do not require a cloud API. The earlier metadata-based classifier and other tools remain under Advanced.
+
+A staged copy does not confirm transfer to an iPad or discovery in djay. Physical transfer and destination-app checks remain open.
+
+See the [19 November reliability check](docs/reliability-status-2026-11-19.md), the [implementation status](docs/implementation-status-2026-11-10.md) for prior verification evidence and limits, the [redesign brief](docs/jb-latin-redesign-2026-10-18/README.md) and its engineering and UX specifications for workflow detail, and the [changelog](CHANGELOG.md) for release history.
+
+## Optional local audio model
+
+The base Python environment does not install the audio runtime or model weights. On supported Apple Silicon, install the optional runtime and then download the pinned model from Settings:
+
+```bash
+.venv/bin/pip install -r requirements-audio.txt
+```
+
+Model download requires an internet connection. Local import, review, metadata writes, and export continue to work without it.
+
+## Development checks
+
+For isolated browser checks with synthetic audio, run:
 
 ```bash
 /home/ubuntu/.local/share/uv/tools/playwright/bin/python scripts/verify_latin_ui.py
 ```
 
-Its current result and screenshots are recorded in the [implementation status](docs/implementation-status-2026-11-10.md). The command path is specific to the current development host.
+The harness uses a temporary data directory. It does not scan a personal library or download a model. See the [implementation status](docs/implementation-status-2026-11-10.md) for the recorded test results.
+
+The [Codex Cloud pilot guide](docs/CODEX_CLOUD.md) covers isolated repository work in Codex Cloud. Cloud checks do not validate native desktop installers.
 
 ## Source map
 
 - `app/routes/` contains Flask routes, including the local `/api/v2` workspace API.
-- `app/services/` contains the library store, durable jobs, audio model adapter, tag writer, restore, and staged-copy export.
+- `app/services/` contains the library store, audio model adapter, tag writer, restore, and staged-copy export.
 - `app/static/modules/latin-redesign.js` implements the primary workspace interactions.
-- `templates/partials/redesign-shell.html` contains its page shell.
+- `templates/partials/redesign-shell.html` contains the workspace shell.
 - `frontend/main.js` coordinates primary and Advanced workspace startup.
 - `src-tauri/` contains the desktop wrapper.
 - `tests/` contains route, store, job, model-runtime, writer, and export tests.
 
-See [CHANGELOG.md](CHANGELOG.md) for recorded release history. Linux source tests do not certify a native macOS release, a representative Latin-music accuracy result, or transfer and discovery on an iPad.
+Linux source tests do not establish model accuracy on Latin music, performance on an M3 Mac with 16 GB memory, or successful transfer and discovery on an iPad.

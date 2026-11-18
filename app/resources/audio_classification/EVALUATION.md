@@ -16,6 +16,23 @@ The Zenodo Salsa Dataset record `13120822` offers a small 322.6 MB audio-fragmen
 No public corpus is shipped by IDJLM and this repository makes no accuracy claim
 until a frozen, lawfully sourced held-out set has been evaluated.
 
+## Benchmark guardrails
+
+`scripts/benchmark_audio_classifier.py` requires an existing local file for
+every JSONL row, unique item IDs, and one group per split. It also rejects one
+*resolved path* assigned to several groups. This is only a local duplicate-path
+guard; it cannot detect transcoded or copied recordings at different paths.
+The evaluator must assign every recording, artist, album, and remix group to a
+single split before running the benchmark. It can fit a Platt
+profile only from `calibration` rows with both positive and negative examples;
+labels found only in `test` never enter the profile.
+
+Its `raw_top1_accuracy` is a ranking diagnostic across all evaluated rows. It
+is not an acceptance metric: `review_coverage`,
+`reviewed_raw_top1_accuracy`, and `status_counts` separately expose proposals
+that were unsupported or abstained. Do not use the report to enable automatic
+acceptance or claim quality without the documented held-out corpus.
+
 ## Implementation smoke, not a quality result
 
 On 2026-11-10 the pinned `laion/clap-htsat-unfused` revision

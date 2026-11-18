@@ -1,53 +1,35 @@
-# GOALS — idjlm (IDJLM Pro)   <!-- drafted 2026-07-17, evidence as of 2026-07-17 -->
+# IDJLM Pro goals
 
-## Mission (one sentence)
-Ship IDJLM Pro as a self-serve desktop app that a working DJ installs, points at their library, and
-trusts to tag/analyse/export it correctly — good enough that it can carry a paid tier without selling.
+**Current state checked 19 November 2026.** This document describes the active product priorities and release gates. The older revenue targets and July delivery dates are retired.
 
-## Revenue link
-rev:enabling today (zero monetization). Path to rev:direct: free tier + paid licence on self-serve
-download — no sales calls. Poy picked Option A (paid self-serve) on issue #308.
+## Product goal
 
-## Current state (evidence-dated)
-- 2026-07-17: **no revenue, no paid tier, no pricing** — README markets "Download Free" only.
-- 2026-07-17: repo `xonline/idjlm-pro` PUBLIC, **0 stars**, **0 forks** (`gh repo view`).
-- 2026-07-17: VERSION is **4.2.0** but latest GitHub release is **v4.1.0 (2026-06-01)** — unreleased work (`gh release list`).
-- 2026-07-17: **83 total download count** across all releases (`gh api repos/.../releases --jq '[.[].assets[].download_count]|add'`).
-- 2026-07-17: CI **2 of last 5 runs failed** — flapping (`gh run list --limit 5`).
-- 2026-07-17: **30 proj:idjlm board issues** (issue #308 recently approved).
-- Mission Option A (paid self-serve) selected per Poy's approval on issue #308.
+Make a dependable, local-first desktop workflow for managing a Latin music library. The app should help a DJ review and correct tags, write approved metadata safely, and prepare copies for a destination library without requiring a paid API.
 
-## Objectives (ranked)
-1. **Ship what's built** — cut a release matching VERSION so users get shipped work.
-   metric: latest release tag == VERSION · target: v4.2.0 released by 2026-07-21 ·
-   verify: `[ "v$(cat ~/projects/idjlm/VERSION)" = "$(gh release list --repo xonline/idjlm-pro --limit 1 --json tagName --jq '.[0].tagName')" ]`
-2. **Green CI, always** — no red main; releases must be trustworthy.
-   metric: consecutive successful CI runs · target: ≥10 by 2026-07-28 ·
-   verify: `gh run list --repo xonline/idjlm-pro --limit 10 --json conclusion --jq '[.[]|select(.conclusion!="success")]|length'` → 0
-3. **Prove 10k-track scale** — core marketing claim unverified (161 tracks tested).
-   metric: import+analyse wall-clock on a 10k-file corpus · target: full analyse <60min, UI stays
-   responsive, by 2026-08-15 · verify: benchmark committed to `docs/benchmarks/10k-*.md`
-4. **Decide + wire monetization** — licence gate + checkout on the free download.
-   metric: paying users · target: first paid install by 2026-09-30 ·
-   verify: payment-provider dashboard shows ≥1 subscription
-5. **First 10 real users** — installed base to learn from before more features.
-   metric: release-asset download count · target: 10 net new by 2026-08-31 ·
-   verify: `gh api repos/xonline/idjlm-pro/releases --jq '[.[].assets[].download_count]|add'`
+The current workflow is in [review PR #44](https://github.com/xonline/idjlm-pro/pull/44). The latest public release is [v4.1.0](https://github.com/xonline/idjlm-pro/releases/tag/v4.1.0), published 1 June 2026. PR #44 has not been released. Its 9 November desktop workflow passed Apple Silicon, Intel, and Windows build and installed-startup checks. The tag-only publication gate did not run for that pull request. The workflow deliberately fails tag publication because signed and notarized release support is not configured.
 
-## Constraints / hard rules
-- Poy's own project → Poy's API keys only; personal-key rule for clients does not apply.
-- Desktop-first (Tauri + Flask sidecar). Never regress the sidecar-kill path on quit.
-- Rekordbox/Serato writes are destructive — write-back stays behind explicit confirmation + backup.
-- Execution on haiku/sonnet/opencode lanes; opus only for re-ranking these goals.
+## Priorities
 
-## Anti-goals (do NOT propose)
-- No new features until release/CI/scale objectives (1-3) are green — backlog is 30 deep and stalling.
-- No web/SaaS/cloud-sync rewrite. No mobile app. No new dashboards.
-- No paid-API dependency in the default path — free/Ollama chain must stay fully functional.
-- No marketing/outreach requiring Poy to talk to people or sell.
+1. **Finish review and release the workflow.** Complete code review and required checks, merge through the pull request, then configure and verify the supported public installer and release process. Do not describe the draft branch as a public release.
+2. **Calibrate Latin classification.** Evaluate family and fine-style suggestions on a representative, labeled set. Prioritize Salsa first, then Bachata, then Kizomba, followed by Cha cha, charanga, and boogaloo. Record per-label results and agree on useful review thresholds before making accuracy claims.
+3. **Measure the target local setup.** Benchmark import, model analysis, review responsiveness, and resource use on an M3 Mac with 16 GB memory using a representative 15,000-track library. Record the corpus, model, runtime, timings, memory, and failures. Do not claim a 15,000-track result until measured.
+4. **Verify the destination workflow.** Test a staged export through a real transfer to an iPad and confirm that the destination app discovers and reads the intended tags. A verified staged copy alone does not prove transfer or discovery.
 
-## Pointers
-- Key paths: `app/routes/`, `app/services/`, `app/static/modules/`, `src-tauri/src/main.rs`, `templates/`
-- Plans: `~/.claude/plans/2026-07-04-idjlm-frontend-ui-plan.md`, `~/.claude/plans/2026-07-04-idjlm-backend-plan.md`
-- Related memory: [[user_goal_10k_passive]] · [[feedback_project_priority_order]] · [[user_hates_selling_prefers_passive]]
-- Board label: `proj:idjlm` · repo: `xonline/idjlm-pro`
+## Constraints
+
+- Keep import, human review, tagging, and export usable without a cloud API key.
+- Keep model suggestions separate from human decisions. Present unsupported or unanalyzed tracks without inventing evidence.
+- Keep source files in place during import. Preview metadata changes, back up affected files, and support guarded restore.
+- Treat staged export as a separate copy with verified metadata. Do not report it as a completed device transfer.
+- Keep the local audio classifier experimental until its Latin evaluation is measured.
+
+## Secondary business intent
+
+Self-serve monetization remains a possible future business direction. It comes after a trustworthy release, measured classification quality, scale evidence, and a verified destination workflow. Earlier revenue dates, download counts, and CI targets are obsolete and are not current commitments.
+
+## Current references
+
+- [README](README.md) — review branch, local startup, and current limitations.
+- [Implementation status](docs/implementation-status-2026-11-10.md) — recorded verification and open limits.
+- [Latin redesign brief](docs/jb-latin-redesign-2026-10-18/README.md) — workflow requirements and design.
+- [Changelog](CHANGELOG.md) — released changes and the current unreleased review branch.

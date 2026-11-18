@@ -14,13 +14,14 @@ import pytest
 
 from app.services.audio_classification import (
     AudioClassificationEngine,
-    AudioDecodeError,
     AudioWindow,
     BoundedAudioDecoder,
     DecodedAudio,
     ModelInstaller,
     ModelIntegrityError,
     ModelRegistry,
+    CalibrationError,
+    CalibrationProfile,
 )
 
 
@@ -174,6 +175,15 @@ def test_calibrated_class_gate_can_abstain_without_losing_raw_evidence(tmp_path)
     assert family["candidates"][0]["calibrated_confidence"] == pytest.approx(0.7310585786)
 
 
+@pytest.mark.parametrize("labels", [
+    {"salsa": {"coefficient": "nan", "intercept": 0.0}},
+    {"salsa": {"coefficient": 1.0, "intercept": 0.0, "threshold": 1.1}},
+])
+def test_calibration_rejects_nonfinite_or_out_of_range_values(labels):
+    with pytest.raises(CalibrationError):
+        CalibrationProfile({"fit_split": "calibration", "dataset_manifest_sha256": "digest", "labels": labels})
+
+
 def test_feature_cache_reuses_embedding_for_tag_only_source_identity_change(tmp_path):
     _FakeRunner.audio_calls = 0
     _FakeRunner.text_calls = 0
@@ -265,10 +275,30 @@ def test_installed_model_manifest_checks_all_required_assets(tmp_path):
         item.write_bytes(name.encode())
         files[name] = hashlib.sha256(name.encode()).hexdigest()
     (target / "installed-manifest.json").write_text(json.dumps({
-        "revision": spec.revision, "license": spec.license, "files": files,
+        "model_id": spec.id, "revision": spec.revision, "license": spec.license, "files": files,
     }), encoding="utf-8")
 
     assert installer.verify_installed() == target
     (target / spec.required_files[0]).write_bytes(b"changed")
     with pytest.raises(ModelIntegrityError, match="checksum"):
+        installer.verify_installed()
+
+
+def test_installed_model_manifest_rejects_wrong_model_or_extra_file(tmp_path):
+    registry = ModelRegistry()
+    spec = registry.get()
+    installer = ModelInstaller(registry=registry, root=tmp_path)
+    target = installer.model_dir(spec)
+    target.mkdir(parents=True)
+    files = {}
+    for name in spec.required_files:
+        item = target / name
+        item.write_bytes(name.encode())
+        files[name] = hashlib.sha256(name.encode()).hexdigest()
+    files["unexpected.bin"] = "0" * 64
+    (target / "installed-manifest.json").write_text(json.dumps({
+        "model_id": "wrong", "revision": spec.revision, "license": spec.license, "files": files,
+    }), encoding="utf-8")
+
+    with pytest.raises(ModelIntegrityError):
         installer.verify_installed()

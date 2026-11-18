@@ -249,6 +249,25 @@ def test_15k_library_page_has_bounded_response_and_select_count(store):
         )
         <= 3
     )
+    statements = []
+    store._conn.set_trace_callback(statements.append)
+    scope = store.resolve_scope(
+        {"selection": "all_filtered", "item_ids": [], "filter": {}}
+    )
+    store._conn.set_trace_callback(None)
+    assert len(scope) == 15_000
+    # The frozen mutation scope must be a bounded set of batched relation
+    # reads, not one full detail query per item and per axis.
+    assert (
+        len(
+            [
+                statement
+                for statement in statements
+                if statement.lstrip().upper().startswith("SELECT")
+            ]
+        )
+        < 250
+    )
 
 
 def test_import_job_can_durably_append_discovered_items(store):

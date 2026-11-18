@@ -60,18 +60,23 @@ def client(app):
 
 @pytest.fixture(autouse=True)
 def _cleanup_setlist_between_tests(request):
-    """Reset setlist.json before and after each test so state doesn't leak."""
-    # Canonical setlist.json path: same file the app reads/writes.
-    # Derive from the app's SETLIST_PATH constant so test and app cannot drift.
-    from app.routes.setlist_routes import SETLIST_PATH as setlist_path
-    default_content = json.dumps({"tracks": [], "name": "My Set"})
+    """Reset isolated setlist and playlist documents between tests."""
+    from app.routes.playlist_routes import _save_playlists, playlists_storage_path
+    from app.routes.setlist_routes import _save_setlist, setlist_storage_path
 
-    # Reset to defaults before test
-    with open(setlist_path, "w") as f:
-        f.write(default_content)
+    for storage_path in (setlist_storage_path(), playlists_storage_path()):
+        isolated_path = os.path.abspath(storage_path)
+        assert os.path.commonpath([isolated_path, _TEST_DATA_DIR]) == _TEST_DATA_DIR
+
+    def reset_documents():
+        for storage_path in (setlist_storage_path(), playlists_storage_path()):
+            isolated_path = os.path.abspath(storage_path)
+            assert os.path.commonpath([isolated_path, _TEST_DATA_DIR]) == _TEST_DATA_DIR
+        _save_setlist({"tracks": [], "name": "My Set"})
+        _save_playlists({"playlists": []})
+
+    reset_documents()
 
     yield
 
-    # This is an isolated temporary path, so leave deterministic defaults.
-    with open(setlist_path, "w") as f:
-        f.write(default_content)
+    reset_documents()

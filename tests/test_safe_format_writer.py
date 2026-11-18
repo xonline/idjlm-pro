@@ -1,14 +1,17 @@
 """Round-trip checks for staging-only non-MP3 tag adapters."""
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
 from mutagen import File as MutagenFile
 from mutagen.id3 import COMM, TIT2
 
+from app.services import safe_format_writer
 from app.services.safe_format_writer import SafeFormatWriteError, capability_for, write_copy
 
 
@@ -99,6 +102,25 @@ def test_m4a_is_gated_when_no_local_decoder(monkeypatch, tmp_path):
     with pytest.raises(SafeFormatWriteError, match="bundled local decoder") as error:
         write_copy(tmp_path / "source.m4a", tmp_path / "staged.m4a", {"genre": "Salsa"})
     assert error.value.code == "decoder_unavailable"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="uses a disposable POSIX shell decoder")
+def test_ffmpeg_identity_timeout_terminates_a_hung_local_decoder(monkeypatch, tmp_path):
+    """A malformed M4A must not leave an export job waiting on ffmpeg forever."""
+    source = tmp_path / "malformed.m4a"
+    source.write_bytes(b"not an audio container")
+    decoder = tmp_path / "fake-ffmpeg"
+    decoder.write_text("#!/bin/sh\nsleep 0.5\nexit 1\n", encoding="utf-8")
+    decoder.chmod(0o755)
+    monkeypatch.setattr(safe_format_writer.shutil, "which", lambda _: str(decoder))
+    monkeypatch.setattr(safe_format_writer, "_FFMPEG_DECODE_TIMEOUT_SECONDS", 0.05)
+
+    started = time.monotonic()
+    with pytest.raises(SafeFormatWriteError) as error:
+        safe_format_writer._decoded_audio_identity(source)
+
+    assert error.value.code == "audio_decode_timeout"
+    assert time.monotonic() - started < 0.35
 
 
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is required for disposable MP3 fixture")

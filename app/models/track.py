@@ -133,6 +133,9 @@ class Track:
     # mtime is stored as float (os.path.getmtime), size in bytes
     file_mtime: Optional[float] = None
     file_size: Optional[int] = None
+    # ctime changes on local metadata/tag writes even when an editor restores
+    # mtime and keeps the file size within existing padding.
+    file_ctime_ns: Optional[int] = None
 
     # Phrase / section boundary detection
     # List of [time_seconds, confidence] pairs marking structural boundaries

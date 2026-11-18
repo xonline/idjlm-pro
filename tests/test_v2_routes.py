@@ -1,3 +1,4 @@
+import os
 import time
 import threading
 import shutil
@@ -107,6 +108,59 @@ def test_additive_import_preserves_decision_across_folders_and_rescan(
         "error": "destination_contains_source",
         "detail": "Choose a staging folder outside the source music folders",
     }
+
+
+def test_warm_import_skips_unchanged_scanner_work(v2_client, tmp_path, monkeypatch):
+    """A repeated folder import keeps the item but avoids tag/hash re-reads."""
+    from app.services import scanner
+
+    folder = tmp_path / "warm"
+    folder.mkdir()
+    source = folder / "unchanged.mp3"
+    source.write_bytes(b"synthetic placeholder")
+    calls = []
+    original = scanner._scan_single_file
+
+    def counted(*args, **kwargs):
+        calls.append(args[0])
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(scanner, "_scan_single_file", counted)
+    first = v2_client.post(
+        "/api/v2/library/import-jobs", json={"folder_path": str(folder)}
+    )
+    assert _wait_for_job(v2_client, first.get_json()["job_id"])["state"] == "completed"
+    page = v2_client.get("/api/v2/library/items").get_json()
+    item_id, revision = page["items"][0]["id"], page["items"][0]["revision"]
+
+    warm = v2_client.post(
+        "/api/v2/library/import-jobs", json={"folder_path": str(folder)}
+    )
+    assert _wait_for_job(v2_client, warm.get_json()["job_id"])["state"] == "completed"
+    page = v2_client.get("/api/v2/library/items").get_json()
+    assert calls == [str(source)]
+    assert page["items"][0]["id"] == item_id
+    assert page["items"][0]["revision"] == revision
+
+    # Taggers may retain an MP3's size and restore its mtime after an in-place
+    # ID3 edit.  ctime is part of the lightweight signature so this still
+    # triggers a full scan instead of silently keeping stale Genre/Comment.
+    before_edit = source.stat()
+    edited = source.read_bytes().replace(b"p", b"x", 1)
+    assert len(edited) == before_edit.st_size
+    source.write_bytes(edited)
+    os.utime(source, ns=(before_edit.st_atime_ns, before_edit.st_mtime_ns))
+    after_edit = source.stat()
+    assert after_edit.st_size == before_edit.st_size
+    assert after_edit.st_mtime_ns == before_edit.st_mtime_ns
+    assert after_edit.st_ctime_ns != before_edit.st_ctime_ns
+    changed = v2_client.post(
+        "/api/v2/library/import-jobs", json={"folder_path": str(folder)}
+    )
+    assert _wait_for_job(v2_client, changed.get_json()["job_id"])["state"] == "completed"
+    assert calls == [str(source), str(source)]
+    updated = v2_client.get("/api/v2/library/items").get_json()["items"][0]
+    assert updated["id"] == item_id and updated["revision"] != revision
 
 
 def test_mutation_guards_reject_empty_scope_bypass_and_cross_site(v2_client, tmp_path):

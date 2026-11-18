@@ -163,10 +163,11 @@ class ModelInstaller:
         manifest = _read_json(manifest_path) if manifest_path.exists() else None
         if not isinstance(manifest, dict):
             raise ModelUnavailableError("Local audio model is not installed. Install it from Settings while online.")
-        if manifest.get("revision") != spec.revision or manifest.get("license") != spec.license:
+        if (manifest.get("model_id") != spec.id or manifest.get("revision") != spec.revision
+                or manifest.get("license") != spec.license):
             raise ModelIntegrityError("Installed model does not match the pinned registry version.")
         files = manifest.get("files")
-        if not isinstance(files, dict) or set(spec.required_files) - set(files):
+        if not isinstance(files, dict) or set(files) != set(spec.required_files):
             raise ModelIntegrityError("Installed model manifest is incomplete.")
         for relative, expected in files.items():
             file_path = target / relative
@@ -460,8 +461,21 @@ class CalibrationProfile:
             raise CalibrationError("Calibration profile must record a calibration-only dataset manifest.")
         self.version = str(raw.get("version", "unknown"))
         self.labels = raw.get("labels")
-        if not isinstance(self.labels, Mapping):
+        if not isinstance(self.labels, Mapping) or not self.labels:
             raise CalibrationError("Calibration profile has no per-class parameters.")
+        for label_id, params in self.labels.items():
+            if not isinstance(params, Mapping):
+                raise CalibrationError(f"Invalid calibration values for {label_id}")
+            try:
+                coefficient = float(params["coefficient"])
+                intercept = float(params["intercept"])
+                threshold = params.get("threshold")
+                if not math.isfinite(coefficient) or not math.isfinite(intercept):
+                    raise ValueError
+                if threshold is not None and (not math.isfinite(float(threshold)) or not 0.0 <= float(threshold) <= 1.0):
+                    raise ValueError
+            except (KeyError, TypeError, ValueError) as exc:
+                raise CalibrationError(f"Invalid calibration values for {label_id}") from exc
 
     def confidence(self, label_id: str, raw_score: float) -> float | None:
         params = self.labels.get(label_id)

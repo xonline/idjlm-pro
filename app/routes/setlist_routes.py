@@ -1,26 +1,49 @@
 """
 Setlist: ordered list of tracks for DJ set planning.
-Persisted to setlist.json in project root.
+Persisted in the user-data SQLite document store.  A bundled application is
+read-only, so no route may write a project-root ``setlist.json``.
 """
-import json
-import os
+
 from flask import Blueprint, request, jsonify, send_file
 import io
+import os
+from pathlib import Path
+
+from app.services.json_store import JsonStore
+from app.utils.paths import user_data_path
 
 bp = Blueprint("setlist", __name__, url_prefix="/api")
-SETLIST_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'setlist.json')
+
+
+def setlist_storage_path() -> str:
+    """Return the isolated user-data SQLite path used for setlists."""
+    return user_data_path("tracks.db")
+
+
+def _setlist_store() -> JsonStore:
+    store = JsonStore("setlist")
+    # A normal source-tree upgrade may carry a legacy document next to the
+    # application. Never probe it when a caller supplied a data directory:
+    # test fixtures and packaged isolation must not read project/user files.
+    if not os.environ.get("IDJLM_USER_DATA_DIR"):
+        store.migrate_from_json(
+            str(Path(__file__).resolve().parents[2] / "setlist.json")
+        )
+    return store
 
 
 def _load_setlist():
-    if os.path.exists(SETLIST_PATH):
-        with open(SETLIST_PATH) as f:
-            return json.load(f)
-    return {"tracks": [], "name": "My Set"}
+    data = _setlist_store().get()
+    if not isinstance(data, dict):
+        return {"tracks": [], "name": "My Set"}
+    return {
+        "tracks": data.get("tracks") if isinstance(data.get("tracks"), list) else [],
+        "name": data.get("name") if isinstance(data.get("name"), str) else "My Set",
+    }
 
 
 def _save_setlist(data):
-    from app.utils.paths import atomic_write
-    atomic_write(SETLIST_PATH, data, indent=2)
+    _setlist_store().set(data)
 
 
 @bp.route("/setlist", methods=["GET"])
@@ -72,7 +95,7 @@ def _get_compatible_keys(key: str) -> set:
         num = int(key[:-1])
         mode = key[-1]  # 'A' or 'B'
         # Same number, other mode
-        other_mode = 'B' if mode == 'A' else 'A'
+        other_mode = "B" if mode == "A" else "A"
         compatible.add(f"{num}{other_mode}")
         # +1 and -1 (circular 1-12)
         compatible.add(f"{(num % 12) + 1}{mode}")
@@ -118,21 +141,29 @@ def suggest_next():
         if fp == file_path or fp in setlist["tracks"]:
             continue
         if track.final_key in compatible_keys:
-            suggestions.append({
-                "file_path": fp,
-                "title": track.display_title,
-                "artist": track.display_artist,
-                "key": track.final_key,
-                "bpm": track.final_bpm,
-                "energy": track.analyzed_energy,
-                "genre": track.final_genre,
-                "compatibility": "same" if track.final_key == source_key else "adjacent",
-            })
+            suggestions.append(
+                {
+                    "file_path": fp,
+                    "title": track.display_title,
+                    "artist": track.display_artist,
+                    "key": track.final_key,
+                    "bpm": track.final_bpm,
+                    "energy": track.analyzed_energy,
+                    "genre": track.final_genre,
+                    "compatibility": "same"
+                    if track.final_key == source_key
+                    else "adjacent",
+                }
+            )
 
     # Apply weighted scoring similar to advisor service
     source_bpm = float(source.final_bpm or 0)
-    source_energy = track.analyzed_energy if (track := source).analyzed_energy is not None else 5
-    source_genre = (source.override_genre or source.proposed_genre or source.existing_genre or "").lower()
+    source_energy = (
+        track.analyzed_energy if (track := source).analyzed_energy is not None else 5
+    )
+    source_genre = (
+        source.override_genre or source.proposed_genre or source.existing_genre or ""
+    ).lower()
 
     # Score each suggestion using weighted parameters
     for s in suggestions:
@@ -144,7 +175,9 @@ def suggest_next():
         track_key = s["key"]
         if track_key == source_key:
             score += 40 * key_weight
-        elif track_key and track_key.replace('A', 'B').replace('B', 'A') in [source_key]:
+        elif track_key and track_key.replace("A", "B").replace("B", "A") in [
+            source_key
+        ]:
             score += 35 * key_weight
         else:
             score += 25 * key_weight
@@ -211,5 +244,5 @@ def export_setlist():
         io.BytesIO("\n".join(lines).encode()),
         mimetype="audio/x-mpegurl",
         as_attachment=True,
-        download_name=f"{name}.m3u"
+        download_name=f"{name}.m3u",
     )

@@ -32,6 +32,16 @@ def load_manifest(path: Path) -> list[dict[str, Any]]:
                 raise ValueError(f"manifest row {number} misses {', '.join(sorted(missing))}")
             if row["split"] not in {"train", "dev", "calibration", "test"}:
                 raise ValueError(f"manifest row {number} has invalid split")
+            if not isinstance(row["id"], str) or not row["id"].strip():
+                raise ValueError(f"manifest row {number} has an invalid id")
+            if not isinstance(row["label_id"], str) or not row["label_id"].strip():
+                raise ValueError(f"manifest row {number} has an invalid label_id")
+            if not isinstance(row["group_id"], str) or not row["group_id"].strip():
+                raise ValueError(f"manifest row {number} has an invalid group_id")
+            media_path = Path(str(row["path"])).expanduser()
+            if not media_path.is_file():
+                raise ValueError(f"manifest row {number} media file does not exist: {media_path}")
+            row["path"] = str(media_path.resolve())
             rows.append(row)
     groups: dict[str, set[str]] = defaultdict(set)
     for row in rows:
@@ -39,6 +49,15 @@ def load_manifest(path: Path) -> list[dict[str, Any]]:
     leaked = [group for group, splits in groups.items() if len(splits) > 1]
     if leaked:
         raise ValueError("group leakage across splits: " + ", ".join(leaked[:10]))
+    ids = [str(row["id"]) for row in rows]
+    if len(ids) != len(set(ids)):
+        raise ValueError("manifest contains duplicate ids")
+    paths: dict[str, set[str]] = defaultdict(set)
+    for row in rows:
+        paths[str(row["path"])].add(str(row["group_id"]))
+    duplicate_audio = [media for media, group_ids in paths.items() if len(group_ids) > 1]
+    if duplicate_audio:
+        raise ValueError("same resolved media path is assigned to multiple groups: " + ", ".join(duplicate_audio[:3]))
     if not rows:
         raise ValueError("manifest has no rows")
     return rows
@@ -63,13 +82,14 @@ def fit_calibration(rows: list[dict[str, Any]], predictions: dict[str, dict[str,
         from sklearn.linear_model import LogisticRegression
     except ImportError as exc:
         raise RuntimeError("scikit-learn is required to fit calibration; it is not needed for inference.") from exc
-    labels = sorted({str(row["label_id"]) for row in rows})
     calibration = [row for row in rows if row["split"] == "calibration"]
     if not calibration:
         raise ValueError("a calibration split is required; test data cannot fit gates")
     profile = {"version": "platt-v1", "fit_split": "calibration", "dataset_manifest_sha256": manifest_digest(rows),
                "labels": {}, "gate_selection": {"split": "calibration", "minimum_precision": gate_min_precision}}
-    for label in labels:
+    # A test-only label must not create a fitted profile. Profiles are fitted
+    # solely from calibration labels and corresponding calibration negatives.
+    for label in sorted({str(row["label_id"]) for row in calibration}):
         y = [int(row["label_id"] == label) for row in calibration]
         if len(set(y)) != 2:
             raise ValueError(f"calibration needs positive and negative examples for {label}")
@@ -94,10 +114,17 @@ def report(rows: list[dict[str, Any]], predictions: dict[str, dict[str, Any]], s
     selected = [row for row in rows if row["split"] == split]
     labels = sorted({str(row["label_id"]) for row in selected})
     outcomes = []
+    reviewed = []
+    status_counts: dict[str, int] = defaultdict(int)
     for row in selected:
-        candidates = predictions[row["id"]]["axes"]["music_family"]["candidates"]
-        predicted = candidates[0]["label_id"]
+        axis = predictions[row["id"]]["axes"]["music_family"]
+        candidates = axis["candidates"]
+        predicted = candidates[0]["label_id"] if candidates else None
         outcomes.append((str(row["label_id"]), predicted))
+        status = str(axis.get("status", "unknown"))
+        status_counts[status] += 1
+        if status == "ready_for_review":
+            reviewed.append((str(row["label_id"]), predicted))
     per_label = {}
     for label in labels:
         tp = sum(actual == label and predicted == label for actual, predicted in outcomes)
@@ -107,7 +134,11 @@ def report(rows: list[dict[str, Any]], predictions: dict[str, dict[str, Any]], s
         recall = tp / (tp + fn) if tp + fn else 0.0
         per_label[label] = {"support": sum(actual == label for actual, _ in outcomes), "precision": precision, "recall": recall,
                             "f1": 2 * precision * recall / (precision + recall) if precision + recall else 0.0}
-    return {"split": split, "rows": len(selected), "accuracy": sum(actual == predicted for actual, predicted in outcomes) / len(outcomes) if outcomes else None,
+    return {"split": split, "rows": len(selected),
+            "raw_top1_accuracy": sum(actual == predicted for actual, predicted in outcomes) / len(outcomes) if outcomes else None,
+            "review_coverage": len(reviewed) / len(outcomes) if outcomes else None,
+            "reviewed_raw_top1_accuracy": sum(actual == predicted for actual, predicted in reviewed) / len(reviewed) if reviewed else None,
+            "status_counts": dict(sorted(status_counts.items())),
             "macro_f1": sum(value["f1"] for value in per_label.values()) / len(per_label) if per_label else None,
             "per_class": per_label}
 
@@ -127,6 +158,10 @@ def main() -> int:
         parser.error("--gate-min-precision requires --calibration-out")
     rows = load_manifest(args.manifest)
     engine = AudioClassificationEngine()
+    model_labels = {candidate["id"] for candidate in engine.labels["axes"]["music_family"]["candidates"]}
+    unknown_labels = sorted({str(row["label_id"]) for row in rows} - model_labels)
+    if unknown_labels:
+        parser.error("manifest has labels unavailable from this model: " + ", ".join(unknown_labels))
     predictions = {}
     for row in rows:
         result = engine.classify_item(str(row["id"]), row["path"], args.model_id).to_service_payload()

@@ -1,27 +1,49 @@
 """
 Playlist Management: named playlists with filter-based track selection and M3U export.
-Persisted to playlists.json in project root.
+Persisted in the user-data SQLite document store, never a project-root file.
 """
-import json
-import os
+
 import io
+import os
 from datetime import datetime, timezone
+from pathlib import Path
 from flask import Blueprint, request, jsonify, send_file
 
+from app.services.json_store import JsonStore
+from app.utils.paths import user_data_path
+
 bp = Blueprint("playlists", __name__, url_prefix="/api")
-PLAYLISTS_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'playlists.json')
+
+
+def playlists_storage_path() -> str:
+    """Return the isolated user-data SQLite path used for playlists."""
+    return user_data_path("tracks.db")
+
+
+def _playlists_store() -> JsonStore:
+    store = JsonStore("playlists")
+    # Keep a one-time upgrade path for normal source-tree installs without
+    # letting explicitly isolated data directories probe project-root files.
+    if not os.environ.get("IDJLM_USER_DATA_DIR"):
+        store.migrate_from_json(
+            str(Path(__file__).resolve().parents[2] / "playlists.json")
+        )
+    return store
 
 
 def _load_playlists():
-    if os.path.exists(PLAYLISTS_PATH):
-        with open(PLAYLISTS_PATH) as f:
-            return json.load(f)
-    return {"playlists": []}
+    data = _playlists_store().get()
+    if not isinstance(data, dict):
+        return {"playlists": []}
+    return {
+        "playlists": data.get("playlists")
+        if isinstance(data.get("playlists"), list)
+        else []
+    }
 
 
 def _save_playlists(data):
-    from app.utils.paths import atomic_write
-    atomic_write(PLAYLISTS_PATH, data, indent=2)
+    _playlists_store().set(data)
 
 
 # Field mapping for rule-to-track attribute lookups
@@ -119,11 +141,17 @@ def _legacy_filters_to_rules(filters):
     """Convert old flat filter dict to new {combinator, rules} format."""
     rules = []
     if filters.get("genre"):
-        rules.append({"field": "genre", "operator": "equals", "value": filters["genre"]})
+        rules.append(
+            {"field": "genre", "operator": "equals", "value": filters["genre"]}
+        )
     if filters.get("subgenre"):
-        rules.append({"field": "subgenre", "operator": "equals", "value": filters["subgenre"]})
+        rules.append(
+            {"field": "subgenre", "operator": "equals", "value": filters["subgenre"]}
+        )
     if filters.get("status"):
-        rules.append({"field": "status", "operator": "equals", "value": filters["status"]})
+        rules.append(
+            {"field": "status", "operator": "equals", "value": filters["status"]}
+        )
     if filters.get("key"):
         rules.append({"field": "key", "operator": "equals", "value": filters["key"]})
     if filters.get("bpm_min"):
@@ -131,9 +159,13 @@ def _legacy_filters_to_rules(filters):
     if filters.get("bpm_max"):
         rules.append({"field": "bpm", "operator": "lte", "value": filters["bpm_max"]})
     if filters.get("energy_min"):
-        rules.append({"field": "energy", "operator": "gte", "value": filters["energy_min"]})
+        rules.append(
+            {"field": "energy", "operator": "gte", "value": filters["energy_min"]}
+        )
     if filters.get("energy_max"):
-        rules.append({"field": "energy", "operator": "lte", "value": filters["energy_max"]})
+        rules.append(
+            {"field": "energy", "operator": "lte", "value": filters["energy_max"]}
+        )
     if filters.get("year_min"):
         rules.append({"field": "year", "operator": "gte", "value": filters["year_min"]})
     if filters.get("year_max"):
@@ -146,13 +178,15 @@ def list_playlists():
     data = _load_playlists()
     playlists = []
     for p in data.get("playlists", []):
-        playlists.append({
-            "id": p["id"],
-            "name": p["name"],
-            "track_count": len(p.get("tracks", [])),
-            "created": p.get("created"),
-            "filters": p.get("filters", {})
-        })
+        playlists.append(
+            {
+                "id": p["id"],
+                "name": p["name"],
+                "track_count": len(p.get("tracks", [])),
+                "created": p.get("created"),
+                "filters": p.get("filters", {}),
+            }
+        )
     return jsonify({"playlists": playlists}), 200
 
 
@@ -166,7 +200,7 @@ def create_playlist():
         "name": body.get("name", "Untitled"),
         "filters": body.get("filters", {}),
         "tracks": body.get("tracks", []),
-        "created": datetime.now(timezone.utc).isoformat()
+        "created": datetime.now(timezone.utc).isoformat(),
     }
     data["playlists"].append(playlist)
     _save_playlists(data)
@@ -210,6 +244,7 @@ def delete_playlist(playlist_id):
 @bp.route("/playlists/<playlist_id>/run", methods=["POST"])
 def run_playlist(playlist_id):
     from app import get_track_store
+
     data = _load_playlists()
     for p in data.get("playlists", []):
         if p["id"] == playlist_id:
@@ -223,6 +258,7 @@ def run_playlist(playlist_id):
 def match_preview():
     """Return match count and track list for a rule set (no persistence)."""
     from app import get_track_store
+
     body = request.get_json(silent=True) or {}
     rules = body.get("rules") or body.get("filters", {})
     tracks = _apply_filters(get_track_store(), rules)
@@ -232,6 +268,7 @@ def match_preview():
 @bp.route("/playlists/<playlist_id>/export-m3u", methods=["GET"])
 def export_playlist_m3u(playlist_id):
     from app import get_track_store
+
     data = _load_playlists()
     track_store = get_track_store()
     for p in data.get("playlists", []):
@@ -240,14 +277,16 @@ def export_playlist_m3u(playlist_id):
             for fp in p.get("tracks", []):
                 track = track_store.get(fp)
                 if track:
-                    lines.append(f"#EXTINF:0,{track.display_artist} - {track.display_title}")
+                    lines.append(
+                        f"#EXTINF:0,{track.display_artist} - {track.display_title}"
+                    )
                     lines.append(fp)
             name = p["name"].replace(" ", "-")
             return send_file(
                 io.BytesIO("\n".join(lines).encode()),
                 mimetype="audio/x-mpegurl",
                 as_attachment=True,
-                download_name=f"{name}.m3u"
+                download_name=f"{name}.m3u",
             )
     return jsonify({"error": "Not found"}), 404
 
@@ -255,6 +294,7 @@ def export_playlist_m3u(playlist_id):
 @bp.route("/playlists/run", methods=["POST"])
 def run_filters_adhoc():
     from app import get_track_store
+
     body = request.get_json(silent=True) or {}
     filters = body.get("filters", {})
     tracks = _apply_filters(get_track_store(), filters)

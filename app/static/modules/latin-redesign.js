@@ -7,7 +7,7 @@ const latinAxisNames = { music_family: 'Genre', style: 'Style', dance_use: 'Danc
 const latinState = {
   page: 'library', reviewState: 'needs_review', items: [], total: 0, nextCursor: null,
   cursors: [null], cursorIndex: 0, revision: null, filters: { query: '', family_ids: [], style_ids: [], comment_tokens: [], review_states: [] },
-  sort: 'title:asc', selected: new Set(), allFiltered: false, activeItem: null, taxonomy: null,
+  sort: 'title:asc', selected: new Set(), allFiltered: false, allFilteredFilters: null, activeItem: null, taxonomy: null,
   capabilities: {}, settings: {}, taxonomyRevision: 0, savedViews: [], jobs: [], exports: [], migrationStatus: null, pageBusy: false, initialized: false,
   lastFocus: null, selectedRoute: 'direct_cable', destination: '', exportScope: null,
 };
@@ -190,11 +190,34 @@ function latinRenderSelection() {
   }
 }
 
+function latinAllFilteredScope() {
+  return { filter: structuredClone(latinState.allFilteredFilters || latinState.filters), selection: 'all_filtered' };
+}
+
+function latinCurrentScope() {
+  return latinState.allFiltered ? latinAllFilteredScope() : { item_ids: [...latinState.selected], selection: 'explicit' };
+}
+
+function latinClearAllFilteredSelection() {
+  latinState.allFiltered = false;
+  latinState.allFilteredFilters = null;
+}
+
+function latinInvalidateExportScope() {
+  latinState.exportScope = null;
+  latinState.exportPreviewRequestId = (latinState.exportPreviewRequestId || 0) + 1;
+  // A preview is tied to its server-side scope. Do not leave its confirmation
+  // button available after the Library selection has changed.
+  const previewCard = latin$('latin-export-preview-card');
+  if (previewCard) previewCard.hidden = true;
+}
+
 function latinFiltersChanged() {
   latinState.filters.query = latin$('latin-search').value.trim();
   latinState.cursors = [null];
   latinState.cursorIndex = 0;
-  latinState.allFiltered = false;
+  latinClearAllFilteredSelection();
+  latinInvalidateExportScope();
   latinRenderChips();
   latinPersistView();
   latinLoadLibrary({ reset: true });
@@ -524,7 +547,7 @@ async function latinStartJob(kind, scope = undefined) {
   if (kind === 'classify' && latinState.model?.state !== 'installed') {
     return latinAnnounce(latinState.model?.state === 'runtime_unavailable' ? 'Local audio analysis is unavailable because this installation does not include the audio runtime.' : 'Set up the local model before starting audio analysis.', 'error');
   }
-  const jobScope = scope || (latinState.allFiltered ? { filter: structuredClone(latinState.filters), selection: 'all_filtered' } : { item_ids: [...latinState.selected], selection: 'explicit' });
+  const jobScope = scope || latinCurrentScope();
   const result = await latinRequest('/api/v2/jobs', { method: 'POST', body: JSON.stringify({ kind, scope: jobScope, axes: kind === 'classify' ? ['music_family'] : undefined }) });
   latinAnnounce(`${kind === 'classify' ? 'Experimental audio classification' : latinStatusText(kind)} job queued. Review every result; this model has not met the release accuracy gate.`);
   latinState.jobs.unshift({ job_id: result.job_id, state: result.state, kind, counts: {} });
@@ -619,6 +642,15 @@ function latinUpdateJob(event) {
   }
   if (latinState.page === 'activity') latinRenderJobs();
   if (terminal) {
+    // An import changes the set matched by a filter. Keep explicit IDs (they
+    // still name the same tracks), but clear an all-filtered selection so a
+    // later bulk action cannot include newly imported matches unnoticed.
+    if (job.kind === 'import' && latinState.allFiltered) {
+      latinClearAllFilteredSelection();
+      latinInvalidateExportScope();
+      latinRenderSelection();
+      latinAnnounce('Import updated the library, so the all-filtered selection was cleared. Select the current matching tracks again before a bulk action.');
+    }
     if (!latinState.terminalJobs?.has(event.job_id)) {
       latinState.terminalJobs ||= new Set();
       latinState.terminalJobs.add(event.job_id);
@@ -868,7 +900,7 @@ async function latinSaveCatalogueTags(scope, { addValues = [], removeIds = [] } 
 }
 
 function latinCatalogueScope() {
-  return latinState.allFiltered ? { filter: structuredClone(latinState.filters), selection: 'all_filtered' } : { item_ids: [...latinState.selected], selection: 'explicit' };
+  return latinCurrentScope();
 }
 
 function latinOpenCatalogueTags(scope = latinCatalogueScope()) {
@@ -948,9 +980,9 @@ function latinManagedCommentText(value) {
 }
 
 async function latinPreviewExport() {
-  const itemIds = latinState.exportScope?.item_ids || (latinState.allFiltered ? undefined : [...latinState.selected]);
-  const filters = latinState.exportScope?.filter || (latinState.allFiltered ? structuredClone(latinState.filters) : undefined);
-  if (!itemIds?.length && !filters) return latinAnnounce('Select tracks in Library or choose a saved view first.', 'error');
+  const savedScope = latinState.exportScope;
+  const activeScope = savedScope || latinCurrentScope();
+  if (!activeScope.item_ids?.length && !activeScope.filter) return latinAnnounce('Select tracks in Library or choose a saved view first.', 'error');
   if (!latinState.destination) return latinAnnounce('Choose a destination folder before previewing.', 'error');
   const requestId = (latinState.exportPreviewRequestId || 0) + 1;
   latinState.exportPreviewRequestId = requestId;
@@ -961,12 +993,14 @@ async function latinPreviewExport() {
   previewCard.innerHTML = '<div class="latin-empty"><strong>Preparing current export preview…</strong><span>No files are copied until you confirm the returned preview.</span></div>';
   try {
     const profile = latin$('latin-export-profile').value;
-    const scope = itemIds ? { item_ids: itemIds, selection: 'explicit' } : { filter: filters, selection: 'all_filtered' };
+    const scope = activeScope.item_ids?.length
+      ? { item_ids: [...activeScope.item_ids], selection: 'explicit' }
+      : { filter: structuredClone(activeScope.filter), selection: 'all_filtered' };
     const profileNames = { broad_genre_raw_comment: 'Broad Genre + existing Comments', djay_extended_genre: 'Extended Genre · Genre and Style labels' };
     const preview = await latinRequest('/api/v2/exports/previews', { method: 'POST', body: JSON.stringify({ scope, profile: { id: profile, name: profile }, route: latinState.selectedRoute, destination: latinState.destination }) });
     if (requestId !== latinState.exportPreviewRequestId) return;
     latinState.exportProfileName = profileNames[profile] || profile;
-    latinState.exportScope = { item_ids: itemIds, filter: filters };
+    latinState.exportScope = structuredClone(scope);
     latinRenderExportPreview(preview);
   } catch (error) {
     if (requestId !== latinState.exportPreviewRequestId) return;
@@ -1208,6 +1242,8 @@ function latinInit() {
   latin$('latin-saved-view-select').addEventListener('change', event => {
     const view = latinState.savedViews[Number(event.target.value)]; if (!view) return;
     const definition = view.definition || view;
+    latinClearAllFilteredSelection();
+    latinInvalidateExportScope();
     latinState.filters = { ...definition.filters }; latinState.sort = definition.sort || 'title:asc';
     latin$('latin-search').value = latinState.filters.query || ''; latinRenderChips(); latinLoadLibrary({ reset: true });
   });
@@ -1219,6 +1255,7 @@ function latinInit() {
   latin$('latin-library-rows').addEventListener('change', event => {
     const check = event.target.closest('.latin-row-check'); if (!check) return;
     check.checked ? latinState.selected.add(check.dataset.itemId) : latinState.selected.delete(check.dataset.itemId);
+    latinInvalidateExportScope();
     latinRenderSelection();
   });
   latin$('latin-library-rows').addEventListener('click', event => {
@@ -1227,9 +1264,9 @@ function latinInit() {
     if (event.target.closest('[data-action="bootstrap-library"]')) latinBootstrapLibrary();
     if (event.target.closest('[data-action="clear-filters"]')) { latinState.filters = { query: '', family_ids: [], style_ids: [], comment_tokens: [], review_states: [] }; latin$('latin-search').value = ''; latinFiltersChanged(); }
   });
-  latin$('latin-select-visible').addEventListener('click', () => { latinState.items.forEach(item => latinState.selected.add(item.id)); latinRenderLibrary(); });
-  latin$('latin-select-all-filtered').addEventListener('click', () => { latinState.allFiltered = true; latinState.selected.clear(); latinRenderLibrary(); latinAnnounce(`${latinState.total} filtered tracks selected. Actions use this frozen filter scope.`); });
-  latin$('latin-clear-selection').addEventListener('click', () => { latinState.selected.clear(); latinState.allFiltered = false; latinRenderLibrary(); });
+  latin$('latin-select-visible').addEventListener('click', () => { latinState.items.forEach(item => latinState.selected.add(item.id)); latinInvalidateExportScope(); latinRenderLibrary(); });
+  latin$('latin-select-all-filtered').addEventListener('click', () => { latinState.allFiltered = true; latinState.allFilteredFilters = structuredClone(latinState.filters); latinState.selected.clear(); latinInvalidateExportScope(); latinRenderLibrary(); latinAnnounce(`${latinState.total} filtered tracks selected. Actions use this frozen filter scope.`); });
+  latin$('latin-clear-selection').addEventListener('click', () => { latinState.selected.clear(); latinClearAllFilteredSelection(); latinInvalidateExportScope(); latinRenderLibrary(); });
   latin$('latin-page-prev').addEventListener('click', () => { if (!latinState.cursorIndex) return; latinState.cursorIndex--; latinLoadLibrary(); });
   latin$('latin-page-next').addEventListener('click', () => { if (!latinState.nextCursor) return; latinState.cursors[++latinState.cursorIndex] = latinState.nextCursor; latinLoadLibrary(); });
   document.querySelectorAll('.latin-nav-item').forEach(button => button.addEventListener('click', () => latinSwitchPage(button.dataset.page)));
@@ -1250,14 +1287,14 @@ function latinInit() {
   latin$('latin-restore-list').addEventListener('click', event => { const button = event.target.closest('[data-restore-preview]'); if (button) latinPreviewRestore(button.dataset.restorePreview); });
   latin$('latin-batch-review').addEventListener('click', () => latinOpenReviewPreview([...latinState.selected]));
   latin$('latin-batch-classify').addEventListener('click', async () => {
-    const scope = latinState.allFiltered ? { filter: structuredClone(latinState.filters), selection: 'all_filtered' } : { item_ids: [...latinState.selected], selection: 'explicit' };
+    const scope = latinCurrentScope();
     if (!scope.item_ids?.length && !scope.filter) return latinAnnounce('Select tracks or choose all filtered tracks first.', 'error');
     try { await latinStartJob('classify', scope); }
     catch (error) { latinAnnounce(`Audio classification did not start. ${error.message}`, 'error'); }
   });
-  latin$('latin-batch-edit').addEventListener('click', () => latinOpenBatchEdit(latinState.allFiltered ? { filter: structuredClone(latinState.filters), selection: 'all_filtered' } : [...latinState.selected]));
+  latin$('latin-batch-edit').addEventListener('click', () => latinOpenBatchEdit(latinState.allFiltered ? latinAllFilteredScope() : [...latinState.selected]));
   latin$('latin-batch-catalogue').addEventListener('click', () => latinOpenCatalogueTags());
-  latin$('latin-batch-export').addEventListener('click', () => { latinState.exportScope = latinState.allFiltered ? { filter: structuredClone(latinState.filters) } : { item_ids: [...latinState.selected] }; latinSwitchPage('export'); });
+  latin$('latin-batch-export').addEventListener('click', () => { latinState.exportScope = latinCurrentScope(); latinSwitchPage('export'); });
   latin$('latin-export-change-scope').addEventListener('click', () => latinSwitchPage('library'));
   latin$('latin-export-routes').addEventListener('change', event => { if (event.target.name === 'latin-export-route') latinState.selectedRoute = event.target.value; });
   latin$('latin-export-pick-destination').addEventListener('click', async () => {

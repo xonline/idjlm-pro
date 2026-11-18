@@ -8,8 +8,12 @@ replaces the staging copy's standard Comment while preserving unrelated fields.
 from __future__ import annotations
 
 import hashlib
+import os
+import signal
 import shutil
 import subprocess
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -45,6 +49,9 @@ _MP4_EXTENSIONS = {".m4a", ".mp4"}
 _VORBIS_COMMENT_KEY = "comment"
 _MP4_COMMENT_KEY = "\xa9cmt"
 _ID3_COMMENT_KEY = "COMM::eng"
+_FFMPEG_DECODE_TIMEOUT_SECONDS = 120.0
+_FFMPEG_STOP_GRACE_SECONDS = 2.0
+_FFMPEG_ERROR_LIMIT_BYTES = 8192
 
 
 def _comment_storage(extension: str) -> str:
@@ -53,6 +60,29 @@ def _comment_storage(extension: str) -> str:
     if extension in _MP4_EXTENSIONS:
         return "mp4_©cmt"
     return "id3_COMM_empty_description_eng"
+
+
+def _stop_decoder(process: subprocess.Popen[bytes]) -> None:
+    """Stop the decoder and any helper process that inherited its pipes."""
+    if process.poll() is None:
+        try:
+            if os.name == "posix":
+                os.killpg(process.pid, signal.SIGTERM)
+            else:
+                process.terminate()
+        except ProcessLookupError:
+            pass
+        try:
+            process.wait(timeout=_FFMPEG_STOP_GRACE_SECONDS)
+        except subprocess.TimeoutExpired:
+            if os.name == "posix":
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            else:
+                process.kill()
+            process.wait()
 
 
 def capability_for(path: str | Path) -> FormatCapability:
@@ -98,15 +128,78 @@ def _decoded_audio_identity(path: Path) -> dict[str, str]:
         raise SafeFormatWriteError("decoder_unavailable", "Cannot verify staged audio without the packaged decoder.")
     command = [ffmpeg, "-nostdin", "-v", "error", "-i", str(path), "-map", "0:a:0", "-acodec", "pcm_f32le", "-f", "f32le", "-"]
     try:
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=os.name == "posix",
+        )
     except OSError as exc:
         raise SafeFormatWriteError("decoder_unavailable", f"Cannot start local decoder: {exc}") from exc
-    assert process.stdout is not None
+
+    assert process.stdout is not None and process.stderr is not None
     digest = hashlib.sha256()
-    for chunk in iter(lambda: process.stdout.read(1024 * 1024), b""):
-        digest.update(chunk)
-    stderr = process.stderr.read().decode("utf-8", "replace") if process.stderr else ""
-    if process.wait() != 0:
+    stderr_tail = bytearray()
+    stream_errors: list[BaseException] = []
+
+    def drain_stdout() -> None:
+        try:
+            for chunk in iter(lambda: process.stdout.read(1024 * 1024), b""):
+                digest.update(chunk)
+        except BaseException as exc:  # A pipe can close while timeout cleanup runs.
+            stream_errors.append(exc)
+
+    def drain_stderr() -> None:
+        try:
+            for chunk in iter(lambda: process.stderr.read(64 * 1024), b""):
+                if len(chunk) >= _FFMPEG_ERROR_LIMIT_BYTES:
+                    stderr_tail[:] = chunk[-_FFMPEG_ERROR_LIMIT_BYTES:]
+                else:
+                    stderr_tail.extend(chunk)
+                    if len(stderr_tail) > _FFMPEG_ERROR_LIMIT_BYTES:
+                        del stderr_tail[:-_FFMPEG_ERROR_LIMIT_BYTES]
+        except BaseException as exc:  # A pipe can close while timeout cleanup runs.
+            stream_errors.append(exc)
+
+    stdout_thread = threading.Thread(target=drain_stdout, daemon=True)
+    stderr_thread = threading.Thread(target=drain_stderr, daemon=True)
+    stdout_thread.start()
+    stderr_thread.start()
+    timed_out = False
+    deadline = time.monotonic() + _FFMPEG_DECODE_TIMEOUT_SECONDS
+    try:
+        stdout_thread.join(max(0.0, deadline - time.monotonic()))
+        if stdout_thread.is_alive():
+            timed_out = True
+        else:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                timed_out = process.poll() is None
+            elif process.poll() is None:
+                try:
+                    process.wait(timeout=remaining)
+                except subprocess.TimeoutExpired:
+                    timed_out = True
+        if timed_out:
+            _stop_decoder(process)
+            raise SafeFormatWriteError("audio_decode_timeout", "Local decoder timed out while verifying staged audio.")
+    finally:
+        _stop_decoder(process)
+        stdout_thread.join(timeout=_FFMPEG_STOP_GRACE_SECONDS)
+        stderr_thread.join(timeout=_FFMPEG_STOP_GRACE_SECONDS)
+        # Once the child is reaped both pipe readers normally reach EOF. An
+        # unexpected descendant retaining a pipe must not keep this job alive.
+        if stdout_thread.is_alive():
+            process.stdout.close()
+            stdout_thread.join(timeout=_FFMPEG_STOP_GRACE_SECONDS)
+        if stderr_thread.is_alive():
+            process.stderr.close()
+            stderr_thread.join(timeout=_FFMPEG_STOP_GRACE_SECONDS)
+    if stream_errors:
+        raise SafeFormatWriteError("audio_decode_failed", "Cannot verify staged audio: decoder stream failed.") from stream_errors[0]
+    stderr = bytes(stderr_tail).decode("utf-8", "replace")
+    if process.returncode != 0:
         raise SafeFormatWriteError("audio_decode_failed", f"Cannot verify staged audio: {stderr.strip() or 'decoder failed'}")
     return {"decoder": "ffmpeg-pcm_f32le", "decoded_pcm_sha256": digest.hexdigest()}
 

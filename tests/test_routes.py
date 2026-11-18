@@ -1,9 +1,17 @@
 """Smoke tests for every route -- catch 500 errors from broken imports, bad get_json calls, etc."""
 
 import json
+import os
 from unittest import mock
 import pytest
-from app.routes.setlist_routes import _load_setlist, _save_setlist
+import app.routes.playlist_routes as playlist_routes
+import app.routes.setlist_routes as setlist_routes
+from app.routes.setlist_routes import (
+    _load_setlist,
+    _save_setlist,
+    setlist_storage_path,
+)
+from app.routes.playlist_routes import playlists_storage_path
 
 
 # ---------------------------------------------------------------------------
@@ -258,6 +266,37 @@ class TestProgressRoutes:
 # Setlist routes  (app/routes/setlist_routes.py)
 # ---------------------------------------------------------------------------
 class TestSetlistRoutes:
+    def test_setlist_uses_isolated_user_data_storage(self):
+        path = os.path.abspath(setlist_storage_path())
+        isolated = os.path.abspath(os.environ["IDJLM_USER_DATA_DIR"])
+        assert os.path.commonpath([path, isolated]) == isolated
+
+    def test_playlist_uses_isolated_user_data_storage(self):
+        path = os.path.abspath(playlists_storage_path())
+        isolated = os.path.abspath(os.environ["IDJLM_USER_DATA_DIR"])
+        assert os.path.commonpath([path, isolated]) == isolated
+
+    @pytest.mark.parametrize(
+        ("module", "factory"),
+        [
+            (setlist_routes, "_setlist_store"),
+            (playlist_routes, "_playlists_store"),
+        ],
+    )
+    def test_explicit_user_data_dir_never_probes_legacy_project_json(
+        self, monkeypatch, tmp_path, module, factory
+    ):
+        calls = []
+
+        class FakeStore:
+            def migrate_from_json(self, path):
+                calls.append(path)
+
+        monkeypatch.setenv("IDJLM_USER_DATA_DIR", str(tmp_path / "isolated"))
+        monkeypatch.setattr(module, "JsonStore", lambda _name: FakeStore())
+        getattr(module, factory)()
+        assert calls == []
+
     def test_get_setlist(self, client):
         resp = client.get("/api/setlist")
         assert resp.status_code == 200

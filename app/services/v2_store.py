@@ -14,6 +14,7 @@ import threading
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+
 AXES = {
     "music_family",
     "style",
@@ -267,6 +268,22 @@ class V2Store:
                 "SELECT * FROM v2_items WHERE item_id=?", (actual,)
             ).fetchone()
         return {"id": actual, "revision": self._revision(out), "path": path}
+
+    def unchanged_item_id(self, path, file_mtime, file_size, file_ctime_ns):
+        """Return an existing item when its lightweight import signature matches.
+
+        A warm import must not reopen every audio container only to rediscover
+        the same tags.  The full scanner still runs whenever mtime or size
+        changes, and records a fresh content hash then.
+        """
+        signature = f"{file_mtime}:{file_size}:{file_ctime_ns}:"
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT item_id FROM v2_items WHERE file_path=? "
+                "AND availability='present' AND conflict=0 AND source_revision LIKE ?",
+                (path, signature + "%"),
+            ).fetchone()
+        return row["item_id"] if row else None
 
     def bootstrap_from_tracks(self, rows):
         if not isinstance(rows, list):
@@ -526,80 +543,111 @@ class V2Store:
             "total": total,
         }
 
-    def get_item(self, item_id):
+    def _items_by_id(self, item_ids):
+        """Load complete item details in bounded SQL batches.
+
+        ``resolve_scope(all_filtered)`` can legitimately freeze 15,000 tracks.
+        Calling ``get_item`` for each one used to issue a query per axis and
+        per analysis outcome, which turned a safe preview into hundreds of
+        thousands of SQLite calls.  Keep the public detail shape, but fetch
+        each relation once per SQLite-safe batch.
+        """
+        ids = [str(item_id) for item_id in item_ids]
+        if not ids:
+            return {}
+        items, decisions, proposals, outcomes = {}, {}, {}, {}
         with self._lock:
-            item = self._conn.execute(
-                "SELECT * FROM v2_items WHERE item_id=?", (item_id,)
-            ).fetchone()
-            origin = self._conn.execute(
-                "SELECT payload FROM v2_item_originals WHERE item_id=?", (item_id,)
-            ).fetchone()
-            if not item or not origin:
-                return None
+            for start in range(0, len(ids), 900):
+                part = ids[start : start + 900]
+                marks = ",".join("?" * len(part))
+                for row in self._conn.execute(
+                    "SELECT i.*,o.payload FROM v2_items i JOIN v2_item_originals o "
+                    f"ON o.item_id=i.item_id WHERE i.item_id IN ({marks})",
+                    part,
+                ):
+                    items[row["item_id"]] = row
+                for row in self._conn.execute(
+                    f"SELECT * FROM v2_decisions WHERE item_id IN ({marks})", part
+                ):
+                    decisions[(row["item_id"], row["axis"])] = row
+                for row in self._conn.execute(
+                    "SELECT p.* FROM v2_active_proposals a JOIN v2_predictions p "
+                    "ON p.prediction_id=a.prediction_id "
+                    f"WHERE a.item_id IN ({marks})",
+                    part,
+                ):
+                    proposals[(row["item_id"], row["axis"])] = row
+                for row in self._conn.execute(
+                    "SELECT a.status,a.reason,a.payload,a.created_at,a.outcome_id,a.item_id "
+                    "FROM v2_analysis_outcomes a WHERE a.item_id IN ("
+                    + marks
+                    + ") AND NOT EXISTS (SELECT 1 FROM v2_analysis_outcomes newer "
+                    "WHERE newer.item_id=a.item_id AND (newer.created_at>a.created_at "
+                    "OR (newer.created_at=a.created_at AND newer.outcome_id>a.outcome_id)))",
+                    part,
+                ):
+                    outcomes[row["item_id"]] = row
+        details = {}
+        for item_id in ids:
+            item = items.get(item_id)
+            if not item:
+                continue
             axes = {}
             for axis in AXES:
-                p = self._conn.execute(
-                    "SELECT p.* FROM v2_active_proposals a JOIN v2_predictions p ON p.prediction_id=a.prediction_id WHERE a.item_id=? AND a.axis=?",
-                    (item_id, axis),
-                ).fetchone()
-                d = self._conn.execute(
-                    "SELECT * FROM v2_decisions WHERE item_id=? AND axis=?",
-                    (item_id, axis),
-                ).fetchone()
-                if p or d:
+                proposal = proposals.get((item_id, axis))
+                decision = decisions.get((item_id, axis))
+                if proposal or decision:
                     axes[axis] = {
                         "proposal": None
-                        if not p
+                        if not proposal
                         else {
-                            "label_ids": _load(p["label_ids"], []),
-                            "status": p["status"],
-                            "raw_score": p["raw_score"],
-                            "calibrated_confidence": p["calibrated_confidence"],
-                            "evidence": _load(p["evidence"], []),
-                            "details": _load(p["details"], {}),
-                            "model": _load(p["model"], {}),
-                            "taxonomy_version": p["taxonomy_version"],
-                            "feature_version": p["feature_version"],
-                            "revision": p["revision"],
+                            "label_ids": _load(proposal["label_ids"], []),
+                            "status": proposal["status"],
+                            "raw_score": proposal["raw_score"],
+                            "calibrated_confidence": proposal["calibrated_confidence"],
+                            "evidence": _load(proposal["evidence"], []),
+                            "details": _load(proposal["details"], {}),
+                            "model": _load(proposal["model"], {}),
+                            "taxonomy_version": proposal["taxonomy_version"],
+                            "feature_version": proposal["feature_version"],
+                            "revision": proposal["revision"],
                         },
                         "decision": None
-                        if not d
+                        if not decision
                         else {
-                            "label_ids": _load(d["label_ids"], []),
-                            "source": d["source"],
-                            "locked": bool(d["locked"]),
-                            "revision": d["revision"],
+                            "label_ids": _load(decision["label_ids"], []),
+                            "source": decision["source"],
+                            "locked": bool(decision["locked"]),
+                            "revision": decision["revision"],
                         },
                     }
-            outcome = self._conn.execute(
-                "SELECT status,reason,payload,created_at FROM v2_analysis_outcomes WHERE item_id=? ORDER BY created_at DESC,outcome_id DESC LIMIT 1",
-                (item_id,),
-            ).fetchone()
-        analysis = (
-            {"state": "not_analyzed"}
-            if not outcome
-            else {
-                "state": outcome["status"],
-                "reason": outcome["reason"],
-                "details": _load(outcome["payload"], {}),
-                "created_at": outcome["created_at"],
+            outcome = outcomes.get(item_id)
+            details[item_id] = {
+                "id": item_id,
+                "revision": self._revision(item),
+                "path": item["file_path"],
+                "original": _load(item["payload"], {}),
+                "axes": axes,
+                "analysis": {"state": "not_analyzed"}
+                if not outcome
+                else {
+                    "state": outcome["status"],
+                    "reason": outcome["reason"],
+                    "details": _load(outcome["payload"], {}),
+                    "created_at": outcome["created_at"],
+                },
+                "revisions": {
+                    "source": item["original_revision"],
+                    "proposals": item["proposal_revision"],
+                    "decisions": item["decision_revision"],
+                },
+                "availability": item["availability"],
+                "conflict": bool(item["conflict"]),
             }
-        )
-        return {
-            "id": item_id,
-            "revision": self._revision(item),
-            "path": item["file_path"],
-            "original": _load(origin["payload"], {}),
-            "axes": axes,
-            "analysis": analysis,
-            "revisions": {
-                "source": item["original_revision"],
-                "proposals": item["proposal_revision"],
-                "decisions": item["decision_revision"],
-            },
-            "availability": item["availability"],
-            "conflict": bool(item["conflict"]),
-        }
+        return details
+
+    def get_item(self, item_id):
+        return self._items_by_id([item_id]).get(item_id)
 
     def resolve_scope(self, scope):
         if not isinstance(scope, dict) or scope.get("selection") not in {
@@ -615,7 +663,8 @@ class V2Store:
                 not isinstance(x, str) or not x for x in ids
             ):
                 raise ValueError("invalid_scope")
-            items = [self.get_item(x) for x in ids]
+            details = self._items_by_id(ids)
+            items = [details.get(x) for x in ids]
             if any(x is None for x in items):
                 raise ValueError("unknown_item")
             return items
@@ -625,17 +674,19 @@ class V2Store:
             raise ValueError("invalid_scope")
         # A read transaction freezes all pages into one explicit scope instead
         # of allowing concurrent import/review activity to alter the selection.
-        out = []
+        ids = []
         cursor = None
         with self._tx():
             while True:
                 page = self.list_items(
                     cursor=cursor, limit=250, filters=scope["filter"], sort="id:asc"
                 )
-                out += [self.get_item(x["id"]) for x in page["items"]]
+                ids += [item["id"] for item in page["items"]]
                 cursor = page["next_cursor"]
                 if not cursor:
                     break
+            details = self._items_by_id(ids)
+            out = [details[item_id] for item_id in ids]
         if not out:
             raise ValueError("empty_scope")
         return out

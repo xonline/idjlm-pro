@@ -10,6 +10,7 @@ inline across 7+ files. Reads/writes under the user's home on every OS:
 - Windows:  %USERPROFILE%/.idjlm-pro                  (data)
             %USERPROFILE%/.idjlm-pro/logs             (logs)
 """
+
 import json
 import os
 import platform
@@ -47,6 +48,8 @@ def app_user_dir() -> str:
 
 def app_user_log_dir() -> str:
     """Log directory; same parent as app_user_dir on Darwin namespaced under Logs/."""
+    if os.environ.get("IDJLM_USER_DATA_DIR"):
+        return os.path.join(app_user_dir(), "logs")
     if _IS_DARWIN:
         return os.path.expanduser("~/Library/Logs/IDJLM Pro")
     return os.path.join(app_user_dir(), "logs")

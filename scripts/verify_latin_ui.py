@@ -6,9 +6,11 @@ Run with the managed Playwright interpreter:
 
 The script generates synthetic MP3 files in a temporary directory and starts
 the real Flask app with IDJLM_USER_DATA_DIR redirected to another temporary
-directory. The only browser-side stand-in is the native folder chooser, which
-returns the synthetic test folder; import, library reads, and all redesign
-operations use the app's real local routes.
+directory. It loads the built static bundle by default. Set IDJLM_UI_DEV=1
+only when deliberately checking the Vite development bundle. The only
+browser-side stand-in is the native folder chooser, which returns the
+synthetic test folder; import, library reads, and all redesign operations use
+the app's real local routes.
 """
 from __future__ import annotations
 
@@ -209,6 +211,7 @@ def wait_for_app(url: str, process: subprocess.Popen) -> None:
 
 
 def main() -> int:
+    os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
     SCREENSHOTS.mkdir(parents=True, exist_ok=True)
     run_root = Path(tempfile.mkdtemp(prefix="idjlm-latin-ui-"))
     user_data = run_root / "user-data"
@@ -232,28 +235,44 @@ def main() -> int:
     env = os.environ.copy()
     env["IDJLM_USER_DATA_DIR"] = str(user_data)
     env["PYTHONPATH"] = str(ROOT)
-    env["IDJLM_VITE_DEV"] = "1"
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    use_vite = env.get("IDJLM_UI_DEV") == "1"
+    if use_vite:
+        env["IDJLM_VITE_DEV"] = "1"
+    else:
+        env.pop("IDJLM_VITE_DEV", None)
     logs = (run_root / "flask.log").open("w", encoding="utf-8")
     server = subprocess.Popen([str(PYTHON), str(runner)], cwd=ROOT, env=env, stdout=logs, stderr=subprocess.STDOUT)
-    vite_logs = (run_root / "vite.log").open("w", encoding="utf-8")
-    vite = subprocess.Popen(["npm", "run", "dev", "--", "--host", "localhost", "--port", "5173"], cwd=ROOT, env=env, stdout=vite_logs, stderr=subprocess.STDOUT)
+    vite_logs = None
+    vite = None
+    if use_vite:
+        vite_logs = (run_root / "vite.log").open("w", encoding="utf-8")
+        vite = subprocess.Popen(["npm", "run", "dev", "--", "--host", "localhost", "--port", "5173"], cwd=ROOT, env=env, stdout=vite_logs, stderr=subprocess.STDOUT)
     errors: list[str] = []
     failed_requests: list[str] = []
+    loaded_scripts: list[str] = []
     expected_stream_closes: list[str] = []
     feature_failures: list[str] = []
     checks: list[str] = []
     active_picker_path = {"value": str(fixture_folder)}
     try:
         wait_for_app(app_url, server)
-        wait_for_app("http://localhost:5173/main.js", vite)
+        if vite:
+            wait_for_app("http://localhost:5173/main.js", vite)
         with sync_playwright() as p:
             browser = p.chromium.launch(executable_path="/usr/bin/chromium-browser", headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
             page = browser.new_page(viewport={"width": 1440, "height": 1000})
             page.on("pageerror", lambda error: errors.append(f"pageerror: {error}"))
             page.on("console", lambda message: errors.append(f"console.error: {message.text}") if message.type == "error" else None)
+            page.on("response", lambda response: loaded_scripts.append(response.url) if response.request.resource_type == "script" else None)
             def record_failed_request(request):
                 entry = f"{request.method} {request.url}: {request.failure}"
                 if request.failure == "net::ERR_ABORTED" and "/events" in request.url:
+                    expected_stream_closes.append(entry)
+                elif request.failure == "net::ERR_ABORTED" and "/api/v2/library/items" in request.url:
+                    # A newer filter/load or page reload cancels an obsolete
+                    # read. The workspace queues a fresh load and every
+                    # assertion below waits for that current response.
                     expected_stream_closes.append(entry)
                 else:
                     failed_requests.append(entry)
@@ -264,7 +283,11 @@ def main() -> int:
             page.goto(app_url, wait_until="networkidle", timeout=30000)
             page.wait_for_selector("#latin-shell:not([hidden])", timeout=10000)
             page.locator("#splash-screen").wait_for(state="detached", timeout=10000)
+            if not use_vite and not any("/static/dist/main.js" in url for url in loaded_scripts):
+                raise AssertionError(f"Expected the built static bundle, got script responses: {loaded_scripts}")
             checks.append("redesign shell rendered")
+            if not use_vite:
+                checks.append("built static bundle loaded (no Vite server)")
 
             # First-run onboarding is a real blocker until completed. Follow
             # its no-credential path rather than dismissing it through DOM APIs.
@@ -366,6 +389,25 @@ def main() -> int:
             page.keyboard.press("/")
             assert page.evaluate("document.activeElement?.id") == "latin-search"
             checks.append("search, cursor paging, saved-view persistence, and slash shortcut work")
+
+            # A saved-view switch is a new filter scope. A prior all-filtered
+            # selection must never be reinterpreted as that new view.
+            page.locator("#latin-search").fill("")
+            wait_library_result_count(page, "of 126 tracks", label="saved-view-scope-reset")
+            page.locator("#latin-select-all-filtered").click()
+            page.locator("#latin-saved-view-select").select_option(label="Synthetic Artist 06")
+            page.wait_for_function("document.querySelector('#latin-result-count')?.textContent.includes('of 17 tracks')")
+            page.wait_for_function("document.querySelector('#latin-selected-count')?.textContent === '0 selected' && document.querySelector('#latin-batch-catalogue')?.disabled")
+            checks.append("saved-view changes clear a prior all-filtered scope")
+
+            # A completed additive import can change this query's membership.
+            # It must clear the filter scope before any bulk control can run.
+            page.locator("#latin-select-all-filtered").click()
+            import_folder_from_ui(page, active_picker_path, fixture_folder, app_url, 126)
+            page.wait_for_function("document.querySelector('#latin-selected-count')?.textContent === '0 selected' && document.querySelector('#latin-batch-catalogue')?.disabled")
+            wait_library_result_count(page, "of 17 tracks", label="post-import-scope-reset")
+            page.wait_for_function("document.querySelectorAll('#latin-library-rows tr[data-item-id]').length > 0")
+            checks.append("additive import clears a prior all-filtered scope")
 
             # Catalogue decisions have an explicit all-filtered scope and an
             # explicit selected-row scope. They are stored as local labels,
@@ -515,8 +557,12 @@ def main() -> int:
             page.locator("#latin-export-profile").select_option("djay_extended_genre")
             active_picker_path["value"] = str(export_folder)
             page.locator("#latin-export-pick-destination").click()
-            page.locator("#latin-export-preview").click()
-            page.locator("#latin-export-preview-card:not([hidden])").wait_for()
+            with page.expect_response(lambda response: response.url.endswith("/api/v2/exports/previews") and response.request.method == "POST") as first_preview_response:
+                page.locator("#latin-export-preview").click()
+            if not first_preview_response.value.ok:
+                raise AssertionError(f"Initial export preview returned HTTP {first_preview_response.value.status}: {first_preview_response.value.text()[:1200]}")
+            first_preview_id = first_preview_response.value.json().get("preview_id")
+            page.wait_for_function("previewId => document.querySelector('#latin-export-preview-card [data-commit-export]')?.dataset.commitExport === previewId", arg=first_preview_id)
             preview_text = page.locator("#latin-export-preview-card").inner_text()
             if "Salsa, Salsa Romántica" not in preview_text:
                 raise AssertionError(f"Extended Genre preview omitted the human-approved family/style: {preview_text}")
@@ -525,8 +571,12 @@ def main() -> int:
             page.locator("#latin-export-preview-card [data-close-export-preview]").click()
             if list(export_folder.rglob("*.mp3")):
                 raise AssertionError("Closing export preview changed the destination")
-            page.locator("#latin-export-preview").click()
-            page.locator("#latin-export-preview-card:not([hidden])").wait_for()
+            with page.expect_response(lambda response: response.url.endswith("/api/v2/exports/previews") and response.request.method == "POST") as commit_preview_response:
+                page.locator("#latin-export-preview").click()
+            if not commit_preview_response.value.ok:
+                raise AssertionError(f"Export commit preview returned HTTP {commit_preview_response.value.status}: {commit_preview_response.value.text()[:1200]}")
+            commit_preview_id = commit_preview_response.value.json().get("preview_id")
+            page.wait_for_function("previewId => document.querySelector('#latin-export-preview-card [data-commit-export]')?.dataset.commitExport === previewId", arg=commit_preview_id)
             with page.expect_response(lambda response: response.url.endswith("/api/v2/exports/commit") and response.request.method == "POST") as export_response:
                 page.locator("#latin-export-preview-card [data-commit-export]").click()
             if not export_response.value.ok:
@@ -686,6 +736,15 @@ tags.save(path)
             page.locator("#latin-reduced-motion").uncheck()
             page.wait_for_function("async () => { const data=await (await fetch('/api/v2/settings')).json(); return data.values?.theme === 'dark' && Number(data.values?.text_scale) === 1 && data.values?.reduced_motion === false; }")
             page.locator('.latin-nav-item[data-page="library"]').click()
+            # This source-host check uses a 512px effective CSS viewport to
+            # exercise the layout at browser 200% zoom on a 1024px laptop.
+            page.set_viewport_size({"width": 512, "height": 384})
+            page.wait_for_function("document.querySelector('#latin-add-folder') && document.querySelector('#latin-filter-toggle')")
+            for selector in ("#latin-add-folder", "#latin-filter-toggle"):
+                if not page.locator(selector).is_visible():
+                    raise AssertionError(f"Primary action {selector} is hidden at the 200% zoom-equivalent viewport")
+            page.set_viewport_size({"width": 1024, "height": 768})
+            checks.append("primary controls remain visible at the 1024px 200%-zoom equivalent")
             page.keyboard.press("/")
             assert page.evaluate("document.activeElement?.id") == "latin-search"
             page.locator("#latin-add-folder").click()
@@ -697,17 +756,20 @@ tags.save(path)
             checks.append("theme, 1.3 text scale, reduced motion, persistence, slash search, Escape close, and focus return work")
             browser.close()
 
-        print(json.dumps({"ok": not errors and not failed_requests and not feature_failures, "source_at_start": source_at_start, "checks": checks, "feature_failures": feature_failures, "page_errors": errors, "failed_requests": failed_requests, "expected_stream_closes": expected_stream_closes, "temp_root": str(run_root), "server_log": str(run_root / "flask.log")}, indent=2))
+        print(json.dumps({"ok": not errors and not failed_requests and not feature_failures, "source_at_start": source_at_start, "checks": checks, "feature_failures": feature_failures, "page_errors": errors, "failed_requests": failed_requests, "expected_stream_closes": expected_stream_closes, "loaded_scripts": loaded_scripts, "temp_root": str(run_root), "server_log": str(run_root / "flask.log")}, indent=2))
         return 0 if not errors and not failed_requests and not feature_failures else 1
     finally:
         for process in (vite, server):
+            if process is None:
+                continue
             process.terminate()
             try:
                 process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 process.kill()
         logs.close()
-        vite_logs.close()
+        if vite_logs:
+            vite_logs.close()
 
 
 if __name__ == "__main__":
