@@ -26,7 +26,9 @@ permissions:
 jobs:
   build-macos-arm64:
     name: Build macOS Apple Silicon installer
-    runs-on: macos-15
+    # `macos-15` was cancelled twice before runner assignment. GitHub also
+    # documents this stable arm64 image; it still produces an M-series build.
+    runs-on: macos-14
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,6 +36,7 @@ jobs:
       - name: Verify clean distributable inputs
         shell: bash
         run: |
+          test "$(uname -m)" = "arm64" || { echo "Expected an arm64 macOS runner"; exit 1; }
           test ! -e .env || { echo "Refusing to package a workspace containing .env"; exit 1; }
           python - <<'PY'
           import json, pathlib, re, tomllib
