@@ -1,219 +1,84 @@
-<p align="center">
-  <img src="assets/icon_256.png" width="96" alt="IDJLM Pro logo" />
-</p>
+# IDJLM Pro
 
-<h1 align="center">Stop Guessing. Start Mixing.</h1>
-<p align="center"><strong>IDJLM Pro</strong> — The AI that organises your music library so you can focus on the dancefloor.</p>
+IDJLM Pro is a desktop app for managing a Latin music library with local import, listening, human review, tagging, and export tools.
 
-<p align="center">
-  <a href="#download"><strong>Download Free</strong></a> · <a href="#how-it-works">See How It Works</a> · <a href="#what-you-get">Features</a>
-</p>
+## Try the current review build on a Mac
 
-<p align="center">
-  <img src="docs/screenshot-v2.5.4-library.png" alt="IDJLM Pro — Your library, instantly organised" />
-</p>
+The latest public release is [v4.1.0](https://github.com/xonline/idjlm-pro/releases/tag/v4.1.0), published on 1 June 2026. The new local Latin-library workspace is in [review PR #44](https://github.com/xonline/idjlm-pro/pull/44), not in that release.
 
----
+When PR #44 has a successful **Desktop installer checks** run, sign in to GitHub and use the matching run's **Artifacts** section:
 
-## The Problem You Know Too Well
+1. Download `idjlm-pro-dmg-aarch64-apple-darwin` for a native Apple Silicon review build.
+2. Unzip the download, open its DMG, and move **IDJLM Pro** to Applications.
+3. Open the app and test a copied sample folder: import, review, preview a write, restore it, then preview an export. Do not begin with an irreplaceable library.
 
-You've spent years building your music library. Thousands of tracks. But half of them have **no tags**, **wrong genres**, or **missing BPM data**. Your DJ software can't find what you need when you need it.
+Artifacts are temporary CI review builds, retained for 30 days. They are unsigned and are not public releases. macOS may block the app; use [Apple’s documented security override](https://support.apple.com/en-au/102445) only after confirming the artifact came from the PR check you chose. Publication remains blocked until signing and notarization are configured.
 
-Sound familiar?
+If an Apple Silicon artifact is unavailable, the `idjlm-pro-dmg-x86_64-apple-darwin` artifact can be a **Rosetta fallback** for the manual import, review, write, restore, and export flow. It is not an Apple Silicon build, does not establish M3 performance, and must not be used to assess the optional local audio runtime.
 
-**IDJLM Pro fixes that.** Point it at your music folder, and AI does the rest — genre, sub-genre, BPM, key, energy — everything written cleanly to your files. Your smart playlists work. Your mixes flow. Your sets build perfectly.
+The primary workflow has six pages, not six or seven required steps: **Library, Review, Categories, Export, Activity, and Settings**. You can import and organise a folder without a cloud API key. The optional local audio model is configured from Settings and remains experimental.
 
----
+## What the review build does
 
-## How It Works
+![Current Library workspace with generated review tracks](https://raw.githubusercontent.com/xonline/idjlm-pro/4f01346/docs/screenshots/latin-library-workspace.png)
 
-**Three steps. That's it.**
+The primary workspace has six pages: Library, Review, Categories, Export, Activity, and Settings. It imports folders without moving the source files, keeps existing metadata, model suggestions, and human decisions distinct, and stores personal tags as literal values. Previewed tag writes keep backups and support guarded restore. Export profiles create staged copies and verify metadata on those copies.
 
-<p align="center">
-  <img src="docs/screenshot-v2.5.4-import.png" width="80%" alt="The 5-step pipeline: Import → Analyse → Classify → Review → Write Tags" />
-</p>
+Audio classification runs through an optional local pretrained model. It is experimental. There is no measured Latin-family or fine-style accuracy, no calibrated acceptance threshold, and no 15,000-track performance result. Manual import, review, tagging, and export do not require a cloud API. The earlier metadata-based classifier and other tools remain under Advanced.
 
-| Step | What Happens | Time for 500 Tracks |
-|------|-------------|---------------------|
-| **1. Import** | Pick your music folder. All existing tags load instantly. | ~5 seconds |
-| **2. Analyse** | BPM, key (Camelot), energy, loudness — all detected automatically. | ~10 minutes |
-| **3. Classify** | AI assigns genre + sub-genre with confidence scores. | ~10 minutes |
-| **4. Review** | Bulk-approve high-confidence tracks. Edit the rest. Undo if needed. | ~2 minutes |
-| **5. Write Tags** | Clean tags written to your files. Backup created automatically. | ~30 seconds |
+A staged copy does not confirm transfer to an iPad or discovery in djay. Physical transfer and destination-app checks remain open.
 
-**Open djay Pro.** Your smart playlists just work. Filter by "Salsa Romántica" or "Bachata Sensual" — it's all there.
+See the [reliability check](https://github.com/xonline/idjlm-pro/blob/8817c5f/docs/reliability-status-2026-11-19.md), the [implementation status](https://github.com/xonline/idjlm-pro/blob/4f01346/docs/implementation-status-2026-11-10.md) for prior verification evidence and limits, the [redesign brief](https://github.com/xonline/idjlm-pro/blob/4f01346/docs/jb-latin-redesign-2026-10-18/README.md) and its engineering and UX specifications for workflow detail, and the [changelog](CHANGELOG.md) for release history.
 
----
+## Run from source (developers)
 
-## What You Get
-
-### 🎯 AI That Knows Your Genre
-Most taggers think "Latin" is a genre. IDJLM Pro knows the difference between **Salsa Romántica** and **Salsa Dura**, between **Bachata Sensual** and **Bachata Dominicana**. It learns from your corrections — the more you use it, the better it gets.
-
-> *"My library of 3,000 salsa tracks was classified in 4 minutes. I'd been meaning to do that for two years."*
-
-### 🔍 Next Track Advisor
-Stuck on what to play next? Select any track and IDJLM Pro ranks your best options — matching **key compatibility**, **BPM smoothness**, **energy level**, and **genre continuity**. It's like having a musical co-pilot.
-
-### 📊 Set Planner That Understands Energy
-Build sets that flow naturally. Choose an energy arc — **Warm-Up → Peak Hour → Cool-Down** — and IDJLM Pro picks tracks that fit. See every BPM transition rated: 🟢 smooth, 🟡 moderate, 🟠 challenging, 🔴 hard. No more train-wreck mixes.
-
-### 🎵 Your Music, Enriched
-Missing year? Cover art? BPM? IDJLM Pro checks **Spotify**, **Deezer**, **Last.fm**, and **Beatport** automatically — filling in what's missing. Free sources first, premium sources optional.
-
-### 🔄 Undo Everything
-Wrote tags you didn't mean to? Hit **Undo** on the success toast. Every write operation creates a backup. You're always one click away from your previous state.
-
-### 📈 Know Your Collection
-The stats dashboard tells you things you've always wanted to know:
-- **Genre balance** — "78% Salsa, 15% Bachata, 7% Kizomba"
-- **Key coverage map** — "You're missing tracks in 3A and 5B"
-- **BPM gaps** — "Nothing between 105-112 BPM"
-- **Decade spread** — visual breakdown of your library's era
-- **Camelot wheel** — see which keys you're strongest in
-
----
-
-## Supported Music
-
-<p align="center">
-  <img src="docs/screenshot-v2.5.4-settings.png" width="48%" alt="Stats dashboard — genre, key, and decade breakdown" />
-  &nbsp;
-  <img src="docs/screenshot-v2.5.4-setplanner.png" width="48%" alt="Set Planner — energy arc with BPM transition analysis" />
-</p>
-
-**File types:** MP3 · FLAC · WAV · M4A · AAC · OGG · AIFF
-
-**Genres out of the box:**
-- **Salsa** — Romántica, Dura, Mambo, Jazz/Instrumental, Son Cubano, Timba, Salsa Choke
-- **Bachata** — Dominicana, Moderna, Sensual, Remix/Urbana
-- **Kizomba** — Clássica, Semba, Ghetto Zouk, Tarraxinha, Urban Kiz
-- **Plus:** Cha Cha, Merengue, Reggaeton, Zouk — and you can add your own.
-
-**Customise everything.** Your genres, your sub-genres, your rules. Export your taxonomy, share it, import someone else's.
-
----
-
-## AI That Works Your Way
-
-Choose from **6 AI providers** — or run completely free with no API key:
-
-| Provider | Cost | Best For |
-|----------|------|----------|
-| **Google Gemini** | Free tier available | Most users — fast and accurate |
-| **OpenRouter** | Free models available | 100+ model choices in one key |
-| **Ollama** | 100% free, offline | Privacy-focused, no internet needed |
-| **Claude (Anthropic)** | Paid | Highest quality classification |
-| **OpenAI GPT** | Paid | Reliable, well-tested |
-| **Qwen (Alibaba)** | Low cost | Great value, strong multilingual |
-
-**One-click key testing.** Every provider has a **Test** button that validates your connection instantly — shows response time so you know it's working.
-
-**Fallback protection.** If your primary AI goes down, IDJLM Pro automatically tries the next one. Your classification never stops.
-
----
-
-## What DJs Say It's For
-
-> *"I organise music for a living. This cut my tagging time from hours to minutes."*
-
-> *"The Set Planner's BPM transition analysis saved me from some terrible mixes at my last gig."*
-
-> *"Finally, something that understands Salsa isn't just one genre."*
-
----
-
-## Desktop installers
-
-The Tauri pipeline builds Apple Silicon and Intel macOS DMGs plus Windows MSI and NSIS installers as CI validation artifacts.
-
-- CI verifies an installed Tauri wrapper reaches its local health endpoint on both macOS architectures and through the Windows **NSIS** installer.
-- The Windows MSI is built, but its installation path is not yet validated in CI.
-- Public installer releases are deliberately blocked until macOS signing/notarization and Windows code-signing setup are configured. Do not treat CI artifacts as trusted public downloads.
-
-**In-app updates:** The app will select the matching macOS installer from a future signed public release. Pre-release CI artifacts are not offered through the updater.
-
----
-
-## Run From Source (for developers)
-
-<details>
-<summary><strong>Quick start — 3 commands</strong></summary>
+To run the review branch without an installer, install Git, Node.js 20 with npm, and Python 3.11 or 3.12, then use the same Python version explicitly when creating the environment:
 
 ```bash
-git clone https://github.com/xonline/idjlm-pro.git
+git clone --branch feat/latin-library-redesign-implementation https://github.com/xonline/idjlm-pro.git
 cd idjlm-pro
+npm ci
+npm run build
+python3.12 -m venv .venv  # use python3.11 if 3.12 is unavailable
 ./start.sh
 ```
 
-`start.sh` creates a virtual environment, installs dependencies, and launches the app at `http://localhost:5050`.
+Open `http://localhost:5050` after the service starts. `start.sh` uses the existing `.venv`, installs the base Python requirements, and starts the local service.
 
-For isolated repository work in Codex Cloud, see [the Cloud pilot guide](docs/CODEX_CLOUD.md). Cloud does not use `.env` files or validate native desktop installers.
+## Optional local audio model
 
-**Configure AI:** Copy `config.example.env` to `.env` and add at least one AI key. Gemini has a free tier.
+The base Python environment does not install the audio runtime or model weights. On supported Apple Silicon, install the optional runtime and then download the pinned model from Settings:
 
 ```bash
-cp config.example.env .env
-# Edit .env — set GEMINI_API_KEY or ANTHROPIC_API_KEY
+.venv/bin/pip install -r requirements-audio.txt
 ```
 
-</details>
+Model download requires an internet connection. Local import, review, metadata writes, and export continue to work without it.
 
----
+## Development checks
 
-## Keyboard Shortcuts
+For isolated browser checks with synthetic audio, use a separate verification
+environment rather than assuming the application environment includes Playwright:
 
-Press `?` anytime to see the full reference.
+```bash
+python3 -m venv /tmp/idjlm-ui-check
+/tmp/idjlm-ui-check/bin/pip install playwright
+/tmp/idjlm-ui-check/bin/playwright install chromium
+PYTHONDONTWRITEBYTECODE=1 /tmp/idjlm-ui-check/bin/python scripts/verify_latin_ui.py
+```
 
-| Key | Action |
-|-----|--------|
-| `1-4` | Switch tabs |
-| `/` | Focus search |
-| `Space` | Play/pause preview |
-| `Cmd+A` | Select all |
-| `Enter` | Approve selected |
-| `Cmd+S` | Save session |
+The harness uses a temporary data directory. It does not scan a personal library or download a model. See the [implementation status](docs/implementation-status-2026-11-10.md) for the recorded test results.
 
----
+The [Codex Cloud pilot guide](docs/CODEX_CLOUD.md) covers isolated repository work in Codex Cloud. Cloud checks do not validate native desktop installers.
 
-## Version History
+## Source map
 
-### v4.1.0 — Latest
-- **BPM range filter** — filter library by BPM min/max in real time
-- **Key compatibility highlighting** — click a track to see Camelot-compatible matches (green) and the selected track (orange); everything else dims
-- **Waveform playhead** — live scrubbing line on the DJ waveform; click to seek
-- **Multi-select context menu** — right-click with N tracks selected → "Re-classify N tracks"
-- **Cha cha BPM fix** — cha cha no longer gets the salsa 4/3 correction
+- `app/routes/` contains Flask routes, including the local `/api/v2` workspace API.
+- `app/services/` contains the library store, audio model adapter, tag writer, restore, and staged-copy export.
+- `app/static/modules/latin-redesign.js` implements the primary workspace interactions.
+- `templates/partials/redesign-shell.html` contains the workspace shell.
+- `frontend/main.js` coordinates primary and Advanced workspace startup.
+- `src-tauri/` contains the desktop wrapper.
+- `tests/` contains route, store, job, model-runtime, writer, and export tests.
 
-### v4.0.0
-- **Real DJ waveform** — amplitude peak visualisation in the track detail panel (purple → cyan gradient)
-- **Double-click context menu** — Play, Edit Tags, Show File Path, Re-classify
-- **Shift-click range select** — Excel-style multi-row selection
-- **Font size adjuster** — S / M / L / XL presets in Settings → Display
-- **Auto-resume** — previous library loads automatically on startup (no onboarding on second launch)
-- **Skip re-analysis** — existing BPM/key tags read from file; librosa only runs when tags are missing
-- **Salsa 4/3 BPM correction** — fixes librosa over-detecting salsa at 112 when true BPM is 85
-
-### v3.5.0
-- JS modularisation — 7,462-line monolith split into 15 focused modules
-
-### v3.4.0
-- DeepSeek + Groq AI providers added
-- Multi-enricher (Deezer, Last.fm, Beatport) now runs during Classify phase
-
-### v3.2.0
-- **Test your AI keys** with one click — see response time instantly
-- **Undo after Write Tags** — one click restores your previous tags
-- **BPM transition ratings** in Set Planner
-
-[See full changelog →](CHANGELOG.md)
-
----
-
-<p align="center">
-  <strong>IDJLM Pro</strong> — Built for DJs who'd rather mix than tag.
-</p>
-
-<p align="center">
-  <a href="#download"><strong>Download Free</strong></a> · <a href="https://github.com/xonline/idjlm-pro">Source Code</a> · <a href="CHANGELOG.md">Changelog</a>
-</p>
+Linux source tests do not establish model accuracy on Latin music, performance on an M3 Mac with 16 GB memory, or successful transfer and discovery on an iPad.
