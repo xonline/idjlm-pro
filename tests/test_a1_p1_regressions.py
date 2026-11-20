@@ -20,10 +20,12 @@ These tests assert the *currently correct* state and will fail loudly if any of
 the five bugs regresses. The bug report itself is kept in BUGS-FOUND.md as a
 historical record.
 """
+
 import os
 import re
 
 import pytest
+
 
 # ---------------------------------------------------------------------------
 # BUG-001  Backend must expose /api/classify (not /api/classify/start)
@@ -88,7 +90,11 @@ class TestNavigationStatIdsMatch:
 
     def _read_navigation_js(self):
         path = os.path.join(
-            os.path.dirname(__file__), "..", "app", "static", "modules",
+            os.path.dirname(__file__),
+            "..",
+            "app",
+            "static",
+            "modules",
             "navigation.js",
         )
         with open(path) as f:
@@ -96,7 +102,10 @@ class TestNavigationStatIdsMatch:
 
     def _read_template(self):
         path = os.path.join(
-            os.path.dirname(__file__), "..", "templates", "index.html",
+            os.path.dirname(__file__),
+            "..",
+            "templates",
+            "index.html",
         )
         with open(path) as f:
             return f.read()
@@ -107,11 +116,7 @@ class TestNavigationStatIdsMatch:
         js = self._read_navigation_js()
         # Match getElementById('...') OR the el('...') helper defined in this file.
         # The latter resolves to getElementById at runtime.
-        pattern = (
-            r"(?:getElementById\(['\"]|el\(['\"])"
-            + re.escape(dom_id)
-            + r"['\"]"
-        )
+        pattern = r"(?:getElementById\(['\"]|el\(['\"])" + re.escape(dom_id) + r"['\"]"
         assert re.search(pattern, js), (
             f"navigation.js does not reference '{dom_id}' via getElementById "
             or f"el(). Bug regression — stats will silently not update."
@@ -121,9 +126,7 @@ class TestNavigationStatIdsMatch:
     def test_template_contains_id(self, dom_id):
         """Every stat-* id must exist in templates/index.html."""
         html = self._read_template()
-        assert f'id="{dom_id}"' in html, (
-            f"templates/index.html missing id=\"{dom_id}\""
-        )
+        assert f'id="{dom_id}"' in html, f'templates/index.html missing id="{dom_id}"'
 
     def test_no_american_stat_analyzed_in_navigation_js(self):
         """BUG-002 regression guard.
@@ -148,13 +151,21 @@ class TestPipelineHealthIdsMatch:
     """
 
     HEALTH_IDS = (
-        "health-total", "health-analysed", "health-classified",
-        "health-approved", "health-written", "health-duplicates",
+        "health-total",
+        "health-analysed",
+        "health-classified",
+        "health-approved",
+        "health-written",
+        "health-duplicates",
     )
 
     def _read_pipeline_js(self):
         path = os.path.join(
-            os.path.dirname(__file__), "..", "app", "static", "modules",
+            os.path.dirname(__file__),
+            "..",
+            "app",
+            "static",
+            "modules",
             "pipeline.js",
         )
         with open(path) as f:
@@ -162,7 +173,10 @@ class TestPipelineHealthIdsMatch:
 
     def _read_template(self):
         path = os.path.join(
-            os.path.dirname(__file__), "..", "templates", "index.html",
+            os.path.dirname(__file__),
+            "..",
+            "templates",
+            "index.html",
         )
         with open(path) as f:
             return f.read()
@@ -174,17 +188,13 @@ class TestPipelineHealthIdsMatch:
         assert re.search(
             r"getElementById\(['\"]" + re.escape(dom_id) + r"['\"]\)",
             js,
-        ), (
-            f"pipeline.js does not reference getElementById('{dom_id}')"
-        )
+        ), f"pipeline.js does not reference getElementById('{dom_id}')"
 
     @pytest.mark.parametrize("dom_id", HEALTH_IDS)
     def test_template_contains_id(self, dom_id):
         """Every health-* id must exist in templates/index.html."""
         html = self._read_template()
-        assert f'id="{dom_id}"' in html, (
-            f"templates/index.html missing id=\"{dom_id}\""
-        )
+        assert f'id="{dom_id}"' in html, f'templates/index.html missing id="{dom_id}"'
 
     def test_no_american_health_analyzed_in_pipeline_js(self):
         """BUG-003 regression guard."""
@@ -229,7 +239,11 @@ class TestReviewBulkApproveContract:
     def test_review_js_has_no_result_forEach(self):
         """Belt-and-braces: review.js must not iterate the response as an array."""
         path = os.path.join(
-            os.path.dirname(__file__), "..", "app", "static", "modules",
+            os.path.dirname(__file__),
+            "..",
+            "app",
+            "static",
+            "modules",
             "review.js",
         )
         with open(path) as f:
@@ -248,7 +262,7 @@ class TestReviewBulkApproveContract:
 # BUG-005  review.js write-tags must consume async op_id response (no forEach)
 # ---------------------------------------------------------------------------
 class TestReviewWriteTagsContract:
-    """/api/review/write returns {op_id, total} async — never an array.
+    """The unsafe legacy writer stays disabled while v2 owns mutations.
 
     Bug BUG-005: review.js called result.forEach on the async 202 response.
     Same root cause as BUG-004 but a separate code path. The bug is silenced
@@ -259,22 +273,20 @@ class TestReviewWriteTagsContract:
       2) Asserts review.js never blindly .forEach's the write response.
     """
 
-    def test_write_returns_op_id_payload_when_no_lock_active(self, client):
-        """/api/review/write returns {op_id, total} async shape (or 429 if busy)."""
+    def test_legacy_write_is_disabled_with_safe_migration_guidance(self, client):
+        """No legacy in-place write may bypass v2 backup/read-back checks."""
         resp = client.post("/api/review/write", json={})
-        assert resp.status_code in (202, 429), (
-            f"Unexpected /api/review/write status {resp.status_code}; "
-            "expected 202 (accepted, with op_id) or 429 (already in progress)."
-        )
-        if resp.status_code == 202:
-            data = resp.get_json()
-            assert isinstance(data, dict)
-            assert "op_id" in data and "total" in data
+        assert resp.status_code == 410
+        assert "Write preview" in resp.get_json()["detail"]
 
     def test_review_js_handles_write_response_without_forEach(self):
         """The Write Tags handler must consume {op_id, total} as an object."""
         path = os.path.join(
-            os.path.dirname(__file__), "..", "app", "static", "modules",
+            os.path.dirname(__file__),
+            "..",
+            "app",
+            "static",
+            "modules",
             "review.js",
         )
         with open(path) as f:
@@ -300,7 +312,8 @@ class TestBugFoundDocRouteNote:
 
     def test_bug001_describes_correct_route(self):
         path = os.path.join(
-            os.path.dirname(__file__), "BUGS-FOUND.md",
+            os.path.dirname(__file__),
+            "BUGS-FOUND.md",
         )
         with open(path) as f:
             content = f.read()
@@ -310,7 +323,10 @@ class TestBugFoundDocRouteNote:
         # real endpoint. The "correct" route across the doc must be /api/classify.
         lower = content.lower()
         assert "/api/classify/start" in lower  # bug is still documented
-        assert "correct endpoint is `post /api/classify`" in lower or "correct route is `/api/classify`" in lower, (
+        assert (
+            "correct endpoint is `post /api/classify`" in lower
+            or "correct route is `/api/classify`" in lower
+        ), (
             "BUGS-FOUND.md BUG-001/012 description must clearly state the "
             "correct route is /api/classify (not /api/classify/start)."
         )

@@ -118,6 +118,14 @@ def write_tags():
     Returns: { "op_id": "...", "total": N }  (202 Accepted)
     Stream progress via EventSource('/api/progress/<op_id>')
     """
+    # The original writer updates source files in place with an incomplete
+    # tag-only backup.  Keep the legacy review screen readable, but never
+    # expose that mutation path beside the verified v2 write preview.
+    return jsonify({
+        "error": "legacy_write_disabled",
+        "detail": "Legacy in-place tag writing is disabled. Use Library → Write preview for verified backups and read-back, or Export for tagged copies.",
+    }), 410
+
     try:
         import uuid
         import threading

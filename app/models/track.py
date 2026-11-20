@@ -133,6 +133,9 @@ class Track:
     # mtime is stored as float (os.path.getmtime), size in bytes
     file_mtime: Optional[float] = None
     file_size: Optional[int] = None
+    # ctime changes on local metadata/tag writes even when an editor restores
+    # mtime and keeps the file size within existing padding.
+    file_ctime_ns: Optional[int] = None
 
     # Phrase / section boundary detection
     # List of [time_seconds, confidence] pairs marking structural boundaries
@@ -168,7 +171,10 @@ class Track:
 
     @property
     def final_subgenre(self) -> Optional[str]:
-        return self.override_subgenre or self.proposed_subgenre
+        # ``""`` is an intentional user clear, not a request to fall back to
+        # a model proposal. The v2 decision model represents this explicitly;
+        # keep the legacy derived field consistent until callers migrate.
+        return self.override_subgenre if self.override_subgenre is not None else self.proposed_subgenre
 
     @property
     def final_bpm(self) -> Optional[str]:
@@ -188,4 +194,6 @@ class Track:
 
     @property
     def final_comment(self) -> Optional[str]:
-        return self.override_comment or self.proposed_subgenre or self.existing_comment
+        if self.override_comment is not None:
+            return self.override_comment
+        return self.final_subgenre or self.existing_comment

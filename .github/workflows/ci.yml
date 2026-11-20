@@ -27,7 +27,14 @@ jobs:
       - name: Lint with ruff
         run: ruff check app/ --select E,F,W --ignore E501,E701
       - name: Run tests
-        run: pytest -v --tb=short
+        shell: bash
+        run: |
+          set -o pipefail
+          pytest -v --tb=short 2>&1 | tee "$RUNNER_TEMP/idjlm-pytest.log"
+          if grep -Eq 'Fatal Python error:|Segmentation fault' "$RUNNER_TEMP/idjlm-pytest.log"; then
+            echo "Native worker crash detected in pytest output" >&2
+            exit 1
+          fi
       - name: Check Python syntax
         run: python -m py_compile app/__init__.py
       - name: Notify on failure

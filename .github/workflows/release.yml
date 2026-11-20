@@ -1,4 +1,4 @@
-name: Desktop release
+name: Desktop installer checks
 
 on:
   push:
@@ -9,7 +9,11 @@ on:
       - ".github/workflows/release.yml"
       - "idjlm.spec"
       - "run_app.py"
+      - "app/services/analyzer.py"
+      - "app/models/track.py"
       - "requirements.txt"
+      - "requirements-audio.txt"
+      - "scripts/verify_audio_runtime.py"
       - "package.json"
       - "package-lock.json"
       - "src-tauri/**"
@@ -22,7 +26,10 @@ permissions:
 jobs:
   build-macos-arm64:
     name: Build macOS Apple Silicon installer
-    runs-on: macos-15
+    # GitHub documents this standard arm64 image for public repositories.
+    # Keep the architecture check below so a runner-label change cannot silently
+    # produce an Intel review build.
+    runs-on: macos-26
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,6 +37,7 @@ jobs:
       - name: Verify clean distributable inputs
         shell: bash
         run: |
+          test "$(uname -m)" = "arm64" || { echo "Expected an arm64 macOS runner"; exit 1; }
           test ! -e .env || { echo "Refusing to package a workspace containing .env"; exit 1; }
           python - <<'PY'
           import json, pathlib, re, tomllib
@@ -77,12 +85,18 @@ jobs:
 
       - name: Build PyInstaller sidecar
         run: |
-          "${{ steps.py-arm64.outputs.python-path }}" -m pip install -r requirements.txt pyinstaller
+          "${{ steps.py-arm64.outputs.python-path }}" -m pip install -r requirements.txt -r requirements-audio.txt pyinstaller
+          "${{ steps.py-arm64.outputs.python-path }}" scripts/verify_audio_runtime.py
           "${{ steps.py-arm64.outputs.python-path }}" -m PyInstaller idjlm.spec --clean \
             --distpath src-tauri/binaries/tmp
+          src-tauri/binaries/tmp/idjlm-server --verify-audio-runtime
           mkdir -p src-tauri/binaries
           mv src-tauri/binaries/tmp/idjlm-server \
             src-tauri/binaries/idjlm-server-aarch64-apple-darwin
+
+      - name: Verify spawned analyzer batch
+        timeout-minutes: 5
+        run: src-tauri/binaries/idjlm-server-aarch64-apple-darwin --verify-analyzer-runtime
 
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli@^2.5.0
@@ -195,6 +209,10 @@ jobs:
           mkdir -p src-tauri/binaries
           mv src-tauri/binaries/tmp/idjlm-server \
             src-tauri/binaries/idjlm-server-x86_64-apple-darwin
+
+      - name: Verify spawned analyzer batch
+        timeout-minutes: 5
+        run: src-tauri/binaries/idjlm-server-x86_64-apple-darwin --verify-analyzer-runtime
 
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli@^2.5.0
@@ -311,6 +329,11 @@ jobs:
           New-Item -ItemType Directory -Force -Path src-tauri/binaries
           Move-Item src-tauri/binaries/tmp/idjlm-server.exe `
             src-tauri/binaries/idjlm-server-x86_64-pc-windows-msvc.exe
+
+      - name: Verify spawned analyzer batch
+        timeout-minutes: 5
+        shell: pwsh
+        run: src-tauri/binaries/idjlm-server-x86_64-pc-windows-msvc.exe --verify-analyzer-runtime
 
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli@^2.5.0

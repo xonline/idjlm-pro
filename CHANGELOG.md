@@ -4,6 +4,18 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [Unreleased] — review PR #44
+
+### Latin library workflow
+- Added a local-first workspace with Library, Review, Categories, Export, Activity, and Settings pages. The earlier tools remain available under Advanced.
+- Added literal personal tags, human-reviewed model suggestions, review previews, backed-up metadata writes with guarded restore, and verified staged-copy export.
+- Added an optional local audio-classification path. Its Latin-family and fine-style accuracy has not been measured on a representative music set.
+- Added a SQLite library store and resumable local jobs. Import, review, tagging, and export do not require a cloud API key.
+
+This work is under review in [review PR #44](https://github.com/xonline/idjlm-pro/pull/44). It is not part of a public release.
+
+---
+
 ## [4.2.0] — 2026-07-04
 
 ### Frontend UI (Phase 0)

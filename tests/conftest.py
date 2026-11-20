@@ -2,8 +2,14 @@
 import json
 import os
 import shutil
+import tempfile
 
 import pytest
+
+# Tests must never open or modify the operator's IDJLM library.  Set this
+# before importing app modules, whose path constants resolve at import time.
+_TEST_DATA_DIR = tempfile.mkdtemp(prefix="idjlm-tests-")
+os.environ["IDJLM_USER_DATA_DIR"] = _TEST_DATA_DIR
 
 from app import create_app
 
@@ -15,7 +21,7 @@ def _test_taxonomy():
     On Linux the app checks ~/.idjlm-pro/taxonomy.json, then falls back to
     the bundle copy at <project>/taxonomy.json.
     """
-    user_taxonomy = os.path.expanduser("~/.idjlm-pro/taxonomy.json")
+    user_taxonomy = os.path.join(_TEST_DATA_DIR, "taxonomy.json")
     bundle_taxonomy = os.path.join(
         os.path.dirname(__file__), "..", "taxonomy.json"
     )
@@ -34,9 +40,8 @@ def _test_taxonomy():
             json.dump(minimal, f)
         yield user_taxonomy
 
-    # Cleanup: remove test-created file
-    if os.path.exists(user_taxonomy):
-        os.remove(user_taxonomy)
+    # The complete isolated directory is left for the OS temporary-file
+    # cleaner. Never delete or alter a real user taxonomy from tests.
 
 
 @pytest.fixture(scope="session")
@@ -55,34 +60,23 @@ def client(app):
 
 @pytest.fixture(autouse=True)
 def _cleanup_setlist_between_tests(request):
-    """Reset setlist.json before and after each test so state doesn't leak."""
-    # Canonical setlist.json path: same file the app reads/writes.
-    # Derive from the app's SETLIST_PATH constant so test and app cannot drift.
-    from app.routes.setlist_routes import SETLIST_PATH as setlist_path
-    default_content = json.dumps({"tracks": [], "name": "My Set"})
+    """Reset isolated setlist and playlist documents between tests."""
+    from app.routes.playlist_routes import _save_playlists, playlists_storage_path
+    from app.routes.setlist_routes import _save_setlist, setlist_storage_path
 
-    # Read valid original content (only if it has the expected structure)
-    original = None
-    if os.path.exists(setlist_path):
-        with open(setlist_path) as f:
-            raw = f.read()
-        try:
-            parsed = json.loads(raw)
-            if "tracks" in parsed and "name" in parsed:
-                original = raw
-        except json.JSONDecodeError:
-            pass
+    for storage_path in (setlist_storage_path(), playlists_storage_path()):
+        isolated_path = os.path.abspath(storage_path)
+        assert os.path.commonpath([isolated_path, _TEST_DATA_DIR]) == _TEST_DATA_DIR
 
-    # Reset to defaults before test
-    with open(setlist_path, "w") as f:
-        f.write(default_content)
+    def reset_documents():
+        for storage_path in (setlist_storage_path(), playlists_storage_path()):
+            isolated_path = os.path.abspath(storage_path)
+            assert os.path.commonpath([isolated_path, _TEST_DATA_DIR]) == _TEST_DATA_DIR
+        _save_setlist({"tracks": [], "name": "My Set"})
+        _save_playlists({"playlists": []})
+
+    reset_documents()
 
     yield
 
-    # Restore valid original, or clean up to defaults
-    if original is not None:
-        with open(setlist_path, "w") as f:
-            f.write(original)
-    else:
-        with open(setlist_path, "w") as f:
-            f.write(default_content)
+    reset_documents()

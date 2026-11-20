@@ -23,6 +23,14 @@ def backups_list():
 @bp.route("/organise/backups/<backup_id>/restore", methods=["POST"])
 def backups_restore(backup_id):
     """POST /api/organise/backups/{id}/restore — restore tags from backup."""
+    # Legacy backups omit fields and cannot verify the current file.  They
+    # remain listable for inspection, but restoring through this endpoint
+    # would reintroduce the metadata-loss path the v2 ledger prevents.
+    return jsonify({
+        "error": "legacy_restore_disabled",
+        "detail": "Legacy tag-only restore is disabled. Use Activity → verified write → Preview restore for a complete-file checksum-guarded restore.",
+    }), 410
+
     try:
         from app import get_track_store
         from app.services.tag_backup import load_backup

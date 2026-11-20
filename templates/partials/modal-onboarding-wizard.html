@@ -15,20 +15,14 @@
 
     <div class="onboarding-step" id="onboard-step-2" style="display:none;">
       <div class="onboarding-icon">⚙️</div>
-      <h3>Set Up AI Classification</h3>
-      <p>IDJLM Pro uses AI to detect genre + sub-genre for every track. You need an API key from one of these providers:</p>
-      <div class="onboarding-providers">
-        <div class="onboarding-provider" data-provider="gemini">🌟 Google Gemini (Free)</div>
-        <div class="onboarding-provider" data-provider="claude">Anthropic Claude</div>
-        <div class="onboarding-provider" data-provider="openai">OpenAI GPT</div>
-        <div class="onboarding-provider" data-provider="qwen">Qwen (Alibaba)</div>
-      </div>
+      <h3>Review before changing files</h3>
+      <p>Use the Library and Review pages to compare existing tags with suggestions. You can organise and tag a folder without a cloud API key.</p>
       <div class="onboarding-tip">
-        💡 <strong>Recommendation:</strong> Gemini is free and takes 30 seconds. Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent);">aistudio.google.com/apikey</a>.
+        💡 <strong>Optional:</strong> Settings can install the local experimental audio model on supported systems. It is never used to auto-approve tracks.
       </div>
       <div class="onboarding-actions" style="margin-top:16px;">
-        <button class="btn btn-primary" id="onboard-continue">I have my API key — Continue →</button>
-        <button class="btn btn-secondary btn-sm" id="onboard-skip-api">Skip for now — I'll set it up later</button>
+        <button class="btn btn-primary" id="onboard-continue">Continue →</button>
+        <button class="btn btn-secondary btn-sm" id="onboard-skip-api">Skip model setup</button>
       </div>
     </div>
 
@@ -37,12 +31,12 @@
       <h3>You're All Set!</h3>
       <p>Here's what to do next:</p>
       <div class="onboarding-tip" style="text-align:left;">
-        <strong>1.</strong> If you haven't set an API key yet, go to <strong>Settings</strong> → pick a provider → paste your key → click <strong>Test</strong> to verify.<br><br>
-        <strong>2.</strong> Once your API key is set, the <strong>Analyse</strong> button in the pipeline above will activate.<br><br>
-        <strong>3.</strong> Click <strong>Analyse</strong> → then <strong>Classify</strong> → review results → <strong>Write Tags</strong>.
+        <strong>1.</strong> Use <strong>Library</strong> to import and inspect a copied test folder.<br><br>
+        <strong>2.</strong> Use <strong>Review</strong> and <strong>Categories</strong> to record your decisions.<br><br>
+        <strong>3.</strong> Use <strong>Export</strong> to prepare verified copies, or preview a source write with a backup.
       </div>
       <div class="onboarding-actions" style="margin-top:16px;">
-        <button class="btn btn-primary" id="onboard-go-settings">Take me to Settings</button>
+        <button class="btn btn-primary" id="onboard-go-settings">Open Advanced Settings</button>
         <button class="btn btn-secondary btn-sm" id="onboard-start-import">Got it — I'll explore on my own</button>
       </div>
     </div>

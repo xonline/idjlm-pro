@@ -1,4 +1,5 @@
 """Tests for bug fixes — verify specific issues are resolved."""
+
 import json
 import os
 import pytest
@@ -19,9 +20,7 @@ class TestSessionRoundTrip:
         from app import get_track_store
 
         # Simulate importing tracks
-        resp = client.post("/api/import", json={
-            "folder_path": "/tmp"
-        })
+        resp = client.post("/api/import", json={"folder_path": "/tmp"})
         # May succeed or fail depending on filesystem — that's OK
         # What matters is that save/load works with whatever tracks exist
 
@@ -78,6 +77,7 @@ class TestBulkEditPayload:
 
         # Get the track store
         from app import get_track_store
+
         track_store = get_track_store()
 
         if not track_store:
@@ -86,11 +86,14 @@ class TestBulkEditPayload:
         paths = list(track_store.keys())[:2]
 
         # Send with track_paths (correct key)
-        resp = client.post("/api/review/bulk-edit", json={
-            "track_paths": paths,
-            "genre": "TestGenre",
-            "subgenre": "TestSub",
-        })
+        resp = client.post(
+            "/api/review/bulk-edit",
+            json={
+                "track_paths": paths,
+                "genre": "TestGenre",
+                "subgenre": "TestSub",
+            },
+        )
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["updated"] >= 0
@@ -104,9 +107,12 @@ class TestSettingsFields:
 
     def test_save_classify_batch_size(self, client):
         """classify_batch_size (not batch_size) must be saved."""
-        resp = client.post("/api/settings", json={
-            "classify_batch_size": 15,
-        })
+        resp = client.post(
+            "/api/settings",
+            json={
+                "classify_batch_size": 15,
+            },
+        )
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["saved"] is True
@@ -119,9 +125,12 @@ class TestSettingsFields:
 
     def test_save_auto_approve_threshold(self, client):
         """auto_approve_threshold must persist correctly."""
-        resp = client.post("/api/settings", json={
-            "auto_approve_threshold": 65,
-        })
+        resp = client.post(
+            "/api/settings",
+            json={
+                "auto_approve_threshold": 65,
+            },
+        )
         assert resp.status_code == 200
 
         resp2 = client.get("/api/settings")
@@ -137,11 +146,14 @@ class TestTaxonomyEndpoints:
 
     def test_add_genre_and_verify(self, client):
         """Add a genre, then verify it appears in GET /api/taxonomy."""
-        resp = client.post("/api/taxonomy/genre", json={
-            "name": "TestGenreForBugfix",
-            "description": "A test genre for bug fix verification",
-            "subgenres": {"Sub1": "Description 1"}
-        })
+        resp = client.post(
+            "/api/taxonomy/genre",
+            json={
+                "name": "TestGenreForBugfix",
+                "description": "A test genre for bug fix verification",
+                "subgenres": {"Sub1": "Description 1"},
+            },
+        )
         assert resp.status_code == 200
         data = resp.get_json()
         assert "TestGenreForBugfix" in data["genres"]
@@ -170,13 +182,15 @@ class TestAnalyzerEdgeCases:
 
         track_store = get_track_store()
         test_track = Track(
-            file_path="/nonexistent/audio_file.mp3",
-            filename="audio_file.mp3"
+            file_path="/nonexistent/audio_file.mp3", filename="audio_file.mp3"
         )
 
         result = analyze_track(test_track)
         assert result.error is not None
-        assert "analysis failed" in result.error.lower() or "no bpm" in result.error.lower()
+        assert (
+            "analysis failed" in result.error.lower()
+            or "no bpm" in result.error.lower()
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -223,9 +237,9 @@ class TestStaticFiles:
             tracks_content = f.read()
 
         # Check that handleBulkEdit sends track_paths (not file_paths)
-        assert "track_paths: Array.from(store.state.selectedTracks)," in classify_content, (
-            "handleBulkEdit must send 'track_paths' not 'file_paths'"
-        )
+        assert (
+            "track_paths: Array.from(store.state.selectedTracks)," in classify_content
+        ), "handleBulkEdit must send 'track_paths' not 'file_paths'"
 
         # Check that confidence uses 'confidence-mid' (not 'confidence-medium')
         assert "'confidence-mid'" in tracks_content, (
@@ -251,11 +265,8 @@ class TestReviewRoutesResponseShapes:
         assert "approved" in data
         assert isinstance(data["approved"], int)
 
-    def test_write_tags_returns_op_id(self, client):
-        """write-tags returns {op_id, total}, not an array."""
+    def test_legacy_write_tags_is_disabled(self, client):
+        """The classic route cannot bypass verified v2 source writes."""
         resp = client.post("/api/review/write", json={})
-        assert resp.status_code in (202, 500)
-        if resp.status_code == 202:
-            data = resp.get_json()
-            assert "op_id" in data
-            assert "total" in data
+        assert resp.status_code == 410
+        assert resp.get_json()["error"] == "legacy_write_disabled"

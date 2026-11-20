@@ -4,13 +4,6 @@ set -e
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR"
 
-# Create .env from example if it doesn't exist
-if [ ! -f .env ]; then
-  cp config.example.env .env
-  echo "Created .env from config.example.env — add your GEMINI_API_KEY to .env before running."
-  exit 1
-fi
-
 # Create venv if needed
 if [ ! -d .venv ]; then
   echo "Creating virtual environment..."
@@ -24,8 +17,14 @@ source .venv/bin/activate
 echo "Installing dependencies..."
 pip install -q -r requirements.txt
 
-# Load env vars
-export $(grep -v '^#' .env | grep -v '^$' | xargs)
+# Legacy cloud-enrichment settings remain optional. The local Library,
+# review, write and export workflow starts without any provider credential.
+if [ -f .env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . ./.env
+  set +a
+fi
 
 PORT="${FLASK_PORT:-5050}"
 
@@ -34,4 +33,4 @@ echo "  IDJLM Pro"
 echo "  Open: http://localhost:$PORT"
 echo ""
 
-python3 -m flask --app app run --port "$PORT"
+python3 run_app.py

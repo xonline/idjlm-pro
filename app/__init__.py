@@ -11,15 +11,16 @@ from app.services.track_store import TrackStore
 def _setup_file_logging():
     """Write app logs to ~/Library/Logs/IDJLM Pro/idjlm.log (macOS) or ~/.idjlm-pro/logs/idjlm.log."""
     from .utils import paths
+
     log_dir = paths.ensure_app_user_log_dir()
     log_path = os.path.join(log_dir, "idjlm.log")
 
     handler = logging.handlers.RotatingFileHandler(
         log_path, maxBytes=2 * 1024 * 1024, backupCount=3
     )
-    handler.setFormatter(logging.Formatter(
-        "%(asctime)s %(levelname)s %(name)s — %(message)s"
-    ))
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(name)s — %(message)s")
+    )
     root = logging.getLogger()
     if not root.handlers:
         root.addHandler(handler)
@@ -35,14 +36,18 @@ def _setup_file_logging():
 # next to the user data dir (<user_dir>/tracks.db). Migration from any
 # pre-existing session.json runs automatically inside create_app() once.
 _track_store: "TrackStore | dict" = None
+_v2_store = None
 # Reentrant lock protecting _track_store from concurrent mutations
 # (import clear vs background analyse/classify iteration race — issue #199)
 _track_store_lock = threading.RLock()
 # Taxonomy loaded from taxonomy.json (mutable at runtime)
 _taxonomy: dict = {}
+
+
 # Progress queues: { op_id: queue.Queue }
 class _LimitedProgressQueues(dict):
     """Size-capped dict that evicts oldest entries when limit is reached."""
+
     _MAX = 50
 
     def __setitem__(self, key, value):
@@ -53,6 +58,7 @@ class _LimitedProgressQueues(dict):
             except StopIteration:
                 break
         super().__setitem__(key, value)
+
 
 _progress_queues = _LimitedProgressQueues()
 # Last imported folder path (used for auto-save)
@@ -86,6 +92,17 @@ def set_track_store(store) -> None:
     _track_store = store
 
 
+def get_v2_store():
+    """Return durable redesign state after :func:`create_app` initializes it."""
+    return _v2_store
+
+
+def set_v2_store(store) -> None:
+    """Install a v2 store as an isolated-test seam."""
+    global _v2_store
+    _v2_store = store
+
+
 def get_taxonomy() -> dict:
     return _taxonomy
 
@@ -109,6 +126,7 @@ def set_current_folder_path(path: str) -> None:
 
 def create_app() -> Flask:
     import logging.handlers
+
     log_path = _setup_file_logging()
 
     app = Flask(__name__, template_folder="../templates", static_folder="static")
@@ -124,6 +142,7 @@ def create_app() -> Flask:
     # session.json runs once on first launch and is recorded in the
     # store's `store_meta` table so subsequent launches skip it.
     from .utils import paths as _paths
+
     store = TrackStore()
     try:
         migrated = store.migrate_from_session_json(
@@ -141,22 +160,43 @@ def create_app() -> Flask:
             "IDJLM Pro: track-store migration skipped due to error: %s",
             exc,
         )
-    global _track_store
+    global _track_store, _v2_store
     _track_store = store
+    from app.services.v2_store import V2Store
+
+    _v2_store = V2Store(store.db_path)
+    # A crash after atomic source publication but before the route can finish
+    # its ledger row is reconciled from the durable intent without touching
+    # media bytes. Mismatches remain recovery-required for user review.
+    try:
+        from app.services.v2_write_ops import reconcile_pending_writes
+
+        reconcile_pending_writes(_v2_store)
+    except Exception as exc:
+        logging.getLogger(__name__).warning(
+            "IDJLM Pro: pending v2 write reconciliation skipped: %s", exc
+        )
 
     # Load taxonomy — prefer user-writable copy (may have edits), fall back to bundle
     from .utils import paths  # noqa: F811  (re-import scoped to function)
+
     _user_taxonomy = paths.user_data_path("taxonomy.json")
     _bundle_taxonomy = os.path.join(os.path.dirname(__file__), "..", "taxonomy.json")
-    taxonomy_path = _user_taxonomy if os.path.exists(_user_taxonomy) else _bundle_taxonomy
+    taxonomy_path = (
+        _user_taxonomy if os.path.exists(_user_taxonomy) else _bundle_taxonomy
+    )
     try:
         with open(taxonomy_path) as f:
             _taxonomy.update(json.load(f))
     except (FileNotFoundError, json.JSONDecodeError, OSError) as e:
         logging.getLogger(__name__).warning(
-            "Failed to load taxonomy from %s: %s. Using built-in default taxonomy.", taxonomy_path, e
+            "Failed to load taxonomy from %s: %s. Using built-in default taxonomy.",
+            taxonomy_path,
+            e,
         )
-        _taxonomy.update({"genres": {"Unknown": {"description": "Default genre", "subgenres": {}}}})
+        _taxonomy.update(
+            {"genres": {"Unknown": {"description": "Default genre", "subgenres": {}}}}
+        )
 
     # Register blueprints
     from app.routes.import_routes import bp as import_bp
@@ -183,6 +223,7 @@ def create_app() -> Flask:
     from app.routes.rekordbox_routes import bp as rekordbox_bp
     from app.routes.backup_routes import bp as backup_bp
     from app.routes.tag_routes import bp as tag_bp
+    from app.routes.v2_routes import bp as v2_bp
 
     app.register_blueprint(import_bp)
     app.register_blueprint(track_bp)
@@ -208,10 +249,12 @@ def create_app() -> Flask:
     app.register_blueprint(rekordbox_bp)
     app.register_blueprint(backup_bp)
     app.register_blueprint(tag_bp)
+    app.register_blueprint(v2_bp)
 
     @app.route("/")
     def index():
         import sys as _sys
+
         base = getattr(_sys, "_MEIPASS", os.path.dirname(os.path.dirname(__file__)))
         try:
             version = open(os.path.join(base, "VERSION")).read().strip()
@@ -226,13 +269,25 @@ def create_app() -> Flask:
     # Centralised error handlers — A.2 structured-error taxonomy.
     # Any uncaught exception in a route handler is converted to the
     # {"error", "detail", "op"} shape; real exception stays in server log only.
-    from .utils.errors import AppError, Err, log_app_error, log_unexpected_error, make_error_payload
+    from .utils.errors import (
+        AppError,
+        Err,
+        log_app_error,
+        log_unexpected_error,
+        make_error_payload,
+    )
 
     @app.errorhandler(AppError)
     def _handle_app_error(err: AppError):
         log_app_error(err, route=request.path if request else None)
         return (
-            jsonify({"error": err.code, "detail": err.message, **({"op": err.op} if err.op else {})}),
+            jsonify(
+                {
+                    "error": err.code,
+                    "detail": err.message,
+                    **({"op": err.op} if err.op else {}),
+                }
+            ),
             err.status_code,
         )
 
@@ -248,6 +303,7 @@ def create_app() -> Flask:
     def _handle_unexpected(e: Exception):
         # Skip HTTPException — those are handled by their own status handlers.
         from werkzeug.exceptions import HTTPException
+
         if isinstance(e, HTTPException):
             return e
         # Never include str(e) in the payload — it can leak path/class info.
