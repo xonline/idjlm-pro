@@ -6,7 +6,7 @@ IDJLM Pro is a desktop app for managing a Latin music library with local import,
 
 The latest public release is [v4.1.0](https://github.com/xonline/idjlm-pro/releases/tag/v4.1.0), published on 1 June 2026. The new local Latin-library workspace is in [review PR #44](https://github.com/xonline/idjlm-pro/pull/44), not in that release.
 
-When PR #44 has a successful **Desktop installer checks** run, use the matching run's **Artifacts** section:
+When PR #44 has a successful **Desktop installer checks** run, sign in to GitHub and use the matching run's **Artifacts** section:
 
 1. Download `idjlm-pro-dmg-aarch64-apple-darwin` for a native Apple Silicon review build.
 2. Unzip the download, open its DMG, and move **IDJLM Pro** to Applications.
@@ -28,7 +28,7 @@ Audio classification runs through an optional local pretrained model. It is expe
 
 A staged copy does not confirm transfer to an iPad or discovery in djay. Physical transfer and destination-app checks remain open.
 
-See the [reliability check](docs/reliability-status-2026-11-19.md), the [implementation status](docs/implementation-status-2026-11-10.md) for prior verification evidence and limits, the [redesign brief](docs/jb-latin-redesign-2026-10-18/README.md) and its engineering and UX specifications for workflow detail, and the [changelog](CHANGELOG.md) for release history.
+See the [reliability check](https://github.com/xonline/idjlm-pro/blob/8817c5f/docs/reliability-status-2026-11-19.md), the [implementation status](https://github.com/xonline/idjlm-pro/blob/4f01346/docs/implementation-status-2026-11-10.md) for prior verification evidence and limits, the [redesign brief](https://github.com/xonline/idjlm-pro/blob/4f01346/docs/jb-latin-redesign-2026-10-18/README.md) and its engineering and UX specifications for workflow detail, and the [changelog](CHANGELOG.md) for release history.
 
 ## Run from source (developers)
 
