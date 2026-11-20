@@ -94,12 +94,13 @@ class TestNavigationStatIdsMatch:
         with open(path) as f:
             return f.read()
 
-    def _read_template(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "templates", "index.html",
-        )
-        with open(path) as f:
-            return f.read()
+    def _read_template(self, app):
+        # index.html is a skeleton of {% include %} partials; check the
+        # rendered output so ids living in templates/partials/ are seen.
+        with app.app_context():
+            return app.jinja_env.get_template("index.html").render(
+                version="test", dev_mode=False
+            )
 
     @pytest.mark.parametrize("dom_id", STAT_IDS)
     def test_navigation_js_references_id(self, dom_id):
@@ -118,9 +119,9 @@ class TestNavigationStatIdsMatch:
         )
 
     @pytest.mark.parametrize("dom_id", STAT_IDS)
-    def test_template_contains_id(self, dom_id):
-        """Every stat-* id must exist in templates/index.html."""
-        html = self._read_template()
+    def test_template_contains_id(self, dom_id, app):
+        """Every stat-* id must exist in the rendered templates/index.html."""
+        html = self._read_template(app)
         assert f'id="{dom_id}"' in html, (
             f"templates/index.html missing id=\"{dom_id}\""
         )
@@ -160,12 +161,13 @@ class TestPipelineHealthIdsMatch:
         with open(path) as f:
             return f.read()
 
-    def _read_template(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "templates", "index.html",
-        )
-        with open(path) as f:
-            return f.read()
+    def _read_template(self, app):
+        # index.html is a skeleton of {% include %} partials; check the
+        # rendered output so ids living in templates/partials/ are seen.
+        with app.app_context():
+            return app.jinja_env.get_template("index.html").render(
+                version="test", dev_mode=False
+            )
 
     @pytest.mark.parametrize("dom_id", HEALTH_IDS)
     def test_pipeline_js_references_id(self, dom_id):
@@ -179,9 +181,9 @@ class TestPipelineHealthIdsMatch:
         )
 
     @pytest.mark.parametrize("dom_id", HEALTH_IDS)
-    def test_template_contains_id(self, dom_id):
-        """Every health-* id must exist in templates/index.html."""
-        html = self._read_template()
+    def test_template_contains_id(self, dom_id, app):
+        """Every health-* id must exist in the rendered templates/index.html."""
+        html = self._read_template(app)
         assert f'id="{dom_id}"' in html, (
             f"templates/index.html missing id=\"{dom_id}\""
         )
