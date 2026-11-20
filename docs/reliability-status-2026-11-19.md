@@ -1,5 +1,9 @@
 # Reliability check · 19 November 2026
 
+**Updated 21 November 2026.** This record remains historical verification
+evidence. Check [PR #44](https://github.com/xonline/idjlm-pro/pull/44) for the
+current review-build commit and its desktop-check artifacts.
+
 This note records the current review-branch evidence for PR #44. It is not a
 release certificate and does not describe the public `main` branch or the
 latest public release.
@@ -69,9 +73,12 @@ or model throughput, music-classification accuracy, transfer performance, or a
 
 ## Remaining gates
 
-Fresh CI and frozen installer checks must confirm this review head on the
-supported platforms. Local Linux evidence does not establish M3 performance or
-installer behavior.
+The 19 November Linux and cross-platform installer evidence does not establish
+the current review head, M3 performance, or installer behavior. A native Apple
+Silicon review artifact must be built and checked before it is offered as an
+M3 download. An Intel macOS artifact may help exercise the manual workflow
+through Rosetta, but is not equivalent evidence for the optional local audio
+runtime.
 
 Issue #879 remains open for representative Latin corpus accuracy evaluation,
 M3 16 GB real-library scale measurement, real iPad/djay transfer discovery,

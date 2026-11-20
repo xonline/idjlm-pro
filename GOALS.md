@@ -1,12 +1,12 @@
 # IDJLM Pro goals
 
-**Current state checked 19 November 2026.** This document describes the active product priorities and release gates. The older revenue targets and July delivery dates are retired.
+**Current state checked 21 November 2026.** This document describes the active product priorities and release gates. The older revenue targets and July delivery dates are retired.
 
 ## Product goal
 
 Make a dependable, local-first desktop workflow for managing a Latin music library. The app should help a DJ review and correct tags, write approved metadata safely, and prepare copies for a destination library without requiring a paid API.
 
-The current workflow is in [review PR #44](https://github.com/xonline/idjlm-pro/pull/44). The latest public release is [v4.1.0](https://github.com/xonline/idjlm-pro/releases/tag/v4.1.0), published 1 June 2026. PR #44 has not been released. Its 9 November desktop workflow passed Apple Silicon, Intel, and Windows build and installed-startup checks. The tag-only publication gate did not run for that pull request. The workflow deliberately fails tag publication because signed and notarized release support is not configured.
+The current workflow is in [review PR #44](https://github.com/xonline/idjlm-pro/pull/44). The latest public release is [v4.1.0](https://github.com/xonline/idjlm-pro/releases/tag/v4.1.0), published 1 June 2026. PR #44 has not been released. Its review artifacts are temporary, unsigned builds; the native Apple Silicon artifact is a release gate, not a substitute for the public release. The workflow deliberately blocks tag publication because signed and notarized release support is not configured.
 
 ## Priorities
 

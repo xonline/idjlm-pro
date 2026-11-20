@@ -2,33 +2,25 @@
 
 IDJLM Pro is a desktop app for managing a Latin music library with local import, listening, human review, tagging, and export tools.
 
-## Current review build
+## Try the current review build on a Mac
 
-The latest public release is [v4.1.0](https://github.com/xonline/idjlm-pro/releases/tag/v4.1.0), published on 1 June 2026. The repository version is 4.2.0, and the new Latin library workflow is in [review PR #44](https://github.com/xonline/idjlm-pro/pull/44). That work is not in a public release yet. The published release will not show the new workspace.
+The latest public release is [v4.1.0](https://github.com/xonline/idjlm-pro/releases/tag/v4.1.0), published on 1 June 2026. The new local Latin-library workspace is in [review PR #44](https://github.com/xonline/idjlm-pro/pull/44), not in that release.
 
-Before you start, install Git, Python 3.11 or 3.12, and Node.js 20 with npm.
+When PR #44 has a successful **Desktop installer checks** run, use the matching run's **Artifacts** section:
 
-To review the new workflow, check out the PR branch:
+1. Download `idjlm-pro-dmg-aarch64-apple-darwin` for a native Apple Silicon review build.
+2. Unzip the download, open its DMG, and move **IDJLM Pro** to Applications.
+3. Open the app and test a copied sample folder: import, review, preview a write, restore it, then preview an export. Do not begin with an irreplaceable library.
 
-```bash
-git clone --branch feat/latin-library-redesign-implementation https://github.com/xonline/idjlm-pro.git
-cd idjlm-pro
-npm ci
-npm run build
-# Use Python 3.11 if 3.12 is unavailable; start.sh reuses this environment.
-python3.12 -m venv .venv
-./start.sh
-```
+Artifacts are temporary CI review builds, retained for 30 days. They are unsigned and are not public releases. macOS may block the app; use [Apple’s documented security override](https://support.apple.com/en-au/102445) only after confirming the artifact came from the PR check you chose. Publication remains blocked until signing and notarization are configured.
 
-Open `http://localhost:5050` after the service starts. On macOS Apple Silicon, the source app starts the same way. `start.sh` creates `.venv`, installs the base Python requirements, and starts the local service. The primary Library, Review, Categories, Export, Activity, and Settings workflow does not need a cloud API key.
+If an Apple Silicon artifact is unavailable, the `idjlm-pro-dmg-x86_64-apple-darwin` artifact can be a **Rosetta fallback** for the manual import, review, write, restore, and export flow. It is not an Apple Silicon build, does not establish M3 performance, and must not be used to assess the optional local audio runtime.
 
-The [Desktop installer checks workflow](https://github.com/xonline/idjlm-pro/actions/workflows/release.yml) builds review installers for [PR #44](https://github.com/xonline/idjlm-pro/pull/44). Downloadable artifacts are temporary CI review builds, retained for 30 days. They are not public installers. The release workflow still blocks publication because signed and notarized release support is not configured.
-
-To try the Apple Silicon build on an M3 Mac, download the `idjlm-pro-dmg-aarch64-apple-darwin` artifact from the PR run, unzip it, open the DMG, and move the app to Applications. macOS may block this unsigned review build. If it does, follow [Apple’s steps to open an app by overriding security settings](https://support.apple.com/en-au/102445).
+The primary workflow has six pages, not six or seven required steps: **Library, Review, Categories, Export, Activity, and Settings**. You can import and organise a folder without a cloud API key. The optional local audio model is configured from Settings and remains experimental.
 
 ## What the review build does
 
-![Current Library workspace with generated review tracks](docs/screenshots/latin-library-workspace.png)
+![Current Library workspace with generated review tracks](https://raw.githubusercontent.com/xonline/idjlm-pro/4f01346/docs/screenshots/latin-library-workspace.png)
 
 The primary workspace has six pages: Library, Review, Categories, Export, Activity, and Settings. It imports folders without moving the source files, keeps existing metadata, model suggestions, and human decisions distinct, and stores personal tags as literal values. Previewed tag writes keep backups and support guarded restore. Export profiles create staged copies and verify metadata on those copies.
 
@@ -36,7 +28,22 @@ Audio classification runs through an optional local pretrained model. It is expe
 
 A staged copy does not confirm transfer to an iPad or discovery in djay. Physical transfer and destination-app checks remain open.
 
-See the [19 November reliability check](docs/reliability-status-2026-11-19.md), the [implementation status](docs/implementation-status-2026-11-10.md) for prior verification evidence and limits, the [redesign brief](docs/jb-latin-redesign-2026-10-18/README.md) and its engineering and UX specifications for workflow detail, and the [changelog](CHANGELOG.md) for release history.
+See the [reliability check](docs/reliability-status-2026-11-19.md), the [implementation status](docs/implementation-status-2026-11-10.md) for prior verification evidence and limits, the [redesign brief](docs/jb-latin-redesign-2026-10-18/README.md) and its engineering and UX specifications for workflow detail, and the [changelog](CHANGELOG.md) for release history.
+
+## Run from source (developers)
+
+To run the review branch without an installer, install Git, Node.js 20 with npm, and Python 3.11 or 3.12, then use the same Python version explicitly when creating the environment:
+
+```bash
+git clone --branch feat/latin-library-redesign-implementation https://github.com/xonline/idjlm-pro.git
+cd idjlm-pro
+npm ci
+npm run build
+python3.12 -m venv .venv  # use python3.11 if 3.12 is unavailable
+./start.sh
+```
+
+Open `http://localhost:5050` after the service starts. `start.sh` uses the existing `.venv`, installs the base Python requirements, and starts the local service.
 
 ## Optional local audio model
 
