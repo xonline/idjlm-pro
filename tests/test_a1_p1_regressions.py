@@ -95,11 +95,15 @@ class TestNavigationStatIdsMatch:
             return f.read()
 
     def _read_template(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "templates", "index.html",
+        # index.html is a skeleton after the #176 partial split; the stat-*
+        # ids now live in templates/partials/*.html, so read them all.
+        base = os.path.join(os.path.dirname(__file__), "..", "templates")
+        parts = [os.path.join(base, "index.html")]
+        parts += sorted(
+            os.path.join(base, "partials", p)
+            for p in os.listdir(os.path.join(base, "partials"))
         )
-        with open(path) as f:
-            return f.read()
+        return "\n".join(open(p).read() for p in parts)
 
     @pytest.mark.parametrize("dom_id", STAT_IDS)
     def test_navigation_js_references_id(self, dom_id):
@@ -161,11 +165,15 @@ class TestPipelineHealthIdsMatch:
             return f.read()
 
     def _read_template(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "templates", "index.html",
+        # index.html is a skeleton after the #176 partial split; health-*
+        # ids live in templates/partials/*.html, so concatenate them all.
+        base = os.path.join(os.path.dirname(__file__), "..", "templates")
+        parts = [os.path.join(base, "index.html")]
+        parts += sorted(
+            os.path.join(base, "partials", p)
+            for p in os.listdir(os.path.join(base, "partials"))
         )
-        with open(path) as f:
-            return f.read()
+        return "\n".join(open(p).read() for p in parts)
 
     @pytest.mark.parametrize("dom_id", HEALTH_IDS)
     def test_pipeline_js_references_id(self, dom_id):
