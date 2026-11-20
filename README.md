@@ -67,7 +67,7 @@ python3 -m venv /tmp/idjlm-ui-check
 PYTHONDONTWRITEBYTECODE=1 /tmp/idjlm-ui-check/bin/python scripts/verify_latin_ui.py
 ```
 
-The harness uses a temporary data directory. It does not scan a personal library or download a model. See the [implementation status](docs/implementation-status-2026-11-10.md) for the recorded test results.
+The harness uses a temporary data directory. It does not scan a personal library or download a model. See the [implementation status](https://github.com/xonline/idjlm-pro/blob/4f01346/docs/implementation-status-2026-11-10.md) for the recorded test results.
 
 The [Codex Cloud pilot guide](docs/CODEX_CLOUD.md) covers isolated repository work in Codex Cloud. Cloud checks do not validate native desktop installers.
 
