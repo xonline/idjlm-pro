@@ -1,0 +1,59 @@
+{
+  "taxonomy_version": "latin-audio-prototype-v1",
+  "axes": {
+    "music_family": {
+      "kind": "single_label",
+      "negative_label_ids": ["other_latin", "reggaeton", "bolero", "semba", "pop_or_other_music"],
+      "candidates": [
+        {"id": "salsa", "prompts": ["a salsa dance music recording", "a salsa song with Afro-Cuban percussion and piano"]},
+        {"id": "bachata", "prompts": ["a bachata dance music recording", "a bachata song with guitar and Latin rhythm"]},
+        {"id": "kizomba", "prompts": ["a kizomba dance music recording", "a kizomba song with a slow African dance groove"]},
+        {"id": "kompa", "prompts": ["a Haitian kompa dance music recording", "a Haitian compas song"]},
+        {"id": "cha_cha", "aliases": ["cha_cha_cha"], "prompts": ["a cha-cha-cha dance music recording", "a Latin cha cha cha orchestra"]},
+        {"id": "boogaloo", "prompts": ["a Latin boogaloo dance music recording", "a 1960s Latin boogaloo song"]},
+        {"id": "other_latin", "prompts": ["a Latin music recording outside salsa bachata kizomba kompa cha cha or boogaloo"]},
+        {"id": "reggaeton", "prompts": ["a reggaeton recording"]},
+        {"id": "bolero", "prompts": ["a Latin bolero recording"]},
+        {"id": "semba", "prompts": ["an Angolan semba recording"]},
+        {"id": "pop_or_other_music", "prompts": ["a pop, rock, electronic, or non-Latin music recording"]}
+      ]
+    }
+  },
+  "experimental_axes": {
+    "style": {
+      "kind": "multi_label",
+      "definition": "Uncalibrated zero-shot style ranking. It is not a supported style classifier.",
+      "candidates": [
+        {"id": "salsa_romantica", "prompts": ["a salsa romantica recording"]},
+        {"id": "salsa_dura", "prompts": ["a salsa dura recording"]},
+        {"id": "timba", "prompts": ["a Cuban timba recording"]},
+        {"id": "bachata_dominicana", "prompts": ["a traditional Dominican bachata recording"]},
+        {"id": "bachata_moderna", "prompts": ["a modern bachata recording"]},
+        {"id": "kizomba_classica", "prompts": ["a classic kizomba recording"]},
+        {"id": "tarraxinha", "prompts": ["a tarraxinha recording"]},
+        {"id": "urban_kiz", "prompts": ["an urban kiz recording"]}
+      ]
+    },
+    "dance_use": {
+      "kind": "multi_label",
+      "definition": "Uncalibrated dance-floor suitability suggestion, separate from musical identity.",
+      "candidates": [
+        {"id": "bachata_sensual", "prompts": ["music used for bachata sensual dancing"]},
+        {"id": "tarraxo_douceur", "prompts": ["music used for tarraxo or douceur dancing"]}
+      ]
+    },
+    "instrument_cue": {
+      "kind": "multi_label",
+      "definition": "Uncalibrated arrangement cue, not an exclusive music family.",
+      "candidates": [
+        {"id": "charanga_arrangement", "prompts": ["a Cuban charanga arrangement with flute and violins"]}
+      ]
+    }
+  },
+  "unsupported_axes": {
+    "production": "Production/version labels are not inferred from family audio similarity.",
+    "vocal_presence": "No validated vocal detector is installed.",
+    "vocal_language": "No validated language detector is installed.",
+    "instrument_cue": "No validated instrument detector is installed."
+  }
+}

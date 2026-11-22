@@ -27,20 +27,23 @@ def get_env_path():
     This ensures settings persist whether the app is run from a DMG,
     the Applications folder, or any other location.
 
-    On first call, migrates any existing .env from the legacy bundle-relative
-    path so users don't lose previously saved keys.
+    Without an explicit user-data override, first use migrates any existing
+    .env from the legacy bundle-relative path so users don't lose saved keys.
     """
     from ..utils import paths
+
     settings_dir = paths.ensure_app_user_dir()
     new_path = os.path.join(settings_dir, ".env")
 
-    # One-time migration from legacy bundle-relative .env
-    if not os.path.exists(new_path):
+    # One-time migration from legacy bundle-relative .env. Explicit data-dir
+    # overrides isolate tests and temporary runtimes from repository settings.
+    if not os.environ.get("IDJLM_USER_DATA_DIR") and not os.path.exists(new_path):
         legacy_path = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
         legacy_path = os.path.normpath(legacy_path)
         if os.path.exists(legacy_path):
             try:
                 import shutil
+
                 shutil.copy2(legacy_path, new_path)
             except Exception:
                 pass
@@ -125,7 +128,16 @@ def write_env(env_dict):
 # Model listing — cascading provider → model selection
 # ---------------------------------------------------------------------------
 
-VALID_PROVIDERS = {"claude", "openrouter", "gemini", "ollama", "qwen", "openai", "deepseek", "groq"}
+VALID_PROVIDERS = {
+    "claude",
+    "openrouter",
+    "gemini",
+    "ollama",
+    "qwen",
+    "openai",
+    "deepseek",
+    "groq",
+}
 
 
 @bp.route("/list_models", methods=["POST"])
@@ -142,7 +154,11 @@ def list_models():
         return jsonify({"error": "provider is required"}), 400
 
     if provider not in VALID_PROVIDERS:
-        return jsonify({"error": f"Unknown provider: {provider}. Must be one of: {', '.join(sorted(VALID_PROVIDERS))}"}), 400
+        return jsonify(
+            {
+                "error": f"Unknown provider: {provider}. Must be one of: {', '.join(sorted(VALID_PROVIDERS))}"
+            }
+        ), 400
 
     api_key = data.get("api_key", "").strip()
 
@@ -167,31 +183,55 @@ def list_models():
     try:
         if provider == "claude":
             if not api_key:
-                return jsonify({"error": "API key required for claude -- paste your key in settings first"}), 400
+                return jsonify(
+                    {
+                        "error": "API key required for claude -- paste your key in settings first"
+                    }
+                ), 400
             models = _list_claude_models(api_key)
         elif provider == "openrouter":
             models = _list_openrouter_models(api_key)
         elif provider == "gemini":
             if not api_key:
-                return jsonify({"error": "API key required for gemini -- paste your key in settings first"}), 400
+                return jsonify(
+                    {
+                        "error": "API key required for gemini -- paste your key in settings first"
+                    }
+                ), 400
             models = _list_gemini_models(api_key)
         elif provider == "ollama":
             models = _list_ollama_models()
         elif provider == "openai":
             if not api_key:
-                return jsonify({"error": "API key required for openai -- paste your key in settings first"}), 400
+                return jsonify(
+                    {
+                        "error": "API key required for openai -- paste your key in settings first"
+                    }
+                ), 400
             models = _list_openai_models(api_key)
         elif provider == "qwen":
             if not api_key:
-                return jsonify({"error": "API key required for qwen -- paste your key in settings first"}), 400
+                return jsonify(
+                    {
+                        "error": "API key required for qwen -- paste your key in settings first"
+                    }
+                ), 400
             models = _list_qwen_models(api_key)
         elif provider == "deepseek":
             if not api_key:
-                return jsonify({"error": "API key required for deepseek -- paste your key in settings first"}), 400
+                return jsonify(
+                    {
+                        "error": "API key required for deepseek -- paste your key in settings first"
+                    }
+                ), 400
             models = _list_deepseek_models(api_key)
         elif provider == "groq":
             if not api_key:
-                return jsonify({"error": "API key required for groq -- paste your key in settings first"}), 400
+                return jsonify(
+                    {
+                        "error": "API key required for groq -- paste your key in settings first"
+                    }
+                ), 400
             models = _list_groq_models(api_key)
         else:
             return jsonify({"error": f"Unknown provider: {provider}"}), 400
@@ -204,8 +244,12 @@ def list_models():
             body = e.read().decode()
         except Exception as e:
             pass
-        logger.exception("HTTP error listing models for %s: %s %s", provider, e.code, body)
-        return jsonify({"error": f"Failed to fetch models from {provider} (HTTP {e.code})"}), 502
+        logger.exception(
+            "HTTP error listing models for %s: %s %s", provider, e.code, body
+        )
+        return jsonify(
+            {"error": f"Failed to fetch models from {provider} (HTTP {e.code})"}
+        ), 502
     except urllib.error.URLError as e:
         logger.exception("URL error listing models for %s: %s", provider, e.reason)
         msg = str(e.reason) if hasattr(e, "reason") else str(e)
@@ -232,12 +276,14 @@ def _list_claude_models(api_key):
         if not model_id.startswith("claude-"):
             continue
         display_name = item.get("display_name", model_id)
-        models.append({
-            "id": model_id,
-            "name": display_name,
-            "free": False,
-            "context": item.get("context_length", 0),
-        })
+        models.append(
+            {
+                "id": model_id,
+                "name": display_name,
+                "free": False,
+                "context": item.get("context_length", 0),
+            }
+        )
 
     return models
 
@@ -270,12 +316,14 @@ def _list_openrouter_models(api_key):
                 except (ValueError, TypeError):
                     pass
 
-        models.append({
-            "id": model_id,
-            "name": name,
-            "free": is_free,
-            "context": item.get("context_length", 0),
-        })
+        models.append(
+            {
+                "id": model_id,
+                "name": name,
+                "free": is_free,
+                "context": item.get("context_length", 0),
+            }
+        )
 
     # Sort by name for easier browsing
     models.sort(key=lambda m: m["name"].lower())
@@ -294,18 +342,24 @@ def _list_gemini_models(api_key):
     for item in result.get("models", []):
         raw_name = item.get("name", "")
         # Strip "models/" prefix
-        model_id = raw_name.replace("models/", "") if raw_name.startswith("models/") else raw_name
+        model_id = (
+            raw_name.replace("models/", "")
+            if raw_name.startswith("models/")
+            else raw_name
+        )
         display_name = item.get("displayName", model_id)
         input_tokens = item.get("inputTokenLimit", 0)
         output_tokens = item.get("outputTokenLimit", 0)
         context = input_tokens + output_tokens if input_tokens or output_tokens else 0
 
-        models.append({
-            "id": model_id,
-            "name": display_name,
-            "free": False,  # Gemini free tier is per-account, not per-model
-            "context": context,
-        })
+        models.append(
+            {
+                "id": model_id,
+                "name": display_name,
+                "free": False,  # Gemini free tier is per-account, not per-model
+                "context": context,
+            }
+        )
 
     return models
 
@@ -322,15 +376,24 @@ def _list_ollama_models():
     for item in result.get("models", result.get("models", [])):
         # Ollama returns {"models": [{"name": "qwen3:1.7b", ...}]} or same structure
         model_id = item.get("name", "")
-        models.append({
-            "id": model_id,
-            "name": model_id,
-            "free": True,
-            "context": 0,
-        })
+        models.append(
+            {
+                "id": model_id,
+                "name": model_id,
+                "free": True,
+                "context": 0,
+            }
+        )
 
     if not models:
-        return [{"id": "", "name": "No models installed — run 'ollama pull <model>' first", "free": True, "context": 0}]
+        return [
+            {
+                "id": "",
+                "name": "No models installed — run 'ollama pull <model>' first",
+                "free": True,
+                "context": 0,
+            }
+        ]
 
     return models
 
@@ -350,12 +413,14 @@ def _list_openai_models(api_key):
         if not model_id.startswith("gpt"):
             continue
         display_name = item.get("id", model_id)
-        models.append({
-            "id": model_id,
-            "name": display_name,
-            "free": False,
-            "context": 0,
-        })
+        models.append(
+            {
+                "id": model_id,
+                "name": display_name,
+                "free": False,
+                "context": 0,
+            }
+        )
 
     models.sort(key=lambda m: m["id"].lower())
     return models
@@ -376,12 +441,14 @@ def _list_qwen_models(api_key):
         if not model_id.startswith("qwen"):
             continue
         display_name = item.get("id", model_id)
-        models.append({
-            "id": model_id,
-            "name": display_name,
-            "free": False,
-            "context": item.get("context_length", 0),
-        })
+        models.append(
+            {
+                "id": model_id,
+                "name": display_name,
+                "free": False,
+                "context": item.get("context_length", 0),
+            }
+        )
 
     models.sort(key=lambda m: m["id"].lower())
     return models
@@ -390,6 +457,7 @@ def _list_qwen_models(api_key):
 def _list_deepseek_models(api_key):
     """Fetch available DeepSeek models from their OpenAI-compatible API."""
     import requests as req
+
     r = req.get(
         "https://api.deepseek.com/v1/models",
         headers={"Authorization": f"Bearer {api_key}"},
@@ -403,12 +471,14 @@ def _list_deepseek_models(api_key):
         model_id = item.get("id", "")
         if not model_id.startswith("deepseek"):
             continue
-        models.append({
-            "id": model_id,
-            "name": model_id,
-            "free": False,
-            "context": 0,
-        })
+        models.append(
+            {
+                "id": model_id,
+                "name": model_id,
+                "free": False,
+                "context": 0,
+            }
+        )
     models.sort(key=lambda m: m["id"].lower())
     return models
 
@@ -416,6 +486,7 @@ def _list_deepseek_models(api_key):
 def _list_groq_models(api_key):
     """Fetch available Groq LLM models from their OpenAI-compatible API."""
     import requests as req
+
     r = req.get(
         "https://api.groq.com/openai/v1/models",
         headers={"Authorization": f"Bearer {api_key}"},
@@ -430,12 +501,14 @@ def _list_groq_models(api_key):
         # Skip non-LLM models (whisper transcription, guard models)
         if any(x in model_id for x in ("whisper", "guard")):
             continue
-        models.append({
-            "id": model_id,
-            "name": model_id,
-            "free": True,
-            "context": item.get("context_window", 0),
-        })
+        models.append(
+            {
+                "id": model_id,
+                "name": model_id,
+                "free": True,
+                "context": item.get("context_window", 0),
+            }
+        )
     models.sort(key=lambda m: m["id"].lower())
     return models
 
@@ -474,39 +547,68 @@ def get_settings():
         spotify_id = env_dict.get("SPOTIFY_CLIENT_ID")
         spotify_secret = env_dict.get("SPOTIFY_CLIENT_SECRET")
 
-        return jsonify({
-            "gemini_api_key": mask_key(gemini_key) if gemini_key else None,
-            "has_gemini_key": bool(gemini_key),
-            "anthropic_api_key": mask_key(anthropic_key) if anthropic_key else None,
-            "has_anthropic_key": bool(anthropic_key),
-            "openrouter_api_key": mask_key(env_dict.get("OPENROUTER_API_KEY")) if env_dict.get("OPENROUTER_API_KEY") else None,
-            "has_openrouter_key": bool(env_dict.get("OPENROUTER_API_KEY")),
-            "openrouter_model": env_dict.get("OPENROUTER_MODEL", "google/gemini-2.0-flash:free"),
-            "has_openai_key": bool(env_dict.get("OPENAI_API_KEY")),
-            "openai_api_key": mask_key(env_dict.get("OPENAI_API_KEY")) if env_dict.get("OPENAI_API_KEY") else None,
-            "openai_model": env_dict.get("OPENAI_MODEL", "gpt-4o"),
-            "has_qwen_key": bool(env_dict.get("DASHSCOPE_API_KEY")),
-            "qwen_api_key": mask_key(env_dict.get("DASHSCOPE_API_KEY")) if env_dict.get("DASHSCOPE_API_KEY") else None,
-            "qwen_model": env_dict.get("QWEN_MODEL", "qwen3.5-plus"),
-            "has_deepseek_key": bool(env_dict.get("DEEPSEEK_API_KEY")),
-            "deepseek_api_key": mask_key(env_dict.get("DEEPSEEK_API_KEY")) if env_dict.get("DEEPSEEK_API_KEY") else None,
-            "deepseek_model": env_dict.get("DEEPSEEK_MODEL", "deepseek-chat"),
-            "has_groq_key": bool(env_dict.get("GROQ_API_KEY")),
-            "groq_api_key": mask_key(env_dict.get("GROQ_API_KEY")) if env_dict.get("GROQ_API_KEY") else None,
-            "groq_model": env_dict.get("GROQ_MODEL", "llama-3.3-70b-versatile"),
-            "spotify_client_id": mask_key(spotify_id) if spotify_id else None,
-            "spotify_client_secret": mask_key(spotify_secret) if spotify_secret else None,
-            "has_spotify": bool(spotify_id) and bool(spotify_secret),
-            "ai_model": env_dict.get("AI_MODEL", "claude"),
-            "ollama_model": env_dict.get("OLLAMA_MODEL", "qwen3:1.7b"),
-            "classify_batch_size": int(env_dict.get("CLASSIFY_BATCH_SIZE", "10")),
-            "auto_approve_threshold": int(env_dict.get("AUTO_APPROVE_THRESHOLD", "0")),
-            "spotify_enrich_enabled": env_dict.get("SPOTIFY_ENRICH_ENABLED", "true").lower() == "true",
-            "deezer_enrich_enabled": env_dict.get("DEEZER_ENRICH_ENABLED", "true").lower() == "true",
-            "lastfm_api_key": mask_key(env_dict.get("LASTFM_API_KEY")) if env_dict.get("LASTFM_API_KEY") else None,
-            "has_lastfm_key": bool(env_dict.get("LASTFM_API_KEY")),
-            "beatport_enrich_enabled": env_dict.get("BEATPORT_ENRICH_ENABLED", "false").lower() == "true",
-        }), 200
+        return jsonify(
+            {
+                "gemini_api_key": mask_key(gemini_key) if gemini_key else None,
+                "has_gemini_key": bool(gemini_key),
+                "anthropic_api_key": mask_key(anthropic_key) if anthropic_key else None,
+                "has_anthropic_key": bool(anthropic_key),
+                "openrouter_api_key": mask_key(env_dict.get("OPENROUTER_API_KEY"))
+                if env_dict.get("OPENROUTER_API_KEY")
+                else None,
+                "has_openrouter_key": bool(env_dict.get("OPENROUTER_API_KEY")),
+                "openrouter_model": env_dict.get(
+                    "OPENROUTER_MODEL", "google/gemini-2.0-flash:free"
+                ),
+                "has_openai_key": bool(env_dict.get("OPENAI_API_KEY")),
+                "openai_api_key": mask_key(env_dict.get("OPENAI_API_KEY"))
+                if env_dict.get("OPENAI_API_KEY")
+                else None,
+                "openai_model": env_dict.get("OPENAI_MODEL", "gpt-4o"),
+                "has_qwen_key": bool(env_dict.get("DASHSCOPE_API_KEY")),
+                "qwen_api_key": mask_key(env_dict.get("DASHSCOPE_API_KEY"))
+                if env_dict.get("DASHSCOPE_API_KEY")
+                else None,
+                "qwen_model": env_dict.get("QWEN_MODEL", "qwen3.5-plus"),
+                "has_deepseek_key": bool(env_dict.get("DEEPSEEK_API_KEY")),
+                "deepseek_api_key": mask_key(env_dict.get("DEEPSEEK_API_KEY"))
+                if env_dict.get("DEEPSEEK_API_KEY")
+                else None,
+                "deepseek_model": env_dict.get("DEEPSEEK_MODEL", "deepseek-chat"),
+                "has_groq_key": bool(env_dict.get("GROQ_API_KEY")),
+                "groq_api_key": mask_key(env_dict.get("GROQ_API_KEY"))
+                if env_dict.get("GROQ_API_KEY")
+                else None,
+                "groq_model": env_dict.get("GROQ_MODEL", "llama-3.3-70b-versatile"),
+                "spotify_client_id": mask_key(spotify_id) if spotify_id else None,
+                "spotify_client_secret": mask_key(spotify_secret)
+                if spotify_secret
+                else None,
+                "has_spotify": bool(spotify_id) and bool(spotify_secret),
+                "ai_model": env_dict.get("AI_MODEL", "claude"),
+                "ollama_model": env_dict.get("OLLAMA_MODEL", "qwen3:1.7b"),
+                "classify_batch_size": int(env_dict.get("CLASSIFY_BATCH_SIZE", "10")),
+                "auto_approve_threshold": int(
+                    env_dict.get("AUTO_APPROVE_THRESHOLD", "0")
+                ),
+                "spotify_enrich_enabled": env_dict.get(
+                    "SPOTIFY_ENRICH_ENABLED", "true"
+                ).lower()
+                == "true",
+                "deezer_enrich_enabled": env_dict.get(
+                    "DEEZER_ENRICH_ENABLED", "true"
+                ).lower()
+                == "true",
+                "lastfm_api_key": mask_key(env_dict.get("LASTFM_API_KEY"))
+                if env_dict.get("LASTFM_API_KEY")
+                else None,
+                "has_lastfm_key": bool(env_dict.get("LASTFM_API_KEY")),
+                "beatport_enrich_enabled": env_dict.get(
+                    "BEATPORT_ENRICH_ENABLED", "false"
+                ).lower()
+                == "true",
+            }
+        ), 200
 
     except Exception as e:
         logger.exception("Error in /api/settings GET")
@@ -587,7 +689,16 @@ def save_settings():
             env_dict["SPOTIFY_CLIENT_SECRET"] = data["spotify_client_secret"]
 
         if "ai_model" in data and data["ai_model"]:
-            if data["ai_model"] in ["claude", "gemini", "ollama", "openrouter", "openai", "qwen", "deepseek", "groq"]:
+            if data["ai_model"] in [
+                "claude",
+                "gemini",
+                "ollama",
+                "openrouter",
+                "openai",
+                "qwen",
+                "deepseek",
+                "groq",
+            ]:
                 env_dict["AI_MODEL"] = data["ai_model"]
 
         # Save model_id to the correct env var based on provider
@@ -630,13 +741,19 @@ def save_settings():
                 pass
 
         if "spotify_enrich_enabled" in data:
-            env_dict["SPOTIFY_ENRICH_ENABLED"] = "true" if data["spotify_enrich_enabled"] else "false"
+            env_dict["SPOTIFY_ENRICH_ENABLED"] = (
+                "true" if data["spotify_enrich_enabled"] else "false"
+            )
 
         if "deezer_enrich_enabled" in data:
-            env_dict["DEEZER_ENRICH_ENABLED"] = "true" if data["deezer_enrich_enabled"] else "false"
+            env_dict["DEEZER_ENRICH_ENABLED"] = (
+                "true" if data["deezer_enrich_enabled"] else "false"
+            )
 
         if "beatport_enrich_enabled" in data:
-            env_dict["BEATPORT_ENRICH_ENABLED"] = "true" if data["beatport_enrich_enabled"] else "false"
+            env_dict["BEATPORT_ENRICH_ENABLED"] = (
+                "true" if data["beatport_enrich_enabled"] else "false"
+            )
 
         # Write back
         write_env(env_dict)
@@ -644,6 +761,7 @@ def save_settings():
         # Reload environment variables into the running process
         # This ensures os.getenv() returns the new values immediately
         from dotenv import load_dotenv
+
         load_dotenv(get_env_path(), override=True)
 
         return jsonify({"saved": True}), 200
@@ -666,6 +784,7 @@ def test_key():
     Returns: { "ok": true, "model": "...", "latency_ms": 123 } or { "ok": false, "error": "..." }
     """
     import time
+
     data = request.get_json(silent=True) or {}
     provider = data.get("provider", "").strip().lower()
     api_key = data.get("api_key", "").strip()
@@ -691,56 +810,127 @@ def test_key():
             api_key = env.get("GROQ_API_KEY", "")
 
     if not api_key:
-        return jsonify({"ok": False, "error": "No API key found for this provider"}), 200
+        return jsonify(
+            {"ok": False, "error": "No API key found for this provider"}
+        ), 200
 
     try:
         start = time.time()
         if provider == "claude":
             import anthropic
+
             client = anthropic.Anthropic(api_key=api_key)
-            client.messages.create(model="claude-opus-4-6-20260522", max_tokens=10, messages=[{"role": "user", "content": "Hi"}])
+            client.messages.create(
+                model="claude-opus-4-6-20260522",
+                max_tokens=10,
+                messages=[{"role": "user", "content": "Hi"}],
+            )
             latency = round((time.time() - start) * 1000)
             return jsonify({"ok": True, "latency_ms": latency}), 200
         elif provider == "openai":
             import requests as req
-            r = req.post("https://api.openai.com/v1/chat/completions", json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Hi"}], "max_tokens": 5}, headers={"Authorization": f"Bearer {api_key}"}, timeout=15)
+
+            r = req.post(
+                "https://api.openai.com/v1/chat/completions",
+                json={
+                    "model": "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                    "max_tokens": 5,
+                },
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=15,
+            )
             if r.status_code != 200:
-                return jsonify({"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}), 200
-            return jsonify({"ok": True, "latency_ms": round((time.time() - start) * 1000)}), 200
+                return jsonify(
+                    {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}
+                ), 200
+            return jsonify(
+                {"ok": True, "latency_ms": round((time.time() - start) * 1000)}
+            ), 200
         elif provider == "gemini":
             import requests as req
-            r = req.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}", timeout=15)
+
+            r = req.get(
+                f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}",
+                timeout=15,
+            )
             if r.status_code != 200:
-                return jsonify({"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}), 200
-            return jsonify({"ok": True, "latency_ms": round((time.time() - start) * 1000)}), 200
+                return jsonify(
+                    {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}
+                ), 200
+            return jsonify(
+                {"ok": True, "latency_ms": round((time.time() - start) * 1000)}
+            ), 200
         elif provider == "qwen":
             import requests as req
-            r = req.get("https://dashscope.aliyuncs.com/compatible-mode/v1/models", headers={"Authorization": f"Bearer {api_key}"}, timeout=15)
+
+            r = req.get(
+                "https://dashscope.aliyuncs.com/compatible-mode/v1/models",
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=15,
+            )
             if r.status_code != 200:
-                return jsonify({"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}), 200
-            return jsonify({"ok": True, "latency_ms": round((time.time() - start) * 1000)}), 200
+                return jsonify(
+                    {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}
+                ), 200
+            return jsonify(
+                {"ok": True, "latency_ms": round((time.time() - start) * 1000)}
+            ), 200
         elif provider == "openrouter":
             import requests as req
-            r = req.get("https://openrouter.ai/api/v1/models", headers={"Authorization": f"Bearer {api_key}"}, timeout=15)
+
+            r = req.get(
+                "https://openrouter.ai/api/v1/models",
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=15,
+            )
             if r.status_code != 200:
-                return jsonify({"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}), 200
-            return jsonify({"ok": True, "latency_ms": round((time.time() - start) * 1000)}), 200
+                return jsonify(
+                    {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}
+                ), 200
+            return jsonify(
+                {"ok": True, "latency_ms": round((time.time() - start) * 1000)}
+            ), 200
         elif provider == "deepseek":
             import requests as req
-            r = req.post("https://api.deepseek.com/v1/chat/completions",
-                json={"model": "deepseek-chat", "messages": [{"role": "user", "content": "Hi"}], "max_tokens": 5},
-                headers={"Authorization": f"Bearer {api_key}"}, timeout=15)
+
+            r = req.post(
+                "https://api.deepseek.com/v1/chat/completions",
+                json={
+                    "model": "deepseek-chat",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                    "max_tokens": 5,
+                },
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=15,
+            )
             if r.status_code != 200:
-                return jsonify({"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}), 200
-            return jsonify({"ok": True, "latency_ms": round((time.time() - start) * 1000)}), 200
+                return jsonify(
+                    {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}
+                ), 200
+            return jsonify(
+                {"ok": True, "latency_ms": round((time.time() - start) * 1000)}
+            ), 200
         elif provider == "groq":
             import requests as req
-            r = req.post("https://api.groq.com/openai/v1/chat/completions",
-                json={"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": "Hi"}], "max_tokens": 5},
-                headers={"Authorization": f"Bearer {api_key}"}, timeout=15)
+
+            r = req.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                json={
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                    "max_tokens": 5,
+                },
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=15,
+            )
             if r.status_code != 200:
-                return jsonify({"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}), 200
-            return jsonify({"ok": True, "latency_ms": round((time.time() - start) * 1000)}), 200
+                return jsonify(
+                    {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}
+                ), 200
+            return jsonify(
+                {"ok": True, "latency_ms": round((time.time() - start) * 1000)}
+            ), 200
         else:
             return jsonify({"error": f"Unknown provider: {provider}"}), 400
     except Exception as e:
@@ -758,6 +948,7 @@ def _get_field_mappings_path():
     global FIELD_MAPPINGS_PATH
     if FIELD_MAPPINGS_PATH is None:
         from ..utils import paths
+
         settings_dir = paths.ensure_app_user_dir()
         FIELD_MAPPINGS_PATH = os.path.join(settings_dir, "field_mappings.json")
     return FIELD_MAPPINGS_PATH
@@ -903,9 +1094,12 @@ def learning_stats():
     """Return AI learning statistics."""
     try:
         from app.services.learning import get_learning_stats
+
         return jsonify(get_learning_stats()), 200
     except ImportError:
-        return jsonify({"total_corrections": 0, "unique_patterns": 0, "top_corrections": []}), 200
+        return jsonify(
+            {"total_corrections": 0, "unique_patterns": 0, "top_corrections": []}
+        ), 200
 
 
 @bp.route("/learning/reset", methods=["DELETE"])
@@ -913,6 +1107,7 @@ def learning_reset():
     """Reset all AI learning data."""
     try:
         from app.services.learning import reset_corrections
+
         reset_corrections()
         return jsonify({"reset": True}), 200
     except ImportError:

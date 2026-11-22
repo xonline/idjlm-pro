@@ -1,0 +1,12 @@
+# Local-only audio-classification runtime. Desktop build jobs install this file;
+# end users receive the bundled runtime and download only the pinned model from
+# Settings. PyTorch 2.15 publishes the verified macOS arm64 wheel used by the
+# primary desktop build. Intel macOS and Windows installers intentionally omit
+# this optional runtime until their own wheel and packaged-sidecar proof exists.
+# Transformers documents safe ``weights_only`` loading from PyTorch 2.6. This
+# exact release was used by the packaging smoke; advance it only with fresh
+# proof on every platform where this optional component is enabled.
+torch==2.15.0 ; platform_system == "Darwin" and platform_machine == "arm64"
+transformers==4.57.6 ; platform_system == "Darwin" and platform_machine == "arm64"
+huggingface_hub==0.36.2 ; platform_system == "Darwin" and platform_machine == "arm64"
+soundfile>=0.12 ; platform_system == "Darwin" and platform_machine == "arm64"

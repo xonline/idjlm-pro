@@ -407,9 +407,10 @@ function initOnboarding() {
   if (continueBtn) {
     continueBtn.addEventListener('click', function() {
       var sel = document.querySelector('.onboarding-provider.selected');
-      var provider = sel ? sel.dataset.provider : 'gemini';
-      var ps = document.getElementById('settings-provider');
-      if (ps) { ps.value = provider; ps.dispatchEvent(new Event('change')); }
+      if (sel) {
+        var ps = document.getElementById('settings-provider');
+        if (ps) { ps.value = sel.dataset.provider; ps.dispatchEvent(new Event('change')); }
+      }
       updateOnboardingStep(3);
     });
   }
@@ -426,7 +427,7 @@ function initOnboarding() {
     startBtn.addEventListener('click', function() { completeOnboarding(); });
   }
 
-  // Skip API key setup
+  // The legacy provider picker is optional and is absent from the local-first copy.
   var skipBtn = document.getElementById('onboard-skip-api');
   if (skipBtn) {
     skipBtn.addEventListener('click', function() { updateOnboardingStep(3); });

@@ -4,17 +4,16 @@ IDJLM Pro is a desktop app for managing a Latin music library with local import,
 
 ## Try the current review build on a Mac
 
-The latest public release is [v4.1.0](https://github.com/xonline/idjlm-pro/releases/tag/v4.1.0), published on 1 June 2026. The new local Latin-library workspace is in [review PR #44](https://github.com/xonline/idjlm-pro/pull/44), not in that release.
+The latest stable release remains [v4.1.0](https://github.com/xonline/idjlm-pro/releases/tag/v4.1.0). The current [4.2.1 Apple Silicon review build](https://github.com/xonline/idjlm-pro/releases/tag/review-4.2.1) tests the new local Latin-library workspace from [PR #44](https://github.com/xonline/idjlm-pro/pull/44).
 
-When PR #44 has a successful **Desktop installer checks** run, sign in to GitHub and use the matching run's **Artifacts** section:
+This is an **ad-hoc signed, unnotarized test prerelease**—not a stable release. macOS will quarantine a browser download and show its expected unidentified-developer warning on first launch. It needs one manual [Privacy & Security approval](https://support.apple.com/en-au/102445), and cannot receive normal Gatekeeper acceptance until a Developer ID certificate and notarization are configured.
 
-1. Download `idjlm-pro-dmg-aarch64-apple-darwin` for a native Apple Silicon review build.
-2. Unzip the download, open its DMG, and move **IDJLM Pro** to Applications.
-3. Open the app and test a copied sample folder: import, review, preview a write, restore it, then preview an export. Do not begin with an irreplaceable library.
+1. Download the Apple Silicon DMG and its `.sha256` checksum from the 4.2.1 review release; verify the checksum before opening it.
+2. Open the DMG, copy **IDJLM Pro** to Applications, then eject the DMG.
+3. If macOS shows the expected unidentified-developer warning, open **System Settings → Privacy & Security** and choose **Open Anyway**. Use that override only after verifying the release and checksum. If macOS instead says the app is **damaged**, stop and download it again; do not override that alert.
+4. Test a copied sample folder: import, review, preview a write, restore it, then preview an export. Do not begin with an irreplaceable library.
 
-Artifacts are temporary CI review builds, retained for 30 days. They are unsigned and are not public releases. macOS may block the app; use [Apple’s documented security override](https://support.apple.com/en-au/102445) only after confirming the artifact came from the PR check you chose. Publication remains blocked until signing and notarization are configured.
-
-If an Apple Silicon artifact is unavailable, the `idjlm-pro-dmg-x86_64-apple-darwin` artifact can be a **Rosetta fallback** for the manual import, review, write, restore, and export flow. It is not an Apple Silicon build, does not establish M3 performance, and must not be used to assess the optional local audio runtime.
+The review build proves neither Latin-music accuracy, M3 16 GB performance at 15,000 tracks, nor iPad/djay transfer discovery. The optional audio model weights are not bundled and remain experimental.
 
 The primary workflow has six pages, not six or seven required steps: **Library, Review, Categories, Export, Activity, and Settings**. You can import and organise a folder without a cloud API key. The optional local audio model is configured from Settings and remains experimental.
 
@@ -35,7 +34,7 @@ See the [reliability check](https://github.com/xonline/idjlm-pro/blob/8817c5f/do
 To run the review branch without an installer, install Git, Node.js 20 with npm, and Python 3.11 or 3.12, then use the same Python version explicitly when creating the environment:
 
 ```bash
-git clone --branch feat/latin-library-redesign-implementation https://github.com/xonline/idjlm-pro.git
+git clone --branch review-4.2.1 https://github.com/xonline/idjlm-pro.git
 cd idjlm-pro
 npm ci
 npm run build

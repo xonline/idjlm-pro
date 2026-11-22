@@ -1522,6 +1522,7 @@ function reclassifySingleTrack(track) {
 // ---------------------------------------------------------------------------
 
 window.renderTracks = renderTracks;
+window.initTracksTab = initTracksTab;
 window.toggleAudioPlay = toggleAudioPlay;
 window.buildTrackRow = buildTrackRow;
 window.getColumnState = getColumnState;

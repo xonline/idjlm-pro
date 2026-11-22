@@ -1,6 +1,6 @@
 [package]
 name = "idjlm-pro"
-version = "4.2.0"
+version = "4.2.1"
 description = "IDJLM Pro — Intelligent DJ Library Manager"
 authors = ["xonline"]
 license = "MIT"
