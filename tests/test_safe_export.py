@@ -71,7 +71,11 @@ def test_tagged_staged_copy_has_verified_output_hash_and_decoded_identity(tmp_pa
     assert outcome["source_audio_identity"]["decoded_pcm_sha256"]
     assert outcome["comment_storage"] == "id3_COMM_empty_description_eng"
     assert source.read_bytes() == original
-    assert preflight(tmp_path / "staging", [entry], copied)["manifest"][0]["status"] == "unchanged"
+    unchanged_plan = preflight(tmp_path / "staging", [entry], copied)
+    assert unchanged_plan["manifest"][0]["status"] == "unchanged"
+    unchanged = copy_manifest(unchanged_plan["manifest"])[0]
+    assert unchanged["status"] == "unchanged"
+    assert unchanged["output_sha256"] == outcome["output_sha256"]
 
     profile_only = {**entry, "profile_hash": "profile-b"}
     changed_plan = preflight(tmp_path / "staging", [profile_only], copied)
@@ -125,6 +129,24 @@ def test_preflight_does_not_offer_a_tagged_raw_aac_copy(tmp_path):
 
     assert plan["manifest"][0]["status"] == "write_unsupported"
     assert plan["manifest"][0]["write_capability"]["status"] == "unsupported"
+
+
+def test_unchanged_manifest_rechecks_source_and_target_checksums(tmp_path):
+    source = tmp_path / "source.mp3"
+    source.write_bytes(b"source bytes")
+    entry = {"item_id": "item_one", "source_path": str(source)}
+    copied = copy_manifest(preflight(tmp_path / "staging", [entry])["manifest"])
+    unchanged = preflight(tmp_path / "staging", [entry], copied)["manifest"]
+
+    source.write_bytes(b"changed source")
+    assert copy_manifest(unchanged)[0]["status"] == "stale_source"
+
+    source.write_bytes(b"source bytes")
+    target = Path(unchanged[0]["target_path"])
+    target.write_bytes(b"changed target")
+    outcome = copy_manifest(unchanged)[0]
+    assert outcome["status"] == "destination_conflict"
+    assert target.read_bytes() == b"changed target"
 
 
 def test_changed_preflight_reserves_backup_and_temporary_space(tmp_path, monkeypatch):

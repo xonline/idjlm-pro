@@ -459,7 +459,11 @@ def _export_tag_fields(
 
 
 def _refresh_item_from_path(
-    store, item_id: str, path: str, preserve: dict | None = None
+    store,
+    item_id: str,
+    path: str,
+    preserve: dict | None = None,
+    source_revision: str | None = None,
 ):
     """Re-read actual tags after a verified write or restore without losing decisions."""
     from app.services.scanner import _scan_single_file
@@ -476,9 +480,10 @@ def _refresh_item_from_path(
         path=path,
         item_id=item_id,
         original=original,
-        source_revision=_source_revision(track),
+        source_revision=source_revision or _source_revision(track),
         availability="present" if os.path.isfile(path) else "missing",
         conflict=bool(track.error),
+        comment_tokens=_managed_tokens(_managed_comment(original)),
     )
 
 
@@ -1496,20 +1501,12 @@ def _run_write_job(store, job_id: str, preview: dict):
                 # the initial raw observations as provenance.
                 item = store.get_item(item_id)
                 prior = dict(item["original"])
-                refreshed = _refresh_item_from_path(
-                    store, item_id, record["path"], prior
-                )
-                # Keep the raw imported COMMENT intact while recording only
-                # the named owned block's literal palette tokens for filters.
-                latest = store.get_item(refreshed["id"])
-                store.upsert_item(
-                    path=record["path"],
-                    item_id=item_id,
-                    original=latest["original"],
+                _refresh_item_from_path(
+                    store,
+                    item_id,
+                    record["path"],
+                    prior,
                     source_revision=outcome["after_sha256"],
-                    comment_tokens=_managed_tokens(
-                        outcome.get("fields", {}).get("comment")
-                    ),
                 )
             store.update_job_item(
                 job_id,

@@ -27,6 +27,8 @@ To install the review build, verify its checksum, copy **IDJLM Pro** to Applicat
 - Preserve the source media suffix on staged export temporaries so FLAC, Ogg, and M4A verification reads the written output.
 - Treat an explicit cleared Genre as a removal, while preserving omitted managed values and raw Comment text.
 - Allow verified byte-only exports when no tag values are mapped.
+- Preserve catalogue Comment-token filters after a Genre-only write.
+- Reverify already-staged copies at export commit time so missing or altered files fail instead of being reported prepared.
 
 ---
 

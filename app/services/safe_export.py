@@ -305,7 +305,19 @@ def copy_manifest(manifest: list[dict], *, replace_known: bool = False) -> list[
     result: list[dict] = []
     for entry in manifest:
         outcome = dict(entry)
-        if entry.get("status") in {"unchanged", "missing_media", "destination_conflict", "write_unsupported", "invalid_tag_fields"}:
+        if entry.get("status") in {"missing_media", "destination_conflict", "write_unsupported", "invalid_tag_fields"}:
+            result.append(outcome)
+            continue
+        if entry.get("status") == "unchanged":
+            source, target = Path(entry["source_path"]), Path(entry["target_path"])
+            try:
+                if not source.is_file() or sha256_file(source) != entry.get("source_sha256"):
+                    outcome["status"] = "stale_source"
+                elif (not _within(target.parents[2], target) or target.is_symlink()
+                      or not target.is_file() or sha256_file(target) != entry.get("output_sha256")):
+                    outcome["status"] = "destination_conflict"
+            except OSError:
+                outcome["status"] = "copy_failed"
             result.append(outcome)
             continue
         if entry.get("status") == "changed" and not replace_known:

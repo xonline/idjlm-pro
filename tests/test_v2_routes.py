@@ -3,6 +3,7 @@ import time
 import threading
 import shutil
 import subprocess
+import json
 from pathlib import Path
 
 import pytest
@@ -237,6 +238,7 @@ def test_model_setup_is_gated_when_audio_runtime_is_not_bundled(v2_client, monke
 
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is required for disposable MP3 fixture")
 def test_write_preview_and_commit_clear_genre_instead_of_writing_none(v2_client, tmp_path):
+    from app.routes.v2_routes import _encode_tokens
     from app.services.safe_tag_writer import write_mp3
 
     source = tmp_path / "clear-genre.mp3"
@@ -244,10 +246,23 @@ def test_write_preview_and_commit_clear_genre_instead_of_writing_none(v2_client,
         "ffmpeg", "-nostdin", "-v", "error", "-f", "lavfi", "-i",
         "sine=frequency=440:sample_rate=44100:duration=0.25", "-c:a", "libmp3lame", str(source),
     ], check=True)
-    write_mp3(str(source), {"genre": "Salsa", "comment": "keep source comment"})
+    write_mp3(str(source), {"genre": "Salsa", "comment": _encode_tokens(["keep"])})
     imported = v2_client.post("/api/v2/library/import-jobs", json={"folder_path": str(tmp_path)})
     assert _wait_for_job(v2_client, imported.get_json()["job_id"])["state"] == "completed"
     item_id = v2_client.get("/api/v2/library/items").get_json()["items"][0]["id"]
+    filters = {"filters": json.dumps({"comment_tokens": ["keep"]})}
+
+    # Establish the stored managed-token index, then ensure a genre-only write
+    # cannot erase it merely because Comment was omitted from that write.
+    comment_preview = v2_client.post(
+        "/api/v2/writes/previews", json={"scope": _scope(item_id), "fields": ["comment"]}
+    ).get_json()
+    comment_write = v2_client.post(
+        "/api/v2/writes/commit", json={"preview_id": comment_preview["preview_id"], "confirm": True}
+    )
+    assert comment_write.status_code == 202
+    assert _wait_for_job(v2_client, comment_write.get_json()["job_id"])["counts"]["completed"] == 1
+    assert v2_client.get("/api/v2/library/items", query_string=filters).get_json()["total"] == 1
 
     preview_response = v2_client.post(
         "/api/v2/writes/previews",
@@ -266,6 +281,7 @@ def test_write_preview_and_commit_clear_genre_instead_of_writing_none(v2_client,
     assert committed.status_code == 202
     assert _wait_for_job(v2_client, committed.get_json()["job_id"])["counts"]["completed"] == 1
     assert MutagenFile(str(source), easy=False).tags.get("TCON") is None
+    assert v2_client.get("/api/v2/library/items", query_string=filters).get_json()["total"] == 1
 
     history = v2_client.get("/api/v2/writes").get_json()["items"]
     restore_preview = v2_client.post("/api/v2/restores/previews", json={"write_id": history[0]["write_id"]})
@@ -275,6 +291,7 @@ def test_write_preview_and_commit_clear_genre_instead_of_writing_none(v2_client,
     )
     assert restored.status_code == 200
     assert MutagenFile(str(source), easy=False).tags["TCON"].text == ["Salsa"]
+    assert v2_client.get("/api/v2/library/items", query_string=filters).get_json()["total"] == 1
 
 
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is required for disposable MP3 fixture")
