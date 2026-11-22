@@ -4,6 +4,18 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [4.2.2] — 2026-11-23
+
+### Workflow reliability
+
+- Recover interrupted import, classification, write, and export jobs at startup so Activity can offer their valid next action.
+- Resolve literal saved catalogue-tag filters to their stored labels while retaining managed Comment-token filtering.
+- Keep exports in **Preparing** until their staged copies are verified, and prevent transfer or djay verification before that point.
+
+This remains an Apple Silicon **ad-hoc signed, unnotarized test prerelease**, not a stable release. Verify its checksum, copy it to Applications, eject the DMG, and use Privacy & Security approval only for the expected unidentified-developer warning. A damaged-app alert is a stop-and-redownload condition.
+
+---
+
 ## [4.2.1] — 2026-11-23
 
 ### Review installer
