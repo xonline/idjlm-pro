@@ -1880,7 +1880,25 @@ def export_transfer(export_id: str):
     export = _v2().export(export_id)
     if not export:
         return _error("not_found", "Unknown export", 404)
-    manifest = list(export["manifest"])
+    manifest = export["manifest"]
+    file_rows = []
+    for row in manifest:
+        if not isinstance(row, dict):
+            return _error("export_not_prepared", "Export manifest is incomplete", 409)
+        if "transfer_state" not in row:
+            file_rows.append(row)
+    if (
+        export["state"]
+        not in {"Prepared", "Transferred (user-confirmed)", "Transfer unverified"}
+        or not file_rows
+        or any(row.get("status") not in {"copied", "unchanged"} for row in file_rows)
+    ):
+        return _error(
+            "export_not_prepared",
+            "Wait for local staging and verification to complete before recording transfer",
+            409,
+        )
+    manifest = list(manifest)
     manifest.append(
         {
             "transfer_state": state,

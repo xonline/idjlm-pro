@@ -165,6 +165,12 @@ def create_app() -> Flask:
     from app.services.v2_store import V2Store
 
     _v2_store = V2Store(store.db_path)
+    try:
+        _v2_store.recover_interrupted_jobs()
+    except Exception as exc:
+        logging.getLogger(__name__).warning(
+            "IDJLM Pro: interrupted v2 job recovery skipped: %s", exc
+        )
     # A crash after atomic source publication but before the route can finish
     # its ledger row is reconciled from the durable intent without touching
     # media bytes. Mismatches remain recovery-required for user review.

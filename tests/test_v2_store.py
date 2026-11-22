@@ -53,6 +53,74 @@ def test_reads_are_side_effect_free_and_family_filter_is_not_global(store):
     assert second["id"] not in [item["id"] for item in page["items"]]
 
 
+def test_literal_catalogue_filter_matches_custom_tag_ids_and_managed_tokens(store):
+    store.save_taxonomy(
+        {
+            "labels": [
+                {
+                    "id": "personal:romantica",
+                    "display_name": "Romantica",
+                    "aliases": ["Romántica"],
+                    "axis": "custom_tag",
+                }
+            ]
+        },
+        0,
+    )
+    catalogued = add(store, "Catalogue")
+    managed = store.upsert_item(
+        path="/library/Managed.mp3",
+        original={"title": "Managed"},
+        comment_tokens=["Romantica"],
+    )
+    detail = store.get_item(catalogued["id"])
+    preview = store.create_preview(
+        "review",
+        {
+            "fields": ["custom_tag"],
+            "items": [
+                {
+                    "item_id": catalogued["id"],
+                    "revision": detail["revision"],
+                    "axes": {},
+                }
+            ]
+        },
+    )
+    store.save_decisions(
+        store.consume_preview(preview["preview_id"], "review"),
+        [
+            {
+                "item_id": catalogued["id"],
+                "axis": "custom_tag",
+                "action": "correct",
+                "label_ids": ["personal:romantica"],
+            }
+        ],
+    )
+
+    filters = {"comment_tokens": ["Romantica"]}
+    page = store.list_items(cursor=None, limit=10, filters=filters, sort="title:asc")
+    assert {item["id"] for item in page["items"]} == {catalogued["id"], managed["id"]}
+    frozen = store.resolve_scope(
+        {"selection": "all_filtered", "item_ids": [], "filter": filters}
+    )
+    assert {item["id"] for item in frozen} == {catalogued["id"], managed["id"]}
+
+
+def test_literal_filter_read_does_not_seed_taxonomy(store):
+    store.list_items(
+        cursor=None,
+        limit=10,
+        filters={"comment_tokens": ["Romantica"]},
+        sort="title:asc",
+    )
+    assert store.taxonomy({"labels": ["fallback"]}) == {
+        "document": {"labels": ["fallback"]},
+        "revision": 0,
+    }
+
+
 def test_scope_preview_revisions_and_locked_decisions(store):
     item = add(store, "Locked")
     store.save_taxonomy({"labels": [{"id": "salsa"}, {"id": "bachata"}]}, 0)

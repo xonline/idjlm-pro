@@ -11,6 +11,33 @@ def test_create_app_does_not_raise():
     assert app.config is not None
 
 
+def test_startup_recovers_interrupted_jobs_once_before_requests(tmp_path, monkeypatch):
+    from app import get_v2_store
+    from app.services.v2_store import V2Store
+    from app.utils.paths import user_data_path
+
+    monkeypatch.setenv("IDJLM_USER_DATA_DIR", str(tmp_path / "state"))
+    (tmp_path / "state").mkdir()
+    prior = V2Store(user_data_path("tracks.db"))
+    job = prior.create_job("import", {"item_ids": []}, {})
+    prior.set_job_state(job["job_id"], "running")
+    prior._conn.close()
+    calls = []
+    recover = V2Store.recover_interrupted_jobs
+
+    def counted(self):
+        calls.append(self)
+        return recover(self)
+
+    monkeypatch.setattr(V2Store, "recover_interrupted_jobs", counted)
+    app = create_app()
+
+    assert len(calls) == 1
+    assert get_v2_store().job(job["job_id"])["state"] == "interrupted"
+    assert app.test_client().get(f"/api/v2/jobs/{job['job_id']}").status_code == 200
+    assert len(calls) == 1
+
+
 def test_expected_blueprint_routes_registered():
     """All expected API prefixes are present in the URL map."""
     app = create_app()
