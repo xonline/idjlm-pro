@@ -408,7 +408,7 @@ def _decision_labels(entry: dict, axis: str) -> list[str]:
 
 def _export_tag_fields(
     entry: dict, profile: dict, labels: dict[str, str]
-) -> tuple[dict[str, str], dict]:
+) -> tuple[dict[str, str] | None, dict]:
     """Map accepted decisions to copy-only interoperable tag values."""
     family = _decision_labels(entry, "music_family")
     styles = _decision_labels(entry, "style")
@@ -448,7 +448,10 @@ def _export_tag_fields(
         # Explicit human-readable standard Comment on the *copy*. We neither
         # split nor change the source's raw COMMENT frames.
         fields["comment"] = " | ".join(dict.fromkeys(comment_parts))
-    return fields, {
+    # ``None`` means this profile does not map any fields and permits a
+    # verified byte-only export. Keep a non-empty mapping unchanged, including
+    # an explicit empty-string clear value if a profile supplies one.
+    return fields or None, {
         "genre": genre or None,
         "comment": fields.get("comment"),
         "profile": name,
@@ -502,15 +505,17 @@ def _write_fields(
         )
     labels = _label_display_map()
     managed = _managed_comment(original)
+    default_genre = (
+        labels.get(str(family[0]), str(family[0]))
+        if family
+        else original.get("existing_genre") or ""
+    )
+    genre = override.get("genre", default_genre)
     after = {
-        "genre": str(
-            override.get(
-                "genre",
-                labels.get(str(family[0]), str(family[0]))
-                if family
-                else original.get("existing_genre") or "",
-            )
-        ),
+        # ``null`` is the API representation of Clear Genre. The safe writer
+        # removes the standard TCON field; converting it with str() would
+        # instead write the literal word "None".
+        "genre": None if "genre" in override and genre in (None, "") else str(genre),
         "comment": override.get(
             "comment",
             _encode_tokens([labels.get(str(value), str(value)) for value in details])

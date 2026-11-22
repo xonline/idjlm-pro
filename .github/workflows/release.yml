@@ -14,6 +14,7 @@ on:
       - "requirements.txt"
       - "requirements-audio.txt"
       - "scripts/verify_audio_runtime.py"
+      - "scripts/verify_macos_app_bundle.sh"
       - "package.json"
       - "package-lock.json"
       - "src-tauri/**"
@@ -104,6 +105,13 @@ jobs:
       - name: Build Tauri app
         run: tauri build --target aarch64-apple-darwin
 
+      - name: Verify sealed Apple Silicon review bundle
+        shell: bash
+        run: |
+          dmg=$(find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -name '*.dmg' -print -quit)
+          test -n "$dmg"
+          scripts/verify_macos_app_bundle.sh "$dmg" arm64 "$(cat VERSION)"
+
       - name: Verify installed desktop wrapper startup
         shell: bash
         run: |
@@ -129,10 +137,10 @@ jobs:
           "$installed_app/Contents/MacOS/idjlm-pro" >"$RUNNER_TEMP/idjlm-wrapper-arm64.log" 2>&1 &
           wrapper_pid=$!
           for _ in {1..60}; do
-            curl --fail --silent http://127.0.0.1:5050/api/version >/dev/null && {
+            if curl --fail --silent http://127.0.0.1:5050/api/version | python3 -c 'import json, sys; assert json.load(sys.stdin)["version"] == sys.argv[1]' "$(cat VERSION)"; then
               echo "Cold packaged wrapper readiness: ${SECONDS}s" >> "$GITHUB_STEP_SUMMARY"
               exit 0
-            }
+            fi
             sleep 1
           done
           cat "$RUNNER_TEMP/idjlm-wrapper-arm64.log"
@@ -220,6 +228,13 @@ jobs:
       - name: Build Tauri app
         run: tauri build --target x86_64-apple-darwin
 
+      - name: Verify sealed Intel review bundle
+        shell: bash
+        run: |
+          dmg=$(find src-tauri/target/x86_64-apple-darwin/release/bundle/dmg -name '*.dmg' -print -quit)
+          test -n "$dmg"
+          scripts/verify_macos_app_bundle.sh "$dmg" x86_64 "$(cat VERSION)"
+
       - name: Verify installed desktop wrapper startup
         shell: bash
         run: |
@@ -245,10 +260,10 @@ jobs:
           "$installed_app/Contents/MacOS/idjlm-pro" >"$RUNNER_TEMP/idjlm-wrapper-intel.log" 2>&1 &
           wrapper_pid=$!
           for _ in {1..60}; do
-            curl --fail --silent http://127.0.0.1:5050/api/version >/dev/null && {
+            if curl --fail --silent http://127.0.0.1:5050/api/version | python3 -c 'import json, sys; assert json.load(sys.stdin)["version"] == sys.argv[1]' "$(cat VERSION)"; then
               echo "Cold packaged wrapper readiness: ${SECONDS}s" >> "$GITHUB_STEP_SUMMARY"
               exit 0
-            }
+            fi
             sleep 1
           done
           cat "$RUNNER_TEMP/idjlm-wrapper-intel.log"
@@ -363,7 +378,14 @@ jobs:
             for ($i = 0; $i -lt 60; $i++) {
               try {
                 $response = Invoke-WebRequest http://127.0.0.1:5050/api/version -UseBasicParsing -TimeoutSec 2
-                if ($response.StatusCode -eq 200) { $ready = $true; break }
+                if ($response.StatusCode -eq 200) {
+                  $payload = $response.Content | ConvertFrom-Json
+                  if ($payload.version -ne (Get-Content VERSION -Raw).Trim()) {
+                    throw "Installed app reported version $($payload.version), expected $((Get-Content VERSION -Raw).Trim())"
+                  }
+                  $ready = $true
+                  break
+                }
               } catch {}
               Start-Sleep -Seconds 1
             }

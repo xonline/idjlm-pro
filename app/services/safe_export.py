@@ -191,7 +191,7 @@ def preflight(destination: str | Path, entries: list[dict], previous_manifest: I
 
 def _copy_to_temporary(source: Path, target: Path) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_name(f".{target.name}.{uuid.uuid4().hex}.partial")
+    temporary = _temporary_target(target)
     try:
         with source.open("rb") as src, temporary.open("xb") as dst:
             shutil.copyfileobj(src, dst, length=1024 * 1024)
@@ -207,6 +207,18 @@ def _copy_to_temporary(source: Path, target: Path) -> Path:
         except OSError:
             pass
         raise SafeExportError("copy_failed") from exc
+
+
+def _temporary_target(target: Path) -> Path:
+    """Return our private temporary name while retaining the media suffix.
+
+    The format adapter deliberately selects its read-back implementation from
+    the path suffix. A trailing ``.partial`` makes a valid FLAC/Ogg/M4A look
+    like an ID3 file, so keep the real container suffix last.
+    """
+    return target.with_name(
+        f".{target.stem}.{uuid.uuid4().hex}.partial{target.suffix}"
+    )
 
 
 def _publish_no_clobber(temporary: Path, target: Path, root: Path) -> None:
@@ -314,7 +326,7 @@ def copy_manifest(manifest: list[dict], *, replace_known: bool = False) -> list[
             else:
                 tag_fields = entry.get("tag_fields")
                 if tag_fields:
-                    temporary = target.with_name(f".{target.name}.{uuid.uuid4().hex}.partial")
+                    temporary = _temporary_target(target)
                     write_result = write_copy(source, temporary, tag_fields)
                     outcome["source_audio_identity"] = write_result["source_audio_identity"]
                     outcome["verified_fields"] = write_result["fields"]

@@ -90,6 +90,30 @@ def test_tagged_staged_copy_has_verified_output_hash_and_decoded_identity(tmp_pa
     assert decision["output_sha256"] != changed["output_sha256"]
 
 
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is required for disposable container fixtures")
+@pytest.mark.parametrize(("extension", "codec"), [("flac", "flac"), ("ogg", "libvorbis"), ("m4a", "alac")])
+def test_tagged_export_keeps_container_suffix_for_format_readback(tmp_path, extension, codec):
+    """Tagged copies must be reopened as their real format, never ``.partial``."""
+    source = tmp_path / f"source.{extension}"
+    subprocess.run([
+        "ffmpeg", "-nostdin", "-v", "error", "-f", "lavfi", "-i",
+        "sine=frequency=440:sample_rate=44100:duration=0.25", "-c:a", codec, str(source),
+    ], check=True)
+    entry = {
+        "item_id": f"item_{extension}", "source_path": str(source),
+        "metadata_revision": "one", "profile_hash": "profile-a",
+        "tag_fields": {"genre": "Salsa", "comment": "Salsa Romántica"},
+    }
+
+    plan = preflight(tmp_path / "staging", [entry])
+    assert plan["manifest"][0]["status"] == "new"
+    copied = copy_manifest(plan["manifest"])[0]
+
+    assert copied["status"] == "copied"
+    assert copied["verified_fields"] == entry["tag_fields"]
+    assert Path(copied["target_path"]).suffix == f".{extension}"
+
+
 def test_preflight_does_not_offer_a_tagged_raw_aac_copy(tmp_path):
     source = tmp_path / "source.aac"
     source.write_bytes(b"not-a-real-aac")

@@ -48,6 +48,9 @@ a = Analysis(
         ('app', 'app'),
         ('templates', 'templates'),
         ('taxonomy.json', '.'),
+        # `/api/version` reads this from `_MEIPASS` in the frozen sidecar.
+        # Ship it so the installed desktop app never falls back to 0.0.0.
+        ('VERSION', '.'),
         *librosa_datas,
         *soundfile_datas,
         *sklearn_datas,

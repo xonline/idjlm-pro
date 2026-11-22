@@ -136,10 +136,27 @@ def wait_job(url: str, job_id: str, expected: str = "completed") -> dict:
     raise TimeoutError(f"job {job_id} did not reach {expected}")
 
 
-def import_folder_from_ui(page, picker_path: dict[str, str], folder: Path, url: str, expected_total: int) -> dict:
+def set_native_picker(page, path: Path | None, *, unavailable: bool = False) -> None:
+    page.evaluate("""config => {
+      window.__idjlmNativePicker ||= {};
+      Object.assign(window.__idjlmNativePicker, config);
+      window.__TAURI__ = {core: {invoke: async command => {
+        if (command !== 'pick_folder' || window.__idjlmNativePicker.unavailable) throw new Error('native picker unavailable');
+        return window.__idjlmNativePicker.path;
+      }}};
+    }""", {
+        "path": str(path) if path else None,
+        "unavailable": unavailable,
+    })
+
+
+def import_folder_from_ui(page, folder: Path, url: str, expected_total: int, *, manual_path: bool = False) -> dict:
     """Use the redesigned folder flow and wait for its actual durable job."""
-    picker_path["value"] = str(folder)
+    set_native_picker(page, folder, unavailable=manual_path)
     page.locator("#latin-add-folder").click()
+    if manual_path:
+        page.locator("#latin-folder-path").fill(str(folder))
+        page.locator("#latin-modal-footer button").filter(has_text="Use folder").click()
     page.locator("#latin-modal-footer button").filter(has_text="Import folder").wait_for()
     with page.expect_response(lambda response: response.url.endswith("/api/v2/library/import-jobs") and response.request.method == "POST") as response:
         page.locator("#latin-modal-footer button").filter(has_text="Import folder").click()
@@ -254,7 +271,6 @@ def main() -> int:
     expected_stream_closes: list[str] = []
     feature_failures: list[str] = []
     checks: list[str] = []
-    active_picker_path = {"value": str(fixture_folder)}
     try:
         wait_for_app(app_url, server)
         if vite:
@@ -278,8 +294,10 @@ def main() -> int:
                     failed_requests.append(entry)
 
             page.on("requestfailed", record_failed_request)
-            # Only native OS chooser response is represented; all app routes stay real.
-            page.route("**/api/pick-folder", lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps({"path": active_picker_path["value"]})))
+            # Native invoke is the normal desktop path. A failing native call
+            # reaches the unavailable response shape, then the UI offers its
+            # labelled manual absolute-path fallback.
+            page.route("**/api/pick-folder", lambda route: route.fulfill(status=503, content_type="application/json", body=json.dumps({"unavailable": True})))
             page.goto(app_url, wait_until="networkidle", timeout=30000)
             page.wait_for_selector("#latin-shell:not([hidden])", timeout=10000)
             page.locator("#splash-screen").wait_for(state="detached", timeout=10000)
@@ -300,9 +318,9 @@ def main() -> int:
             checks.append("fresh first-run has no legacy API-key onboarding blocker")
 
             # Import through the real redesign flow and real scanner.
-            import_folder_from_ui(page, active_picker_path, fixture_folder, app_url, 125)
+            import_folder_from_ui(page, fixture_folder, app_url, 125)
             page.wait_for_function("document.querySelectorAll('#latin-library-rows tr[data-item-id]').length > 0", timeout=10000)
-            checks.append("125 synthetic MP3s imported through app route")
+            checks.append("125 synthetic MP3s imported through native desktop picker and app route")
             page.screenshot(path=str(SCREENSHOTS / "idjlm-latin-library-desktop.png"), full_page=True)
             page.set_viewport_size({"width": 1024, "height": 768})
             page.wait_for_function("document.querySelector('#latin-filter-area')?.hidden === true")
@@ -347,8 +365,8 @@ def main() -> int:
             # A second source folder and a rescan must be additive; any human
             # decision already saved for A must survive both operations.
             page.locator('[data-page="library"]').click()
-            import_folder_from_ui(page, active_picker_path, second_folder, app_url, 126)
-            import_folder_from_ui(page, active_picker_path, fixture_folder, app_url, 126)
+            import_folder_from_ui(page, second_folder, app_url, 126, manual_path=True)
+            import_folder_from_ui(page, fixture_folder, app_url, 126)
             if manual_decision_id:
                 item_state = page.evaluate("""async id => (await (await fetch(`/api/v2/items/${encodeURIComponent(id)}`)).json()).axes""", manual_decision_id)
                 if "salsa" not in (item_state or {}).get("music_family", {}).get("decision", {}).get("label_ids", []):
@@ -403,7 +421,7 @@ def main() -> int:
             # A completed additive import can change this query's membership.
             # It must clear the filter scope before any bulk control can run.
             page.locator("#latin-select-all-filtered").click()
-            import_folder_from_ui(page, active_picker_path, fixture_folder, app_url, 126)
+            import_folder_from_ui(page, fixture_folder, app_url, 126)
             page.wait_for_function("document.querySelector('#latin-selected-count')?.textContent === '0 selected' && document.querySelector('#latin-batch-catalogue')?.disabled")
             wait_library_result_count(page, "of 17 tracks", label="post-import-scope-reset")
             page.wait_for_function("document.querySelectorAll('#latin-library-rows tr[data-item-id]').length > 0")
@@ -555,8 +573,23 @@ def main() -> int:
             page.locator("#latin-batch-export").click()
             page.locator('[data-page="export"]').wait_for()
             page.locator("#latin-export-profile").select_option("djay_extended_genre")
-            active_picker_path["value"] = str(export_folder)
+            set_native_picker(page, export_folder)
             page.locator("#latin-export-pick-destination").click()
+            page.wait_for_function("expected => document.querySelector('#latin-export-destination')?.value === expected", arg=str(export_folder))
+            set_native_picker(page, None)
+            page.locator("#latin-export-pick-destination").click()
+            page.wait_for_timeout(100)
+            if page.locator("#latin-export-destination").input_value() != str(export_folder):
+                raise AssertionError("Canceling the native destination picker changed the previous destination")
+            set_native_picker(page, None, unavailable=True)
+            page.locator("#latin-export-pick-destination").click()
+            page.locator("#latin-folder-path").wait_for()
+            if page.locator("#latin-folder-path").input_value() != str(export_folder):
+                raise AssertionError("Manual destination fallback did not preserve the previous destination")
+            page.locator("#latin-modal-footer button").filter(has_text="Cancel").click()
+            if page.locator("#latin-export-destination").input_value() != str(export_folder):
+                raise AssertionError("Canceling the manual destination fallback changed the previous destination")
+            checks.append("native and manual folder-picker cancellation preserve the export destination")
             with page.expect_response(lambda response: response.url.endswith("/api/v2/exports/previews") and response.request.method == "POST") as first_preview_response:
                 page.locator("#latin-export-preview").click()
             if not first_preview_response.value.ok:
@@ -609,7 +642,7 @@ tags.save(path)
             subprocess.run([str(PYTHON), "-c", mutation, str(export_source)], check=True)
             revised_source_sha = sha256(export_source)
             page.locator('[data-page="library"]').click()
-            import_folder_from_ui(page, active_picker_path, fixture_folder, app_url, 126)
+            import_folder_from_ui(page, fixture_folder, app_url, 126)
             revised_info = page.evaluate("""async id => (await (await fetch(`/api/v2/items/${encodeURIComponent(id)}`)).json())""", manual_decision_id)
             if "salsa" not in (revised_info.get("axes") or {}).get("music_family", {}).get("decision", {}).get("label_ids", []):
                 raise AssertionError("Additive source rescan lost the human decision needed for export")
@@ -621,7 +654,7 @@ tags.save(path)
             page.locator(f'#latin-library-rows tr[data-item-id="{manual_decision_id}"] .latin-row-check').check()
             page.locator("#latin-batch-export").click()
             page.locator("#latin-export-profile").select_option("djay_extended_genre")
-            active_picker_path["value"] = str(export_folder)
+            set_native_picker(page, export_folder)
             page.locator("#latin-export-pick-destination").click()
             with page.expect_response(lambda response: response.url.endswith("/api/v2/exports/previews") and response.request.method == "POST") as changed_preview_response:
                 page.locator("#latin-export-preview").click()

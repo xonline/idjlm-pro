@@ -4,15 +4,29 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
-## [Unreleased] — review PR #44
+## [4.2.1] — 2026-11-23
+
+### Review installer
+
+- Published an Apple Silicon **ad-hoc signed, unnotarized test prerelease** for review. It is not a stable release and normal Gatekeeper acceptance still requires a Developer ID certificate and notarization.
+- Added macOS bundle verification for the app seal, bundled sidecar, executable signatures, packaged API version, wrapper startup, and the expected quarantined Gatekeeper rejection.
+- Bundled `VERSION` with the frozen sidecar so the installed `/api/version` endpoint reports the packaged version.
+
+To install the review build, verify its checksum, copy **IDJLM Pro** to Applications, eject the DMG, then use **System Settings → Privacy & Security → Open Anyway** after macOS blocks its first launch. Test only with a copied music folder.
 
 ### Latin library workflow
+
 - Added a local-first workspace with Library, Review, Categories, Export, Activity, and Settings pages. The earlier tools remain available under Advanced.
 - Added literal personal tags, human-reviewed model suggestions, review previews, backed-up metadata writes with guarded restore, and verified staged-copy export.
 - Added an optional local audio-classification path. Its Latin-family and fine-style accuracy has not been measured on a representative music set.
 - Added a SQLite library store and resumable local jobs. Import, review, tagging, and export do not require a cloud API key.
+- Added the desktop folder chooser with a manual-path fallback for the packaged app.
 
-This work is under review in [review PR #44](https://github.com/xonline/idjlm-pro/pull/44). It is not part of a public release.
+### Export and tag fixes
+
+- Preserve the source media suffix on staged export temporaries so FLAC, Ogg, and M4A verification reads the written output.
+- Treat an explicit cleared Genre as a removal, while preserving omitted managed values and raw Comment text.
+- Allow verified byte-only exports when no tag values are mapped.
 
 ---
 

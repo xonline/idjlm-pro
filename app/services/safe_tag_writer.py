@@ -102,19 +102,28 @@ def write_mp3(path: str, fields: Mapping[str, str | None]) -> dict:
         if audio.tags is None:
             audio.add_tags()
         tags = audio.tags
-        if "genre" in fields and fields["genre"] is not None:
-            tags["TCON"] = TCON(encoding=3, text=[str(fields["genre"])])
-        if "comment" in fields and fields["comment"] is not None:
-            tags[f"COMM:{MANAGED_COMMENT_DESC}:{MANAGED_COMMENT_LANG}"] = COMM(
-                encoding=3, lang=MANAGED_COMMENT_LANG, desc=MANAGED_COMMENT_DESC,
-                text=[str(fields["comment"])],
-            )
+        if "genre" in fields:
+            if fields["genre"] is None or fields["genre"] == "":
+                tags.delall("TCON")
+            else:
+                tags["TCON"] = TCON(encoding=3, text=[str(fields["genre"])])
+        if "comment" in fields:
+            key = f"COMM:{MANAGED_COMMENT_DESC}:{MANAGED_COMMENT_LANG}"
+            if fields["comment"] is None or fields["comment"] == "":
+                tags.delall(key)
+            else:
+                tags[key] = COMM(
+                    encoding=3, lang=MANAGED_COMMENT_LANG, desc=MANAGED_COMMENT_DESC,
+                    text=[str(fields["comment"])],
+                )
         audio.save(v2_version=4)
     except Exception as exc:
         raise SafeTagWriteError("write_failed") from exc
 
     result = read_mp3_fields(path, fields)
     for key, value in fields.items():
-        if value is not None and result.get(key) != str(value):
+        if (value is None or value == "") and result.get(key) is not None:
+            raise SafeTagWriteError("readback_mismatch")
+        if value not in (None, "") and result.get(key) != str(value):
             raise SafeTagWriteError("readback_mismatch")
     return result

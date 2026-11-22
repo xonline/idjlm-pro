@@ -1085,25 +1085,81 @@ async function latinHandleModalAction(index) {
   } catch (error) { latinAnnounce(error.message, 'error'); }
 }
 
-async function latinImportFolder() {
+async function latinPickFolder() {
+  const invoke = window.__TAURI__?.core?.invoke;
+  if (typeof invoke === 'function') {
+    try {
+      const path = await invoke('pick_folder');
+      return path ? { path } : { cancelled: true };
+    } catch (error) { console.warn('[idjlm] Native folder picker unavailable:', error); }
+  }
   try {
     const picker = await latinRequest('/api/pick-folder');
-    if (picker.cancelled || picker.unavailable) return;
-    const root = picker.path || picker.folder || picker.directory;
-    if (!root) return;
-    latinOpenModal({ kicker: 'ADD MUSIC FOLDER', title: 'Add music from this folder', body: `<p>Files stay where they are. Unchanged tracks are reused during future scans.</p><p><strong>${latinEscape(root.split(/[\\/]/).filter(Boolean).at(-1) || 'Selected folder')}</strong></p><p>After import, select the imported tracks in Library and start audio analysis for that selection.</p>`, buttons: [
-      { label: 'Cancel', kind: 'quiet', close: true },
-      { label: 'Import folder', kind: 'primary', action: async () => {
-        latin$('latin-modal-footer').querySelectorAll('button').forEach(button => button.disabled = true);
-        latinAnnounce('Additive folder import queued. Existing folders and reviewed labels are preserved.');
+    if (picker.cancelled) return { cancelled: true };
+    const path = picker.path || picker.folder || picker.directory;
+    if (path) return { path };
+  } catch (error) { console.warn('[idjlm] Local folder picker unavailable:', error); }
+  return { unavailable: true };
+}
+
+function latinIsAbsolutePath(path) {
+  return /^(?:\/|\\\\|[A-Za-z]:[\\/])/.test(path);
+}
+
+function latinOpenManualFolderPath({ title, detail, value = '', confirmLabel, onConfirm }) {
+  latinOpenModal({ kicker: 'FOLDER PATH', title, body: `<p>${latinEscape(detail)}</p><label class="latin-field-label" for="latin-folder-path">Absolute folder path</label><input class="latin-input full" id="latin-folder-path" value="${latinEscape(value)}" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="/Users/you/Music">`, buttons: [
+    { label: 'Cancel', kind: 'quiet', close: true },
+    { label: confirmLabel, kind: 'primary', action: async () => {
+      const path = latin$('latin-folder-path').value.trim();
+      if (!latinIsAbsolutePath(path)) throw new Error('Enter an absolute folder path.');
+      await onConfirm(path);
+    } },
+  ] });
+  const input = latin$('latin-folder-path');
+  input.focus();
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter') { event.preventDefault(); latinHandleModalAction(1); }
+  });
+}
+
+function latinConfirmImportFolder(root) {
+  latinOpenModal({ kicker: 'ADD MUSIC FOLDER', title: 'Add music from this folder', body: `<p>Files stay where they are. Unchanged tracks are reused during future scans.</p><p><strong>${latinEscape(root.split(/[\\/]/).filter(Boolean).at(-1) || 'Selected folder')}</strong></p><p>After import, select the imported tracks in Library and start audio analysis for that selection.</p>`, buttons: [
+    { label: 'Cancel', kind: 'quiet', close: true },
+    { label: 'Import folder', kind: 'primary', action: async () => {
+      const buttons = latin$('latin-modal-footer').querySelectorAll('button');
+      buttons.forEach(button => button.disabled = true);
+      latinAnnounce('Additive folder import queued. Existing folders and reviewed labels are preserved.');
+      try {
         const result = await latinRequest('/api/v2/library/import-jobs', { method: 'POST', body: JSON.stringify({ folder_path: root }) });
         latinCloseModal();
         latinState.jobs.unshift(result);
         latinPollJob(result.job_id);
         if (latinState.page === 'activity') latinRenderJobs();
-      } },
-    ] });
-  } catch (error) { latinAnnounce(`Folder import could not start. ${error.message}`, 'error'); }
+      } finally { buttons.forEach(button => button.disabled = false); }
+    } },
+  ] });
+}
+
+async function latinImportFolder() {
+  const picker = await latinPickFolder();
+  if (picker.path) return latinConfirmImportFolder(picker.path);
+  if (picker.unavailable) latinOpenManualFolderPath({ title: 'Enter your music folder', detail: 'The folder picker is unavailable. Enter the absolute path to the folder you want to add.', confirmLabel: 'Use folder', onConfirm: latinConfirmImportFolder });
+}
+
+function latinSetExportDestination(path) {
+  const changed = latinState.destination !== path;
+  latinState.destination = path;
+  latin$('latin-export-destination').value = path;
+  if (changed) {
+    latinState.exportPreviewRequestId = (latinState.exportPreviewRequestId || 0) + 1;
+    latin$('latin-export-preview-card').hidden = true;
+  }
+}
+
+async function latinChooseExportDestination() {
+  const picker = await latinPickFolder();
+  if (picker.path) return latinSetExportDestination(picker.path);
+  if (picker.unavailable) latinOpenManualFolderPath({ title: 'Enter export destination', detail: 'The folder picker is unavailable. Enter the absolute path to the staging folder.', value: latinState.destination, confirmLabel: 'Use destination', onConfirm: path => { latinSetExportDestination(path); latinCloseModal(); } });
 }
 
 function latinSwitchPage(page) {
@@ -1297,10 +1353,7 @@ function latinInit() {
   latin$('latin-batch-export').addEventListener('click', () => { latinState.exportScope = latinCurrentScope(); latinSwitchPage('export'); });
   latin$('latin-export-change-scope').addEventListener('click', () => latinSwitchPage('library'));
   latin$('latin-export-routes').addEventListener('change', event => { if (event.target.name === 'latin-export-route') latinState.selectedRoute = event.target.value; });
-  latin$('latin-export-pick-destination').addEventListener('click', async () => {
-    try { const result = await latinRequest('/api/pick-folder'); latinState.destination = result.path || result.folder || ''; latin$('latin-export-destination').value = latinState.destination; }
-    catch (error) { latinAnnounce(`Destination picker unavailable. ${error.message}`, 'error'); }
-  });
+  latin$('latin-export-pick-destination').addEventListener('click', latinChooseExportDestination);
   latin$('latin-export-preview').addEventListener('click', latinPreviewExport);
   latin$('latin-export-preview-card').addEventListener('click', event => { const commit = event.target.closest('[data-commit-export]'); if (commit) latinCommitExport(commit.dataset.commitExport, commit.dataset.replaceKnown === 'true'); if (event.target.closest('[data-close-export-preview]')) latin$('latin-export-preview-card').hidden = true; });
   latin$('latin-export-history').addEventListener('click', event => { const control = event.target.closest('[data-export-transfer]'); if (control) latinRecordExportTransfer(control.dataset.exportTransfer, control.dataset.transferState); });

@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from mutagen import File as MutagenFile
 
 
 @pytest.fixture
@@ -232,6 +233,81 @@ def test_model_setup_is_gated_when_audio_runtime_is_not_bundled(v2_client, monke
         v2_routes._model_status_cache.update(
             {"checked_at": 0.0, "value": {"state": "unknown"}}
         )
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is required for disposable MP3 fixture")
+def test_write_preview_and_commit_clear_genre_instead_of_writing_none(v2_client, tmp_path):
+    from app.services.safe_tag_writer import write_mp3
+
+    source = tmp_path / "clear-genre.mp3"
+    subprocess.run([
+        "ffmpeg", "-nostdin", "-v", "error", "-f", "lavfi", "-i",
+        "sine=frequency=440:sample_rate=44100:duration=0.25", "-c:a", "libmp3lame", str(source),
+    ], check=True)
+    write_mp3(str(source), {"genre": "Salsa", "comment": "keep source comment"})
+    imported = v2_client.post("/api/v2/library/import-jobs", json={"folder_path": str(tmp_path)})
+    assert _wait_for_job(v2_client, imported.get_json()["job_id"])["state"] == "completed"
+    item_id = v2_client.get("/api/v2/library/items").get_json()["items"][0]["id"]
+
+    preview_response = v2_client.post(
+        "/api/v2/writes/previews",
+        json={
+            "scope": _scope(item_id), "fields": ["genre"],
+            "field_overrides": {item_id: {"genre": None}},
+        },
+    )
+    assert preview_response.status_code == 201
+    preview = preview_response.get_json()
+    assert preview["items"][0]["fields"]["genre"] == {"before": "Salsa", "after": None}
+
+    committed = v2_client.post(
+        "/api/v2/writes/commit", json={"preview_id": preview["preview_id"], "confirm": True}
+    )
+    assert committed.status_code == 202
+    assert _wait_for_job(v2_client, committed.get_json()["job_id"])["counts"]["completed"] == 1
+    assert MutagenFile(str(source), easy=False).tags.get("TCON") is None
+
+    history = v2_client.get("/api/v2/writes").get_json()["items"]
+    restore_preview = v2_client.post("/api/v2/restores/previews", json={"write_id": history[0]["write_id"]})
+    assert restore_preview.status_code == 201
+    restored = v2_client.post(
+        "/api/v2/restores/commit", json={"preview_id": restore_preview.get_json()["preview_id"], "confirm": True}
+    )
+    assert restored.status_code == 200
+    assert MutagenFile(str(source), easy=False).tags["TCON"].text == ["Salsa"]
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is required for disposable MP3 fixture")
+def test_export_preview_allows_untagged_copy_without_invalid_tag_fields(v2_client, tmp_path):
+    source = tmp_path / "untagged.mp3"
+    subprocess.run([
+        "ffmpeg", "-nostdin", "-v", "error", "-f", "lavfi", "-i",
+        "sine=frequency=440:sample_rate=44100:duration=0.25", "-c:a", "libmp3lame", str(source),
+    ], check=True)
+    source_bytes = source.read_bytes()
+    imported = v2_client.post("/api/v2/library/import-jobs", json={"folder_path": str(tmp_path)})
+    assert _wait_for_job(v2_client, imported.get_json()["job_id"])["state"] == "completed"
+    item_id = v2_client.get("/api/v2/library/items").get_json()["items"][0]["id"]
+
+    preview_response = v2_client.post(
+        "/api/v2/exports/previews",
+        json={
+            "scope": _scope(item_id), "destination": str(tmp_path / "staging"),
+            "profile": {"name": "broad_genre_raw_comment"}, "route": "direct_cable",
+        },
+    )
+    assert preview_response.status_code == 201
+    preview = preview_response.get_json()
+    manifest = preview["report"]["manifest"]
+    assert manifest[0]["status"] == "new"
+    assert "tag_fields" not in manifest[0]
+
+    committed = v2_client.post(
+        "/api/v2/exports/commit", json={"preview_id": preview["preview_id"], "confirm": True}
+    )
+    assert committed.status_code == 202
+    assert _wait_for_job(v2_client, committed.get_json()["job"]["job_id"])["counts"]["completed"] == 1
+    assert Path(manifest[0]["target_path"]).read_bytes() == source_bytes
 
 
 def test_review_preview_is_single_use(v2_client, tmp_path):
@@ -487,6 +563,7 @@ def test_api_verified_write_restore_and_export_readback(v2_client, tmp_path):
         json={"scope": _scope(item_id), "fields": ["genre", "comment"]},
     ).get_json()
     assert preview["storage"]["enough_space"] is True
+    assert preview["items"][0]["fields"]["genre"]["after"] == "Salsa"
     write = v2_client.post(
         "/api/v2/writes/commit",
         json={"preview_id": preview["preview_id"], "confirm": True},
