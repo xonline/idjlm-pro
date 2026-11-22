@@ -295,9 +295,9 @@ def main() -> int:
 
             page.on("requestfailed", record_failed_request)
             # Native invoke is the normal desktop path. A failing native call
-            # reaches the unavailable response shape, then the UI offers its
-            # labelled manual absolute-path fallback.
-            page.route("**/api/pick-folder", lambda route: route.fulfill(status=503, content_type="application/json", body=json.dumps({"unavailable": True})))
+            # reaches Flask's real headless/unavailable response shape, then
+            # the UI offers its labelled manual absolute-path fallback.
+            page.route("**/api/pick-folder", lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps({"unavailable": True})))
             page.goto(app_url, wait_until="networkidle", timeout=30000)
             page.wait_for_selector("#latin-shell:not([hidden])", timeout=10000)
             page.locator("#splash-screen").wait_for(state="detached", timeout=10000)
