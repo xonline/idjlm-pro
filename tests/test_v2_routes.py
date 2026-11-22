@@ -165,6 +165,78 @@ def test_warm_import_skips_unchanged_scanner_work(v2_client, tmp_path, monkeypat
     assert updated["id"] == item_id and updated["revision"] != revision
 
 
+def test_export_transfer_waits_for_prepared_staging(v2_client):
+    from app import get_v2_store
+
+    store = get_v2_store()
+    manifest = [{"item_id": "item_one", "status": "copied"}]
+    exported = store.create_export({}, "/tmp/staging", "direct_cable", manifest)
+    assert exported["state"] == "Preparing"
+    blocked = v2_client.post(
+        f"/api/v2/exports/{exported['export_id']}/transfer",
+        json={"state": "Transfer unverified"},
+    )
+    assert blocked.status_code == 409
+    assert blocked.get_json()["error"] == "export_not_prepared"
+
+    store.update_export(exported["export_id"], "Prepared", manifest)
+    transferred = v2_client.post(
+        f"/api/v2/exports/{exported['export_id']}/transfer",
+        json={"state": "Transfer unverified"},
+    )
+    assert transferred.status_code == 200
+    assert transferred.get_json()["state"] == "Transfer unverified"
+
+    verified = v2_client.post(
+        f"/api/v2/exports/{exported['export_id']}/transfer",
+        json={"state": "Verified in djay", "evidence": "One track appears and plays."},
+    )
+    assert verified.status_code == 200
+    assert verified.get_json()["state"] == "Verified in djay"
+
+    legacy = store.create_export(
+        {}, "/tmp/legacy-staging", "direct_cable", [{"item_id": "item_two", "status": "new"}]
+    )
+    store.update_export(legacy["export_id"], "Prepared")
+    blocked_legacy = v2_client.post(
+        f"/api/v2/exports/{legacy['export_id']}/transfer",
+        json={"state": "Transfer unverified"},
+    )
+    assert blocked_legacy.status_code == 409
+
+
+def test_literal_catalogue_filter_reaches_all_filtered_preview(v2_client, tmp_path):
+    from app import get_v2_store
+
+    store = get_v2_store()
+    store.save_taxonomy(
+        {"labels": [{"id": "personal:romantica", "display_name": "Romantica", "axis": "custom_tag", "aliases": []}]},
+        0,
+    )
+    source = tmp_path / "catalogued.mp3"
+    source.write_bytes(b"synthetic")
+    item = store.upsert_item(path=str(source), original={"title": "Catalogue"})
+    detail = store.get_item(item["id"])
+    review = store.create_preview(
+        "review",
+        {"fields": ["custom_tag"], "items": [{"item_id": item["id"], "revision": detail["revision"], "axes": {}}]},
+    )
+    store.save_decisions(
+        store.consume_preview(review["preview_id"], "review"),
+        [{"item_id": item["id"], "axis": "custom_tag", "action": "correct", "label_ids": ["personal:romantica"]}],
+    )
+    filters = {"comment_tokens": ["Romantica"]}
+    listed = v2_client.get("/api/v2/library/items", query_string={"filters": json.dumps(filters)})
+    assert [row["id"] for row in listed.get_json()["items"]] == [item["id"]]
+
+    preview = v2_client.post(
+        "/api/v2/writes/previews",
+        json={"scope": {"selection": "all_filtered", "item_ids": [], "filter": filters}, "fields": ["genre"]},
+    )
+    assert preview.status_code == 201
+    assert [row["item_id"] for row in preview.get_json()["items"]] == [item["id"]]
+
+
 def test_mutation_guards_reject_empty_scope_bypass_and_cross_site(v2_client, tmp_path):
     path = tmp_path / "track.mp3"
     path.write_bytes(b"placeholder")

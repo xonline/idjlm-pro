@@ -418,10 +418,26 @@ class V2Store:
         if tokens:
             marks = ",".join("?" * len(tokens))
             values = [_norm(x) for x in tokens]
+            taxonomy = self.taxonomy({})["document"]
+            labels = taxonomy.get("labels") if isinstance(taxonomy, dict) else []
+            tag_ids = []
+            for label in (labels if isinstance(labels, list) else []):
+                if not isinstance(label, dict) or label.get("axis") != "custom_tag":
+                    continue
+                aliases = label.get("aliases")
+                candidates = [label.get("display_name")]
+                if isinstance(aliases, list):
+                    candidates.extend(aliases)
+                if _norm(label.get("id")) and any(
+                    _norm(candidate) in values for candidate in candidates
+                ):
+                    tag_ids.append(_norm(label["id"]))
+            label_values = [*values, *tag_ids]
+            label_marks = ",".join("?" * len(label_values))
             clauses.append(
-                f"(EXISTS (SELECT 1 FROM v2_comment_tokens c WHERE c.item_id=r.item_id AND c.token_norm IN ({marks})) OR EXISTS (SELECT 1 FROM v2_effective_labels e WHERE e.item_id=r.item_id AND e.axis IN ('comment','comment_token','custom_tag') AND e.label_id IN ({marks})))"
+                f"(EXISTS (SELECT 1 FROM v2_comment_tokens c WHERE c.item_id=r.item_id AND c.token_norm IN ({marks})) OR EXISTS (SELECT 1 FROM v2_effective_labels e WHERE e.item_id=r.item_id AND e.axis IN ('comment','comment_token','custom_tag') AND e.label_id IN ({label_marks})))"
             )
-            args += values + values
+            args += values + label_values
         if filters.get("raw_comment") is not None:
             if not isinstance(filters["raw_comment"], str):
                 raise ValueError("invalid_filters")
@@ -1136,7 +1152,7 @@ class V2Store:
                     _dump(profile),
                     destination,
                     route,
-                    "Prepared",
+                    "Preparing",
                     _dump(manifest),
                     now,
                     now,
