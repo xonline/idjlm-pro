@@ -1,70 +1,239 @@
 // Prevents additional console window on Windows in release. DO NOT REMOVE.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::net::TcpStream;
-use std::path::PathBuf;
+use std::fs;
+use std::io::{Read, Write};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use serde::Deserialize;
+use serde_json::{json, Value};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
-/// Port Flask listens on. Must match FLASK_PORT env var (or run_app.py default).
-const FLASK_PORT: u16 = 5050;
-/// Seconds to wait for Flask before giving up and showing an error.
+const DEFAULT_FLASK_PORT: u16 = 5050;
 const FLASK_TIMEOUT_SECS: u64 = 90;
+const LOOPBACK_TIMEOUT: Duration = Duration::from_millis(350);
 
-/// Shared handle to the Flask child process so we can kill it on app exit.
-struct FlaskProcess(Arc<Mutex<Option<Child>>>);
-
-/// Check if something is ALREADY bound to FLASK_PORT before we launch (port conflict).
-fn port_already_in_use() -> bool {
-    TcpStream::connect(format!("127.0.0.1:{}", FLASK_PORT)).is_ok()
+struct SidecarRuntime {
+    child: Option<Child>,
+    ready_file: Option<PathBuf>,
+}
+/// Only a child launched by this wrapper is ever stopped.
+struct SidecarProcess(Arc<Mutex<SidecarRuntime>>);
+#[derive(Deserialize)]
+struct SidecarReady {
+    token: String,
+    port: Option<u16>,
+    error: Option<String>,
 }
 
-/// Poll TCP connect to 127.0.0.1:FLASK_PORT until successful or timeout.
-fn wait_for_flask(timeout: Duration) -> bool {
-    let deadline = Instant::now() + timeout;
-    while Instant::now() < deadline {
-        if TcpStream::connect(format!("127.0.0.1:{}", FLASK_PORT)).is_ok() {
-            // Add a small grace delay — Flask accepts TCP before all routes register
-            thread::sleep(Duration::from_millis(300));
-            return true;
-        }
-        thread::sleep(Duration::from_millis(200));
+fn stop_sidecar(state: &SidecarProcess) {
+    let Ok(mut runtime) = state.0.lock() else {
+        return;
+    };
+    if let Some(mut child) = runtime.child.take() {
+        let _ = child.kill();
+        let _ = child.wait();
     }
-    false
+    if let Some(path) = runtime.ready_file.take() {
+        let _ = fs::remove_file(path);
+    }
 }
 
-/// Resolve path to the `idjlm-server` sidecar binary.
-/// Production: Tauri places it beside the app executable (triple suffix stripped).
-/// Dev: src-tauri/binaries/idjlm-server-{triple} (built locally via PyInstaller).
+fn loopback_in_use(port: u16) -> bool {
+    TcpStream::connect_timeout(
+        &SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port),
+        LOOPBACK_TIMEOUT,
+    )
+    .is_ok()
+}
+
+/// Read, but never navigate to, a bounded local HTTP response.
+fn local_json(port: u16, path: &str) -> Option<Value> {
+    let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
+    let mut stream = TcpStream::connect_timeout(&address, LOOPBACK_TIMEOUT).ok()?;
+    stream.set_read_timeout(Some(LOOPBACK_TIMEOUT)).ok()?;
+    stream.set_write_timeout(Some(LOOPBACK_TIMEOUT)).ok()?;
+    write!(
+        stream,
+        "GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"
+    )
+    .ok()?;
+    let mut response = String::new();
+    stream.take(64 * 1024).read_to_string(&mut response).ok()?;
+    let (headers, body) = response.split_once("\r\n\r\n")?;
+    if !(headers.starts_with("HTTP/1.1 200") || headers.starts_with("HTTP/1.0 200")) {
+        return None;
+    }
+    serde_json::from_str(body).ok()
+}
+
+/// Current versions have a marker. The health-shape fallback recognises a
+/// 4.2.2 sidecar, without trusting its URL or mutating it.
+fn is_idjlm_listener(port: u16) -> bool {
+    let Some(version) = local_json(port, "/api/version") else {
+        return false;
+    };
+    if version.get("product").and_then(Value::as_str) == Some("idjlm-pro") {
+        return true;
+    }
+    let Some(number) = version.get("version").and_then(Value::as_str) else {
+        return false;
+    };
+    if !number
+        .split('.')
+        .all(|part| !part.is_empty() && part.chars().all(|character| character.is_ascii_digit()))
+    {
+        return false;
+    }
+    let Some(health) = local_json(port, "/api/health") else {
+        return false;
+    };
+    health.get("status").and_then(Value::as_str) == Some("ok")
+        && health
+            .get("taxonomy_loaded")
+            .and_then(Value::as_bool)
+            .is_some()
+        && health
+            .get("tracks_loaded")
+            .and_then(Value::as_u64)
+            .is_some()
+}
+
+fn startup_token() -> Result<String, String> {
+    let mut bytes = [0_u8; 24];
+    getrandom::fill(&mut bytes)
+        .map_err(|error| format!("could not create startup token: {error}"))?;
+    Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
+}
+
+fn sidecar_ready_path(token: &str) -> Result<PathBuf, String> {
+    let directory = std::env::temp_dir().join("idjlm-pro-startup");
+    fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+    Ok(directory.join(format!("sidecar-{}-{token}.json", std::process::id())))
+}
+
+fn read_sidecar_ready(path: &Path, token: &str) -> Result<Option<u16>, String> {
+    let Ok(contents) = fs::read_to_string(path) else {
+        return Ok(None);
+    };
+    let Ok(ready) = serde_json::from_str::<SidecarReady>(&contents) else {
+        return Ok(None);
+    };
+    if ready.token != token {
+        return Ok(None);
+    }
+    if let Some(error) = ready.error {
+        return Err(error);
+    }
+    Ok(ready.port.filter(|port| *port != 0))
+}
+
+fn wait_for_sidecar_ready(state: &SidecarProcess, token: &str) -> Result<u16, String> {
+    let deadline = Instant::now() + Duration::from_secs(FLASK_TIMEOUT_SECS);
+    while Instant::now() < deadline {
+        let ready_file = {
+            let mut runtime = state.0.lock().map_err(|_| "sidecar state lock failed")?;
+            let child = runtime.child.as_mut().ok_or("sidecar was not started")?;
+            if let Some(status) = child.try_wait().map_err(|error| error.to_string())? {
+                return Err(format!("sidecar exited early ({status})"));
+            }
+            runtime
+                .ready_file
+                .clone()
+                .ok_or("sidecar readiness file missing")?
+        };
+        if let Some(port) = read_sidecar_ready(&ready_file, token)? {
+            return Ok(port);
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    Err("sidecar did not become ready within 90 seconds".to_string())
+}
+
+fn atomic_write_json(path: &Path, payload: Value) -> Result<(), String> {
+    let parent = path.parent().ok_or("readiness path has no parent")?;
+    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| error.to_string())?
+        .as_nanos();
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("ready");
+    let temporary = parent.join(format!(".{name}.{unique}.tmp"));
+    fs::write(
+        &temporary,
+        serde_json::to_vec(&payload).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    fs::rename(&temporary, path).map_err(|error| error.to_string())
+}
+
+fn html_escape(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
+}
+
+fn status_page(message: &str, failure: bool) -> tauri::Url {
+    let heading = if failure {
+        "IDJLM Pro could not start"
+    } else {
+        "IDJLM Pro"
+    };
+    let detail = if failure {
+        "Close this window after reading the message, then relaunch when resolved."
+    } else {
+        "Starting local service…"
+    };
+    let html = format!("<!doctype html><html><head><meta charset='utf-8'><style>body{{margin:0;background:#0f0f13;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:grid;place-items:center;height:100vh}}main{{max-width:540px;padding:36px;text-align:center}}h1{{font-size:25px}}p{{line-height:1.55;color:#c6c6d1}}small{{color:#8a8a99}}</style></head><body><main><h1>{heading}</h1><p>{}</p><small>{detail}</small></main></body></html>", html_escape(message));
+    format!(
+        "data:text/html;charset=utf-8,{}",
+        urlencoding::encode(&html)
+    )
+    .parse()
+    .expect("valid data url")
+}
+
+fn show_error(window: &tauri::WebviewWindow, message: &str) {
+    if let Err(error) = window.navigate(status_page(message, true)) {
+        // The original splash might not have loaded yet. A native title is a
+        // durable last-resort signal even if the WebView refuses a data URL.
+        eprintln!("[idjlm] could not show startup error: {error}: {message}");
+        let _ = window.set_title("IDJLM Pro — Startup error (see IDJLM log)");
+        let _ = window.show();
+    }
+}
+
 fn find_sidecar(app: &AppHandle) -> PathBuf {
     let bundled_name = if cfg!(target_os = "windows") {
         "idjlm-server.exe"
     } else {
         "idjlm-server"
     };
-
-    // Tauri bundles externalBin sidecars alongside the installed app executable
-    // on macOS and Windows. Check this location before the development fallback.
     if let Ok(executable) = std::env::current_exe() {
-        if let Some(executable_dir) = executable.parent() {
-            let candidate = executable_dir.join(bundled_name);
+        if let Some(directory) = executable.parent() {
+            let candidate = directory.join(bundled_name);
             if candidate.exists() {
                 return candidate;
             }
         }
     }
-
-    if let Ok(resource_dir) = app.path().resource_dir() {
-        let candidate = resource_dir.join(bundled_name);
+    if let Ok(directory) = app.path().resource_dir() {
+        let candidate = directory.join(bundled_name);
         if candidate.exists() {
             return candidate;
         }
     }
-
     let triple = if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
         "aarch64-apple-darwin"
     } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
@@ -76,25 +245,21 @@ fn find_sidecar(app: &AppHandle) -> PathBuf {
     } else {
         "x86_64-unknown-linux-gnu"
     };
-
     std::env::current_exe()
         .ok()
-        .and_then(|p| {
-            p.parent()
-                .and_then(|d| d.parent())
-                .and_then(|d| d.parent())
+        .and_then(|path| {
+            path.parent()
+                .and_then(|dir| dir.parent())
+                .and_then(|dir| dir.parent())
                 .map(|root| {
                     root.join("src-tauri")
                         .join("binaries")
-                        .join(format!("idjlm-server-{}", triple))
+                        .join(format!("idjlm-server-{triple}"))
                 })
         })
-        .unwrap_or_else(|| PathBuf::from(format!("idjlm-server-{}", triple)))
+        .unwrap_or_else(|| PathBuf::from(format!("idjlm-server-{triple}")))
 }
 
-/// Tauri command exposed to JS: opens a native folder picker and returns the path.
-/// Uses blocking_pick_folder so it can be called from a Tauri command context.
-/// Called via: window.__TAURI__.core.invoke('pick_folder')
 #[tauri::command]
 fn pick_folder(app: AppHandle) -> Option<String> {
     use tauri_plugin_dialog::DialogExt;
@@ -102,160 +267,63 @@ fn pick_folder(app: AppHandle) -> Option<String> {
         .file()
         .set_title("Select Music Folder")
         .blocking_pick_folder()
-        .and_then(|p| p.into_path().ok())
-        .map(|p| p.to_string_lossy().into_owned())
-}
-
-/// Navigate the named webview window to Flask URL.
-fn navigate_to_flask(window: &tauri::WebviewWindow) {
-    let url = format!("http://localhost:{}", FLASK_PORT);
-    let _ = window.navigate(url.parse().expect("valid url"));
-}
-
-/// Show an error message in the splash window via JS eval.
-fn show_splash_error(window: &tauri::WebviewWindow, msg: &str) {
-    let script = format!(
-        "var el = document.querySelector('.status'); if(el) el.textContent = '{}';",
-        msg.replace('\'', "\\'")
-    );
-    // tauri WebviewWindow::eval injects trusted internal JS for splash UI only
-    let _ = window.eval(&script);
+        .and_then(|path| path.into_path().ok())
+        .map(|path| path.to_string_lossy().into_owned())
 }
 
 fn main() {
-    // Inline splash HTML as a data URI so we don't need WebviewUrl::Html
-    let splash_css = r#"
-* { margin:0; padding:0; box-sizing:border-box; }
-body { background:#0f0f13; display:flex; flex-direction:column;
-align-items:center; justify-content:center; height:100vh;
-font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-color:#e0e0e0; user-select:none; }
-.icon { width:96px; height:96px;
-background:linear-gradient(135deg,#8b5cf6 0%,#06b6d4 100%);
-border-radius:22px; display:flex; align-items:center;
-justify-content:center; font-size:48px; margin-bottom:28px;
-box-shadow:0 0 40px rgba(139,92,246,0.35);
-animation:breathe 2.4s ease-in-out infinite; }
-@keyframes breathe {
-0%,100%{box-shadow:0 0 40px rgba(139,92,246,0.35);transform:scale(1);}
-50%{box-shadow:0 0 60px rgba(139,92,246,0.55);transform:scale(1.03);}}
-h1 { font-size:26px; font-weight:700; letter-spacing:-0.5px; margin-bottom:6px;
-background:linear-gradient(135deg,#c4b5fd,#67e8f9);
--webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-.subtitle{font-size:13px;color:#555;margin-bottom:40px;letter-spacing:0.3px;}
-.bar-track{width:220px;height:3px;background:#1e1e2e;border-radius:2px;overflow:hidden;}
-.bar-fill{ height:100%;width:40%;
-background:linear-gradient(90deg,#8b5cf6,#06b6d4);
-border-radius:2px;animation:slide 1.8s ease-in-out infinite;}
-@keyframes slide{0%{margin-left:-40%;}100%{margin-left:100%;}}
-.status{margin-top:18px;font-size:11px;color:#3a3a4a;letter-spacing:0.5px;text-transform:uppercase;}
-"#;
-
-    let splash_html = format!(
-        "<!DOCTYPE html><html><head><meta charset='utf-8'><style>{}</style></head><body>\
-        <div class='icon'>&#127925;</div>\
-        <h1>IDJLM Pro</h1>\
-        <p class='subtitle'>Intelligent DJ Library Manager</p>\
-        <div class='bar-track'><div class='bar-fill'></div></div>\
-        <p class='status'>Starting up&hellip;</p>\
-        </body></html>",
-        splash_css
-    );
-
-    // Encode splash as a data URI so WebviewUrl::External can load it
-    let splash_data_uri = format!(
-        "data:text/html;charset=utf-8,{}",
-        urlencoding::encode(&splash_html)
-    );
-
-    tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_dialog::init())
-        .manage(FlaskProcess(Arc::new(Mutex::new(None))))
-        .setup(move |app| {
-            let app_handle = app.handle().clone();
-            let flask_arc = app.state::<FlaskProcess>().0.clone();
-
-            // Create the main window showing splash immediately via data URI
-            let splash_url: tauri::Url = splash_data_uri.parse().expect("valid data URI");
-            let window = WebviewWindowBuilder::new(
-                &app_handle,
-                "main",
-                WebviewUrl::External(splash_url),
-            )
-            .title("IDJLM Pro")
-            .inner_size(1280.0, 800.0)
-            .min_inner_size(960.0, 640.0)
-            .resizable(true)
-            .center()
-            .build()?;
-
-            // Spawn sidecar in a background thread; navigate window once ready
-            thread::spawn(move || {
-                // Fail fast if port is already in use — don't wait 90s for timeout
-                if port_already_in_use() {
-                    show_splash_error(
-                        &window,
-                        &format!("Port {} is already in use. Quit another app using that port and relaunch.", FLASK_PORT),
-                    );
-                    return;
+    let splash_url = status_page("Starting up…", false);
+    let ui_ready_file = std::env::var_os("IDJLM_UI_READY_FILE").filter(|path| !path.is_empty());
+    let desktop_ready_file = std::env::var_os("IDJLM_STARTUP_READY_FILE")
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from);
+    let sidecar = SidecarProcess(Arc::new(Mutex::new(SidecarRuntime {
+        child: None,
+        ready_file: None,
+    })));
+    tauri::Builder::default().plugin(tauri_plugin_shell::init()).plugin(tauri_plugin_dialog::init()).manage(sidecar).setup(move |app| {
+        let app_handle = app.handle().clone();
+        let state = app.state::<SidecarProcess>();
+        let sidecar_state = SidecarProcess(state.0.clone());
+        let window = WebviewWindowBuilder::new(&app_handle, "main", WebviewUrl::External(splash_url.clone())).title("IDJLM Pro").inner_size(1280.0, 800.0).min_inner_size(960.0, 640.0).resizable(true).center().build()?;
+        thread::spawn(move || {
+            let requested_port = if loopback_in_use(DEFAULT_FLASK_PORT) { if is_idjlm_listener(DEFAULT_FLASK_PORT) { show_error(&window, "Another IDJLM Pro window is already running. Close it before relaunching; this window has not connected to or changed that library."); return; } 0 } else { DEFAULT_FLASK_PORT };
+            let token = match startup_token() { Ok(token) => token, Err(error) => { show_error(&window, &error); return; } };
+            let ready_file = match sidecar_ready_path(&token) { Ok(path) => path, Err(error) => { show_error(&window, &error); return; } };
+            let mut command = Command::new(find_sidecar(&app_handle));
+            command.env("FLASK_PORT", requested_port.to_string()).env("FLASK_ENV", "production").env("PYTHONDONTWRITEBYTECODE", "1").env("IDJLM_HEADLESS", "1").env("IDJLM_DESKTOP_SAME_ORIGIN", "1").env("IDJLM_SIDECAR_READY_FILE", &ready_file).env("IDJLM_SIDECAR_READY_TOKEN", &token).env("IDJLM_PARENT_PID", std::process::id().to_string());
+            if let Some(path) = ui_ready_file.as_ref() { command.env("IDJLM_UI_READY_FILE", path).env("IDJLM_UI_READY_TOKEN", &token); }
+            let child = match command.spawn() { Ok(child) => child, Err(error) => { show_error(&window, &format!("Could not start IDJLM’s local service: {error}")); return; } };
+            if let Ok(mut runtime) = sidecar_state.0.lock() { runtime.child = Some(child); runtime.ready_file = Some(ready_file); } else { show_error(&window, "IDJLM could not track its local service safely."); return; }
+            match wait_for_sidecar_ready(&sidecar_state, &token) {
+                Ok(port) => {
+                    let url = format!("http://127.0.0.1:{port}");
+                    if let Some(path) = desktop_ready_file.as_ref() { if let Err(error) = atomic_write_json(path, json!({"version": 1, "url": url, "port": port, "token": token})) { stop_sidecar(&sidecar_state); show_error(&window, &format!("Could not record startup readiness: {error}")); return; } }
+                    match url.parse() { Ok(url) => if let Err(error) = window.navigate(url) { stop_sidecar(&sidecar_state); show_error(&window, &format!("IDJLM could not open its verified local service: {error}")); }, Err(_) => { stop_sidecar(&sidecar_state); show_error(&window, "IDJLM generated an invalid local URL."); } }
                 }
-
-                let sidecar_path = find_sidecar(&app_handle);
-
-                let child = Command::new(&sidecar_path)
-                    .env("FLASK_PORT", FLASK_PORT.to_string())
-                    .env("FLASK_ENV", "production")
-                    .env("PYTHONDONTWRITEBYTECODE", "1")
-                    .env("IDJLM_HEADLESS", "1")
-                    .spawn();
-
-                match child {
-                    Ok(c) => {
-                        *flask_arc.lock().unwrap() = Some(c);
-                    }
-                    Err(e) => {
-                        eprintln!("[idjlm] Failed to start sidecar at {:?}: {e}", sidecar_path);
-                        show_splash_error(&window, &format!("Error starting app: {e}"));
-                        return;
-                    }
-                }
-
-                // Poll until Flask port is open
-                if wait_for_flask(Duration::from_secs(FLASK_TIMEOUT_SECS)) {
-                    navigate_to_flask(&window);
-                } else {
-                    show_splash_error(&window, "Flask failed to start — check logs");
-                }
-            });
-
-            Ok(())
-        })
-        .on_window_event(|window, event| {
-            // Kill Flask when the main window closes (covers normal close)
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                if let Some(state) = window.try_state::<FlaskProcess>() {
-                    if let Ok(mut guard) = state.0.lock() {
-                        if let Some(mut child) = guard.take() {
-                            let _ = child.kill();
-                        }
-                    }
-                }
-            }
-        })
-        .invoke_handler(tauri::generate_handler![pick_folder])
-        .build(tauri::generate_context!())
-        .expect("error while building tauri application")
-        .run(|app_handle, event| {
-            // Also kill Flask on Cmd+Q / force-quit (ExitRequested fires before process exit)
-            if let tauri::RunEvent::ExitRequested { .. } = event {
-                if let Some(state) = app_handle.try_state::<FlaskProcess>() {
-                    if let Ok(mut guard) = state.0.lock() {
-                        if let Some(mut child) = guard.take() {
-                            let _ = child.kill();
-                        }
-                    }
-                }
+                Err(error) => { stop_sidecar(&sidecar_state); show_error(&window, &format!("IDJLM’s local service failed during startup: {error}. Check the IDJLM log and relaunch.")); }
             }
         });
+        Ok(())
+    }).on_window_event(|window, event| {
+        if let tauri::WindowEvent::CloseRequested { .. } = event { if let Some(state) = window.try_state::<SidecarProcess>() { stop_sidecar(&state); } }
+    }).invoke_handler(tauri::generate_handler![pick_folder]).build(tauri::generate_context!()).expect("error while building tauri application").run(|app_handle, event| {
+        if let tauri::RunEvent::ExitRequested { .. } = event { if let Some(state) = app_handle.try_state::<SidecarProcess>() { stop_sidecar(&state); } }
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn sidecar_ready_file_requires_the_launch_token() {
+        let root = std::env::temp_dir().join(format!("idjlm-ready-test-{}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("ready.json");
+        fs::write(&path, r#"{"token":"expected","port":5051}"#).unwrap();
+        assert_eq!(read_sidecar_ready(&path, "expected"), Ok(Some(5051)));
+        assert_eq!(read_sidecar_ready(&path, "other"), Ok(None));
+        let _ = fs::remove_file(path);
+        let _ = fs::remove_dir(root);
+    }
 }

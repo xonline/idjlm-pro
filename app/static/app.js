@@ -59,6 +59,48 @@ function initializeLegacyApplication() {
 
 window.initializeLegacyApplication = initializeLegacyApplication;
 
+let desktopLibraryReadyReported = false;
+
+function isHittable(element) {
+  if (!element || !element.getClientRects().length || getComputedStyle(element).visibility === 'hidden') return false;
+  const rect = element.getBoundingClientRect();
+  const topElement = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  return topElement === element || element.contains(topElement);
+}
+
+function reportDesktopLibraryReady(attempt) {
+  if (desktopLibraryReadyReported) return true;
+  const token = window.__IDJLM_DESKTOP_UI_READY_TOKEN__;
+  const library = document.getElementById('latin-page-library');
+  const shell = document.getElementById('latin-shell');
+  const search = document.getElementById('latin-search');
+  const rows = document.getElementById('latin-library-rows');
+  const splash = document.getElementById('splash-screen');
+  const renderedRow = rows?.querySelector('tr');
+  if (!token || splash || !library?.classList.contains('active') || !isHittable(shell)
+      || !isHittable(library) || !isHittable(search) || !isHittable(renderedRow)) return false;
+  fetch('/__desktop/ui-ready', {
+    method: 'POST',
+    headers: { 'X-IDJLM-UI-Ready': token },
+    credentials: 'same-origin',
+  }).then(response => {
+    if (response.ok) {
+      desktopLibraryReadyReported = true;
+      window.__IDJLM_UI_READY__ = true;
+    } else {
+      waitForDesktopLibraryReady(attempt + 1);
+    }
+  }).catch(() => waitForDesktopLibraryReady(attempt + 1));
+  return true;
+}
+
+function waitForDesktopLibraryReady(attempt = 0) {
+  if (attempt >= 50 || reportDesktopLibraryReady(attempt)) return;
+  setTimeout(() => waitForDesktopLibraryReady(attempt + 1), 100);
+}
+
+document.addEventListener('idjlm:latin-library-ready', () => waitForDesktopLibraryReady());
+
 document.addEventListener('DOMContentLoaded', () => {
   // Splash screen fade-out after 1.5s animation
   const splash = document.getElementById('splash-screen');
