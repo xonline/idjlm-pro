@@ -69,6 +69,7 @@ async function latinLoadLibrary({ reset = false } = {}) {
     latinState.nextCursor = data.next_cursor ?? null;
     latinState.revision = data.revision ?? null;
     latinRenderLibrary();
+    document.dispatchEvent(new CustomEvent('idjlm:latin-library-ready'));
   } catch (error) {
     if (rows) rows.innerHTML = `<tr><td colspan="7" class="latin-table-message error">${latinEscape(error.message)} <button class="latin-text-button" data-retry="library">Retry</button></td></tr>`;
     latinAnnounce(`Could not load the library. ${error.message}`, 'error');

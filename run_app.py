@@ -2,8 +2,14 @@
 
 import math
 import os
+import platform
+import errno
+import http.client
 import sys
 import tempfile
+import json
+import threading
+import time
 import wave
 from pathlib import Path
 
@@ -114,10 +120,244 @@ def _run_server() -> None:
     if os.path.exists(user_env):
         load_dotenv(user_env)
 
-    from app import create_app
+    ready_file = os.environ.get("IDJLM_SIDECAR_READY_FILE")
+    ready_token = os.environ.get("IDJLM_SIDECAR_READY_TOKEN")
+    if bool(ready_file) != bool(ready_token):
+        raise RuntimeError("desktop sidecar readiness configuration is incomplete")
+    try:
+        _acquire_desktop_instance_lock()
+    except RuntimeError as error:
+        if ready_file and ready_token:
+            _publish_sidecar_failure(Path(ready_file), ready_token, str(error))
+        raise
 
+    from app import create_app
+    host = "127.0.0.1"
     port = int(os.getenv("FLASK_PORT", "5050"))
-    create_app().run(port=port, debug=False, use_reloader=False, threaded=True)
+    app = create_app()
+    _install_startup_trace(app)
+
+    # The desktop wrapper passes both values per launch.  Publishing only
+    # after Werkzeug has bound its socket prevents another local listener
+    # from being mistaken for our sidecar.
+    try:
+        server = _make_desktop_server(app, port)
+    except RuntimeError as error:
+        if ready_file and ready_token:
+            _publish_sidecar_failure(Path(ready_file), ready_token, str(error))
+        raise
+    launch_mode = "primary" if server.server_port == 5050 else "fallback"
+    os.environ["IDJLM_DESKTOP_LAUNCH_MODE"] = launch_mode
+    if ready_file and ready_token:
+        _publish_sidecar_ready(Path(ready_file), ready_token, server.server_port, launch_mode)
+    _watch_desktop_parent()
+    server.serve_forever()
+
+
+def _install_startup_trace(app) -> None:
+    """Emit only launch diagnostics requested by the native smoke test."""
+    if os.environ.get("IDJLM_STARTUP_TRACE") != "1":
+        return
+    from flask import request
+
+    allowed_paths = {"/", "/api/version", "/static/dist/main.js"}
+
+    @app.after_request
+    def trace_response(response):
+        if request.path in allowed_paths:
+            print(
+                f"[idjlm-startup] request {request.method} {request.path} {response.status_code}",
+                file=sys.stderr,
+                flush=True,
+            )
+        return response
+
+
+_desktop_instance_lock = None
+
+
+class _DesktopInstanceLock:
+    def __init__(self, handle):
+        self.handle = handle
+
+    def release(self) -> None:
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                self.handle.seek(0)
+                msvcrt.locking(self.handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(self.handle.fileno(), fcntl.LOCK_UN)
+        finally:
+            self.handle.close()
+
+
+def _desktop_data_dir() -> Path:
+    override = os.environ.get("IDJLM_USER_DATA_DIR")
+    if override:
+        return Path(override).expanduser().resolve()
+    if platform.system() == "Darwin":
+        return Path("~/Library/Application Support/IDJLM Pro").expanduser()
+    return Path("~/.idjlm-pro").expanduser()
+
+
+def _acquire_desktop_instance_lock() -> None:
+    """Prevent two packaged sidecars recovering or writing one library."""
+    global _desktop_instance_lock
+    if os.environ.get("IDJLM_DESKTOP_SAME_ORIGIN") != "1" or _desktop_instance_lock:
+        return
+    directory = _desktop_data_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    handle = (directory / ".desktop-instance.lock").open("a+")
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            handle.seek(0)
+            handle.write("0")
+            handle.flush()
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError as error:
+        handle.close()
+        raise RuntimeError(
+            "Another IDJLM Pro desktop window is already using this library. "
+            "Close it before relaunching."
+        ) from error
+    _desktop_instance_lock = _DesktopInstanceLock(handle)
+
+
+def _is_idjlm_listener(port: int) -> bool:
+    """Read-only identity check for a listener that won the bind race."""
+    def get(path: str):
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=0.35)
+        try:
+            connection.request("GET", path, headers={"Connection": "close"})
+            response = connection.getresponse()
+            if response.status != 200:
+                return None
+            payload = response.read(64 * 1024 + 1)
+            if len(payload) > 64 * 1024:
+                return None
+            return json.loads(payload)
+        except (OSError, http.client.HTTPException, json.JSONDecodeError):
+            return None
+        finally:
+            connection.close()
+
+    version = get("/api/version")
+    if not isinstance(version, dict):
+        return False
+    if version.get("product") == "idjlm-pro":
+        return True
+    number = version.get("version")
+    if not isinstance(number, str) or not all(part.isdigit() and part for part in number.split(".")):
+        return False
+    health = get("/api/health")
+    return isinstance(health, dict) and health.get("status") == "ok" and {"taxonomy_loaded", "tracks_loaded"}.issubset(health)
+
+
+class _DesktopThreadedWSGIServer:
+    """Construct a normal Werkzeug server with one narrow 5050 retry."""
+
+    @staticmethod
+    def create(app, requested_port: int, preferred_port: int = 5050):
+        from werkzeug.serving import ThreadedWSGIServer
+
+        class Server(ThreadedWSGIServer):
+            def server_bind(self):
+                try:
+                    return super().server_bind()
+                except OSError as error:
+                    if error.errno != errno.EADDRINUSE or requested_port != preferred_port:
+                        raise
+                    if _is_idjlm_listener(preferred_port):
+                        raise RuntimeError(
+                            "Another IDJLM Pro desktop window is already using this library. "
+                            "Close it before relaunching."
+                        ) from error
+                    self.server_address = ("127.0.0.1", 0)
+                    return super().server_bind()
+
+        return Server("127.0.0.1", requested_port, app)
+
+
+def _make_desktop_server(app, requested_port: int, preferred_port: int = 5050):
+    """Normal Werkzeug server with a safe late collision fallback."""
+    return _DesktopThreadedWSGIServer.create(app, requested_port, preferred_port)
+
+
+def _publish_sidecar_ready(path: Path, token: str, port: int, mode: str) -> None:
+    """Atomically publish the exact socket bound by this sidecar."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        temporary.write_text(
+            json.dumps({"version": 1, "token": token, "port": port, "mode": mode}),
+            encoding="utf-8",
+        )
+        os.replace(temporary, path)
+    finally:
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def _publish_sidecar_failure(path: Path, token: str, error: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        temporary.write_text(
+            json.dumps({"version": 1, "token": token, "error": error}),
+            encoding="utf-8",
+        )
+        os.replace(temporary, path)
+    finally:
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def _parent_is_alive(parent_pid: int) -> bool:
+    if parent_pid <= 0:
+        return False
+    try:
+        os.kill(parent_pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _watch_desktop_parent() -> None:
+    """Let a PyInstaller child exit if its owning desktop wrapper disappears."""
+    raw_parent_pid = os.environ.get("IDJLM_PARENT_PID")
+    if not raw_parent_pid or os.name == "nt":
+        return
+    try:
+        parent_pid = int(raw_parent_pid)
+    except ValueError:
+        return
+
+    def watch() -> None:
+        while _parent_is_alive(parent_pid):
+            time.sleep(0.5)
+        # PyInstaller onefile can have a bootloader parent and a Python child.
+        # Exiting this child lets the bootloader unwind instead of orphaning a
+        # listener after its Tauri owner has gone away.
+        os._exit(0)
+
+    threading.Thread(target=watch, name="idjlm-parent-watch", daemon=True).start()
 
 
 if __name__ == "__main__":

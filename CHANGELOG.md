@@ -4,6 +4,18 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [4.2.3] — 2026-11-24
+
+### Desktop startup recovery
+
+- Fixed the installed desktop wrapper to authenticate and navigate only to the sidecar it launched, using an isolated loopback port when an unrelated local listener occupies 5050.
+- Added bounded startup errors in the desktop window and tracked-child cleanup so a closed wrapper does not leave its own sidecar listener behind.
+- Replaced the macOS installer smoke test’s backend-only readiness probe with a mounted, copied-app test that checks the packaged API version and an opt-in witness from the rendered, interactive Library UI. It exercises both a normal launch and an owned-5050 collision, then quits and relaunches the wrapper.
+
+This remains an Apple Silicon **ad-hoc signed, unnotarized test prerelease**, not a stable release. Verify its checksum, copy it to Applications, eject the DMG, and use Privacy & Security approval only for the expected unidentified-developer warning. A damaged-app alert is a stop-and-redownload condition.
+
+---
+
 ## [4.2.2] — 2026-11-23
 
 ### Workflow reliability

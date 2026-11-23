@@ -9,12 +9,18 @@ on:
       - ".github/workflows/release.yml"
       - "idjlm.spec"
       - "run_app.py"
+      - "app/__init__.py"
+      - "app/routes/version_routes.py"
+      - "app/static/app.js"
+      - "app/static/modules/latin-redesign.js"
+      - "templates/index.html"
       - "app/services/analyzer.py"
       - "app/models/track.py"
       - "requirements.txt"
       - "requirements-audio.txt"
       - "scripts/verify_audio_runtime.py"
       - "scripts/verify_macos_app_bundle.sh"
+      - "scripts/verify_macos_desktop_ui.sh"
       - "package.json"
       - "package-lock.json"
       - "src-tauri/**"
@@ -112,39 +118,23 @@ jobs:
           test -n "$dmg"
           scripts/verify_macos_app_bundle.sh "$dmg" arm64 "$(cat VERSION)"
 
-      - name: Verify installed desktop wrapper startup
+      - name: Verify installed desktop wrapper reaches Library UI
         shell: bash
         run: |
           dmg=$(find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -name '*.dmg' -print -quit)
           test -n "$dmg"
-          mount_dir="$RUNNER_TEMP/idjlm-dmg-arm64"
-          install_dir="$RUNNER_TEMP/idjlm-installed-arm64"
-          mkdir -p "$mount_dir" "$install_dir"
-          hdiutil attach "$dmg" -nobrowse -mountpoint "$mount_dir"
-          cleanup() {
-            [ -n "${wrapper_pid:-}" ] && kill "$wrapper_pid" 2>/dev/null || true
-            for pid in $(lsof -tiTCP:5050 -sTCP:LISTEN 2>/dev/null || true); do kill "$pid" 2>/dev/null || true; done
-            hdiutil detach "$mount_dir" -quiet || true
-          }
-          trap cleanup EXIT
-          app=$(find "$mount_dir" -maxdepth 1 -name '*.app' -type d -print -quit)
-          test -n "$app"
-          cp -R "$app" "$install_dir/"
-          installed_app="$install_dir/$(basename "$app")"
-          test -x "$installed_app/Contents/MacOS/idjlm-pro"
-          ! lsof -nP -iTCP:5050 -sTCP:LISTEN
-          SECONDS=0
-          "$installed_app/Contents/MacOS/idjlm-pro" >"$RUNNER_TEMP/idjlm-wrapper-arm64.log" 2>&1 &
-          wrapper_pid=$!
-          for _ in {1..60}; do
-            if curl --fail --silent http://127.0.0.1:5050/api/version | python3 -c 'import json, sys; assert json.load(sys.stdin)["version"] == sys.argv[1]' "$(cat VERSION)"; then
-              echo "Cold packaged wrapper readiness: ${SECONDS}s" >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            sleep 1
-          done
-          cat "$RUNNER_TEMP/idjlm-wrapper-arm64.log"
-          exit 1
+          scripts/verify_macos_desktop_ui.sh "$dmg" arm64 "$(cat VERSION)"
+
+      - name: Upload Apple Silicon startup diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: idjlm-startup-diagnostics-aarch64-apple-darwin
+          path: |
+            ${{ runner.temp }}/idjlm-wrapper-arm64-*.log
+            ${{ runner.temp }}/idjlm-owned-port-arm64.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Upload macOS Apple Silicon installer
         uses: actions/upload-artifact@v4
@@ -235,39 +225,23 @@ jobs:
           test -n "$dmg"
           scripts/verify_macos_app_bundle.sh "$dmg" x86_64 "$(cat VERSION)"
 
-      - name: Verify installed desktop wrapper startup
+      - name: Verify installed desktop wrapper reaches Library UI
         shell: bash
         run: |
           dmg=$(find src-tauri/target/x86_64-apple-darwin/release/bundle/dmg -name '*.dmg' -print -quit)
           test -n "$dmg"
-          mount_dir="$RUNNER_TEMP/idjlm-dmg-intel"
-          install_dir="$RUNNER_TEMP/idjlm-installed-intel"
-          mkdir -p "$mount_dir" "$install_dir"
-          hdiutil attach "$dmg" -nobrowse -mountpoint "$mount_dir"
-          cleanup() {
-            [ -n "${wrapper_pid:-}" ] && kill "$wrapper_pid" 2>/dev/null || true
-            for pid in $(lsof -tiTCP:5050 -sTCP:LISTEN 2>/dev/null || true); do kill "$pid" 2>/dev/null || true; done
-            hdiutil detach "$mount_dir" -quiet || true
-          }
-          trap cleanup EXIT
-          app=$(find "$mount_dir" -maxdepth 1 -name '*.app' -type d -print -quit)
-          test -n "$app"
-          cp -R "$app" "$install_dir/"
-          installed_app="$install_dir/$(basename "$app")"
-          test -x "$installed_app/Contents/MacOS/idjlm-pro"
-          ! lsof -nP -iTCP:5050 -sTCP:LISTEN
-          SECONDS=0
-          "$installed_app/Contents/MacOS/idjlm-pro" >"$RUNNER_TEMP/idjlm-wrapper-intel.log" 2>&1 &
-          wrapper_pid=$!
-          for _ in {1..60}; do
-            if curl --fail --silent http://127.0.0.1:5050/api/version | python3 -c 'import json, sys; assert json.load(sys.stdin)["version"] == sys.argv[1]' "$(cat VERSION)"; then
-              echo "Cold packaged wrapper readiness: ${SECONDS}s" >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            sleep 1
-          done
-          cat "$RUNNER_TEMP/idjlm-wrapper-intel.log"
-          exit 1
+          scripts/verify_macos_desktop_ui.sh "$dmg" x86_64 "$(cat VERSION)"
+
+      - name: Upload Intel startup diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: idjlm-startup-diagnostics-x86_64-apple-darwin
+          path: |
+            ${{ runner.temp }}/idjlm-wrapper-x86_64-*.log
+            ${{ runner.temp }}/idjlm-owned-port-x86_64.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Upload macOS Intel installer
         uses: actions/upload-artifact@v4

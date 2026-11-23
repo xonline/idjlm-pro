@@ -130,7 +130,11 @@ def create_app() -> Flask:
     log_path = _setup_file_logging()
 
     app = Flask(__name__, template_folder="../templates", static_folder="static")
-    CORS(app, origins=["http://localhost:5050", "http://127.0.0.1:5050"])
+    # A packaged sidecar is always used by its own same-origin webview.  Do
+    # not grant an unrelated process left on 5050 cross-origin library access
+    # when the wrapper has fallen back to an ephemeral loopback port.
+    if os.getenv("IDJLM_DESKTOP_SAME_ORIGIN") != "1":
+        CORS(app, origins=["http://localhost:5050", "http://127.0.0.1:5050"])
     logging.getLogger(__name__).info("IDJLM Pro starting — log: %s", log_path)
 
     # Clear any stale progress queues from previous sessions
@@ -270,7 +274,39 @@ def create_app() -> Flask:
         # (`npm run dev`, http://localhost:5173) instead of the built
         # app/static/dist/main.js bundle. Defaults off (prod-safe).
         dev_mode = os.getenv("IDJLM_VITE_DEV") == "1"
-        return render_template("index.html", version=version, dev_mode=dev_mode)
+        return render_template(
+            "index.html",
+            version=version,
+            dev_mode=dev_mode,
+            desktop_ui_ready_token=os.getenv("IDJLM_UI_READY_TOKEN", ""),
+            desktop_launch_mode=os.getenv("IDJLM_DESKTOP_LAUNCH_MODE", ""),
+        )
+
+    @app.post("/__desktop/ui-ready")
+    def desktop_ui_ready():
+        """CI-only browser witness, enabled solely by the desktop wrapper."""
+        ready_file = os.getenv("IDJLM_UI_READY_FILE")
+        token = os.getenv("IDJLM_UI_READY_TOKEN")
+        if not ready_file or not token:
+            return ("", 404)
+        if request.headers.get("X-IDJLM-UI-Ready") != token:
+            return ("", 403)
+        from .utils.paths import atomic_write
+
+        atomic_write(
+            ready_file,
+            {
+                "version": 1,
+                "page": "library",
+                "title": "Library",
+                "shellVisible": True,
+                "libraryVisible": True,
+                "browserControlsVisible": True,
+                "launchMode": os.getenv("IDJLM_DESKTOP_LAUNCH_MODE", ""),
+                "nativePickerAvailable": request.headers.get("X-IDJLM-Native-Picker") == "1",
+            },
+        )
+        return ("", 204)
 
     # Centralised error handlers — A.2 structured-error taxonomy.
     # Any uncaught exception in a route handler is converted to the

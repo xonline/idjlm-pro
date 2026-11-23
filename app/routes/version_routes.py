@@ -155,7 +155,7 @@ def get_version():
     """GET /api/version — returns current version and optional commit hash."""
     version = _read_version()
     commit = _get_git_commit()
-    result = {"version": version}
+    result = {"product": "idjlm-pro", "version": version}
     if commit:
         result["commit"] = commit
     return jsonify(result), 200
