@@ -18,6 +18,7 @@ mount_dir="$runner_temp/idjlm-desktop-ui-mount-$expected_arch"
 install_root="$runner_temp/idjlm-desktop-ui-install-$expected_arch"
 user_data_dir="$runner_temp/idjlm-desktop-ui-data-$expected_arch"
 dummy_log="$runner_temp/idjlm-owned-port-$expected_arch.log"
+dummy_ready_file="$runner_temp/idjlm-owned-port-$expected_arch.ready"
 wrapper_pid=""
 dummy_pid=""
 last_startup_metadata=""
@@ -125,8 +126,11 @@ test -x "$main_binary"
 # launch. A passing wrapper must use its own selected loopback endpoint and
 # must not kill this process. No real user service is inspected or terminated.
 start_owned_dummy() {
-  python3 -u - <<'PY' >"$dummy_log" 2>&1 &
+  test ! -e "$dummy_ready_file"
+  IDJLM_DUMMY_READY_FILE="$dummy_ready_file" python3 -u - <<'PY' >"$dummy_log" 2>&1 &
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import os
+from pathlib import Path
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -135,11 +139,18 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-HTTPServer(("127.0.0.1", 5050), Handler).serve_forever()
+server = HTTPServer(("127.0.0.1", 5050), Handler)
+Path(os.environ["IDJLM_DUMMY_READY_FILE"]).write_text("ready\n", encoding="utf-8")
+server.serve_forever()
 PY
   dummy_pid=$!
-  sleep 1
-  kill -0 "$dummy_pid"
+  for _ in {1..20}; do
+    [ -s "$dummy_ready_file" ] && return 0
+    kill -0 "$dummy_pid" 2>/dev/null || break
+    sleep 1
+  done
+  echo "Owned port-5050 listener did not become ready." >&2
+  return 1
 }
 
 verify_witness() {
