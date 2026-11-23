@@ -279,6 +279,7 @@ def create_app() -> Flask:
             version=version,
             dev_mode=dev_mode,
             desktop_ui_ready_token=os.getenv("IDJLM_UI_READY_TOKEN", ""),
+            desktop_launch_mode=os.getenv("IDJLM_DESKTOP_LAUNCH_MODE", ""),
         )
 
     @app.post("/__desktop/ui-ready")
@@ -301,6 +302,8 @@ def create_app() -> Flask:
                 "shellVisible": True,
                 "libraryVisible": True,
                 "browserControlsVisible": True,
+                "launchMode": os.getenv("IDJLM_DESKTOP_LAUNCH_MODE", ""),
+                "nativePickerAvailable": request.headers.get("X-IDJLM-Native-Picker") == "1",
             },
         )
         return ("", 204)

@@ -81,7 +81,10 @@ function reportDesktopLibraryReady(attempt) {
       || !isHittable(library) || !isHittable(search) || !isHittable(renderedRow)) return false;
   fetch('/__desktop/ui-ready', {
     method: 'POST',
-    headers: { 'X-IDJLM-UI-Ready': token },
+    headers: {
+      'X-IDJLM-UI-Ready': token,
+      'X-IDJLM-Native-Picker': typeof window.__TAURI__?.core?.invoke === 'function' ? '1' : '0',
+    },
     credentials: 'same-origin',
   }).then(response => {
     if (response.ok) {
@@ -99,7 +102,9 @@ function waitForDesktopLibraryReady(attempt = 0) {
   setTimeout(() => waitForDesktopLibraryReady(attempt + 1), 100);
 }
 
-document.addEventListener('idjlm:latin-library-ready', () => waitForDesktopLibraryReady());
+if (window.__IDJLM_DESKTOP_UI_READY_TOKEN__) {
+  document.addEventListener('idjlm:latin-library-ready', () => waitForDesktopLibraryReady());
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   // Splash screen fade-out after 1.5s animation

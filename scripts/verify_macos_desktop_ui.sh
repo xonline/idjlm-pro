@@ -144,12 +144,14 @@ PY
 
 verify_witness() {
   local witness_path=$1
-  python3 - "$witness_path" <<'PY'
+  local expected_launch_mode=$2
+  python3 - "$witness_path" "$expected_launch_mode" <<'PY'
 import json
 import pathlib
 import sys
 
 payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+expected_launch_mode = sys.argv[2]
 required = {
     "version": 1,
     "page": "library",
@@ -157,6 +159,8 @@ required = {
     "shellVisible": True,
     "libraryVisible": True,
     "browserControlsVisible": True,
+    "launchMode": expected_launch_mode,
+    "nativePickerAvailable": True,
 }
 for key, expected in required.items():
     if payload.get(key) != expected:
@@ -166,6 +170,7 @@ PY
 
 launch_and_wait_for_library() {
   local attempt=$1
+  local expected_launch_mode=$2
   local witness_path="$runner_temp/idjlm-ui-ready-$expected_arch-$attempt.json"
   local metadata_path="$runner_temp/idjlm-startup-ready-$expected_arch-$attempt.json"
   local wrapper_log="$runner_temp/idjlm-wrapper-$expected_arch-$attempt.log"
@@ -179,7 +184,7 @@ launch_and_wait_for_library() {
   wrapper_pid=$!
 
   for _ in {1..90}; do
-    if [ -s "$witness_path" ] && [ -s "$metadata_path" ] && verify_witness "$witness_path"; then
+    if [ -s "$witness_path" ] && [ -s "$metadata_path" ] && verify_witness "$witness_path" "$expected_launch_mode"; then
       verify_packaged_version "$metadata_path"
       last_startup_metadata="$metadata_path"
       echo "Packaged desktop Library UI ready (launch $attempt)" >> "$summary_file"
@@ -195,12 +200,12 @@ launch_and_wait_for_library() {
 
 # Exercise the normal launch path before introducing a collision; the user may
 # not have another service on the old port.
-launch_and_wait_for_library 1
+launch_and_wait_for_library 1 primary
 stop_wrapper
 verify_sidecar_stopped "$last_startup_metadata"
 
 start_owned_dummy
-launch_and_wait_for_library 2
+launch_and_wait_for_library 2 fallback
 stop_wrapper
 verify_sidecar_stopped "$last_startup_metadata"
 kill -0 "$dummy_pid"

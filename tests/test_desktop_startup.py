@@ -47,6 +47,8 @@ def test_desktop_ui_witness_requires_launch_token_and_is_fixed(tmp_path, monkeyp
         "shellVisible": True,
         "libraryVisible": True,
         "browserControlsVisible": True,
+        "launchMode": "",
+        "nativePickerAvailable": False,
     }
 
 

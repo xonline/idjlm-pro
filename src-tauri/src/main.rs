@@ -1,6 +1,7 @@
 // Prevents additional console window on Windows in release. DO NOT REMOVE.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::ffi::OsString;
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
@@ -275,6 +276,136 @@ fn pick_folder(app: AppHandle) -> Option<String> {
         .map(|path| path.to_string_lossy().into_owned())
 }
 
+fn allow_picker_for_verified_origin(app: &AppHandle, origin: &str) -> Result<(), String> {
+    use tauri::ipc::CapabilityBuilder;
+
+    app.add_capability(
+        CapabilityBuilder::new("verified-sidecar-picker")
+            .local(false)
+            .window("main")
+            .remote(origin.to_string())
+            .permission("allow-pick-folder"),
+    )
+    .map_err(|error| error.to_string())
+}
+
+fn start_sidecar(
+    app_handle: AppHandle,
+    window: tauri::WebviewWindow,
+    sidecar_state: SidecarProcess,
+    ui_ready_file: Option<OsString>,
+    desktop_ready_file: Option<PathBuf>,
+) {
+    thread::spawn(move || {
+        let requested_port = if loopback_in_use(DEFAULT_FLASK_PORT) {
+            if is_idjlm_listener(DEFAULT_FLASK_PORT) {
+                show_error(&window, "Another IDJLM Pro window is already running. Close it before relaunching; this window has not connected to or changed that library.");
+                return;
+            }
+            0
+        } else {
+            DEFAULT_FLASK_PORT
+        };
+        let launch_mode = if requested_port == DEFAULT_FLASK_PORT {
+            "primary"
+        } else {
+            "fallback"
+        };
+        let token = match startup_token() {
+            Ok(token) => token,
+            Err(error) => {
+                show_error(&window, &error);
+                return;
+            }
+        };
+        let ready_file = match sidecar_ready_path(&token) {
+            Ok(path) => path,
+            Err(error) => {
+                show_error(&window, &error);
+                return;
+            }
+        };
+        let mut command = Command::new(find_sidecar(&app_handle));
+        command
+            .env("FLASK_PORT", requested_port.to_string())
+            .env("FLASK_ENV", "production")
+            .env("PYTHONDONTWRITEBYTECODE", "1")
+            .env("IDJLM_HEADLESS", "1")
+            .env("IDJLM_DESKTOP_SAME_ORIGIN", "1")
+            .env("IDJLM_DESKTOP_LAUNCH_MODE", launch_mode)
+            .env("IDJLM_SIDECAR_READY_FILE", &ready_file)
+            .env("IDJLM_SIDECAR_READY_TOKEN", &token)
+            .env("IDJLM_PARENT_PID", std::process::id().to_string());
+        if let Some(path) = ui_ready_file.as_ref() {
+            command
+                .env("IDJLM_UI_READY_FILE", path)
+                .env("IDJLM_UI_READY_TOKEN", &token);
+        }
+        let child = match command.spawn() {
+            Ok(child) => child,
+            Err(error) => {
+                show_error(
+                    &window,
+                    &format!("Could not start IDJLM’s local service: {error}"),
+                );
+                return;
+            }
+        };
+        if let Ok(mut runtime) = sidecar_state.0.lock() {
+            runtime.child = Some(child);
+            runtime.ready_file = Some(ready_file);
+        } else {
+            show_error(&window, "IDJLM could not track its local service safely.");
+            return;
+        }
+        let port = match wait_for_sidecar_ready(&sidecar_state, &token) {
+            Ok(port) => port,
+            Err(error) => {
+                stop_sidecar(&sidecar_state);
+                show_error(&window, &format!("IDJLM’s local service failed during startup: {error}. Check the IDJLM log and relaunch."));
+                return;
+            }
+        };
+        let url = format!("http://127.0.0.1:{port}");
+        if let Err(error) = allow_picker_for_verified_origin(&app_handle, &url) {
+            stop_sidecar(&sidecar_state);
+            show_error(
+                &window,
+                &format!("IDJLM could not grant the verified folder picker: {error}"),
+            );
+            return;
+        }
+        if let Some(path) = desktop_ready_file.as_ref() {
+            if let Err(error) = atomic_write_json(
+                path,
+                json!({"version": 1, "url": url, "port": port, "token": token}),
+            ) {
+                stop_sidecar(&sidecar_state);
+                show_error(
+                    &window,
+                    &format!("Could not record startup readiness: {error}"),
+                );
+                return;
+            }
+        }
+        match url.parse() {
+            Ok(url) => {
+                if let Err(error) = window.navigate(url) {
+                    stop_sidecar(&sidecar_state);
+                    show_error(
+                        &window,
+                        &format!("IDJLM could not open its verified local service: {error}"),
+                    );
+                }
+            }
+            Err(_) => {
+                stop_sidecar(&sidecar_state);
+                show_error(&window, "IDJLM generated an invalid local URL.");
+            }
+        }
+    });
+}
+
 fn main() {
     let splash_url = status_page("Starting up…", false);
     let ui_ready_file = std::env::var_os("IDJLM_UI_READY_FILE").filter(|path| !path.is_empty());
@@ -285,35 +416,51 @@ fn main() {
         child: None,
         ready_file: None,
     })));
-    tauri::Builder::default().plugin(tauri_plugin_shell::init()).plugin(tauri_plugin_dialog::init()).manage(sidecar).setup(move |app| {
-        let app_handle = app.handle().clone();
-        let state = app.state::<SidecarProcess>();
-        let sidecar_state = SidecarProcess(state.0.clone());
-        let window = WebviewWindowBuilder::new(&app_handle, "main", WebviewUrl::External(splash_url.clone())).title("IDJLM Pro").inner_size(1280.0, 800.0).min_inner_size(960.0, 640.0).resizable(true).center().build()?;
-        thread::spawn(move || {
-            let requested_port = if loopback_in_use(DEFAULT_FLASK_PORT) { if is_idjlm_listener(DEFAULT_FLASK_PORT) { show_error(&window, "Another IDJLM Pro window is already running. Close it before relaunching; this window has not connected to or changed that library."); return; } 0 } else { DEFAULT_FLASK_PORT };
-            let token = match startup_token() { Ok(token) => token, Err(error) => { show_error(&window, &error); return; } };
-            let ready_file = match sidecar_ready_path(&token) { Ok(path) => path, Err(error) => { show_error(&window, &error); return; } };
-            let mut command = Command::new(find_sidecar(&app_handle));
-            command.env("FLASK_PORT", requested_port.to_string()).env("FLASK_ENV", "production").env("PYTHONDONTWRITEBYTECODE", "1").env("IDJLM_HEADLESS", "1").env("IDJLM_DESKTOP_SAME_ORIGIN", "1").env("IDJLM_SIDECAR_READY_FILE", &ready_file).env("IDJLM_SIDECAR_READY_TOKEN", &token).env("IDJLM_PARENT_PID", std::process::id().to_string());
-            if let Some(path) = ui_ready_file.as_ref() { command.env("IDJLM_UI_READY_FILE", path).env("IDJLM_UI_READY_TOKEN", &token); }
-            let child = match command.spawn() { Ok(child) => child, Err(error) => { show_error(&window, &format!("Could not start IDJLM’s local service: {error}")); return; } };
-            if let Ok(mut runtime) = sidecar_state.0.lock() { runtime.child = Some(child); runtime.ready_file = Some(ready_file); } else { show_error(&window, "IDJLM could not track its local service safely."); return; }
-            match wait_for_sidecar_ready(&sidecar_state, &token) {
-                Ok(port) => {
-                    let url = format!("http://127.0.0.1:{port}");
-                    if let Some(path) = desktop_ready_file.as_ref() { if let Err(error) = atomic_write_json(path, json!({"version": 1, "url": url, "port": port, "token": token})) { stop_sidecar(&sidecar_state); show_error(&window, &format!("Could not record startup readiness: {error}")); return; } }
-                    match url.parse() { Ok(url) => if let Err(error) = window.navigate(url) { stop_sidecar(&sidecar_state); show_error(&window, &format!("IDJLM could not open its verified local service: {error}")); }, Err(_) => { stop_sidecar(&sidecar_state); show_error(&window, "IDJLM generated an invalid local URL."); } }
+    tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
+        .manage(sidecar)
+        .setup(move |app| {
+            let app_handle = app.handle().clone();
+            let state = app.state::<SidecarProcess>();
+            let sidecar_state = SidecarProcess(state.0.clone());
+            let window = WebviewWindowBuilder::new(
+                &app_handle,
+                "main",
+                WebviewUrl::External(splash_url.clone()),
+            )
+            .title("IDJLM Pro")
+            .inner_size(1280.0, 800.0)
+            .min_inner_size(960.0, 640.0)
+            .resizable(true)
+            .center()
+            .build()?;
+            start_sidecar(
+                app_handle,
+                window,
+                sidecar_state,
+                ui_ready_file,
+                desktop_ready_file,
+            );
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                if let Some(state) = window.try_state::<SidecarProcess>() {
+                    stop_sidecar(&state);
                 }
-                Err(error) => { stop_sidecar(&sidecar_state); show_error(&window, &format!("IDJLM’s local service failed during startup: {error}. Check the IDJLM log and relaunch.")); }
+            }
+        })
+        .invoke_handler(tauri::generate_handler![pick_folder])
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                if let Some(state) = app_handle.try_state::<SidecarProcess>() {
+                    stop_sidecar(&state);
+                }
             }
         });
-        Ok(())
-    }).on_window_event(|window, event| {
-        if let tauri::WindowEvent::CloseRequested { .. } = event { if let Some(state) = window.try_state::<SidecarProcess>() { stop_sidecar(&state); } }
-    }).invoke_handler(tauri::generate_handler![pick_folder]).build(tauri::generate_context!()).expect("error while building tauri application").run(|app_handle, event| {
-        if let tauri::RunEvent::ExitRequested { .. } = event { if let Some(state) = app_handle.try_state::<SidecarProcess>() { stop_sidecar(&state); } }
-    });
 }
 
 #[cfg(test)]
