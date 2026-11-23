@@ -19,6 +19,12 @@ const DEFAULT_FLASK_PORT: u16 = 5050;
 const FLASK_TIMEOUT_SECS: u64 = 90;
 const LOOPBACK_TIMEOUT: Duration = Duration::from_millis(350);
 
+fn startup_trace(stage: &str) {
+    if std::env::var_os("IDJLM_STARTUP_TRACE").is_some() {
+        eprintln!("[idjlm-startup] {stage}");
+    }
+}
+
 struct SidecarRuntime {
     child: Option<Child>,
     ready_file: Option<PathBuf>,
@@ -210,6 +216,7 @@ fn status_page(message: &str, failure: bool) -> tauri::Url {
 }
 
 fn show_error(window: &tauri::WebviewWindow, message: &str) {
+    eprintln!("[idjlm-startup] error: {message}");
     if let Err(error) = window.navigate(status_page(message, true)) {
         // The original splash might not have loaded yet. A native title is a
         // durable last-resort signal even if the WebView refuses a data URL.
@@ -297,6 +304,7 @@ fn start_sidecar(
     desktop_ready_file: Option<PathBuf>,
 ) {
     thread::spawn(move || {
+        startup_trace("sidecar-start");
         let requested_port = if loopback_in_use(DEFAULT_FLASK_PORT) {
             if is_idjlm_listener(DEFAULT_FLASK_PORT) {
                 show_error(&window, "Another IDJLM Pro window is already running. Close it before relaunching; this window has not connected to or changed that library.");
@@ -306,6 +314,11 @@ fn start_sidecar(
         } else {
             DEFAULT_FLASK_PORT
         };
+        startup_trace(if requested_port == DEFAULT_FLASK_PORT {
+            "port-primary-selected"
+        } else {
+            "port-fallback-selected"
+        });
         let token = match startup_token() {
             Ok(token) => token,
             Err(error) => {
@@ -345,6 +358,7 @@ fn start_sidecar(
                 return;
             }
         };
+        startup_trace("sidecar-spawned");
         if let Ok(mut runtime) = sidecar_state.0.lock() {
             runtime.child = Some(child);
             runtime.ready_file = Some(ready_file);
@@ -360,6 +374,11 @@ fn start_sidecar(
                 return;
             }
         };
+        startup_trace(if port == DEFAULT_FLASK_PORT {
+            "sidecar-primary-ready"
+        } else {
+            "sidecar-fallback-ready"
+        });
         let url = format!("http://127.0.0.1:{port}");
         if let Err(error) = allow_picker_for_verified_origin(&app_handle, &url) {
             stop_sidecar(&sidecar_state);
@@ -369,6 +388,7 @@ fn start_sidecar(
             );
             return;
         }
+        startup_trace("picker-capability-granted");
         if let Some(path) = desktop_ready_file.as_ref() {
             if let Err(error) = atomic_write_json(
                 path,
@@ -384,6 +404,7 @@ fn start_sidecar(
         }
         match url.parse() {
             Ok(url) => {
+                startup_trace("navigation-requested");
                 if let Err(error) = window.navigate(url) {
                     stop_sidecar(&sidecar_state);
                     show_error(
@@ -415,6 +436,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .manage(sidecar)
         .setup(move |app| {
+            startup_trace("setup");
             let app_handle = app.handle().clone();
             let state = app.state::<SidecarProcess>();
             let sidecar_state = SidecarProcess(state.0.clone());
@@ -428,7 +450,9 @@ fn main() {
             .min_inner_size(960.0, 640.0)
             .resizable(true)
             .center()
+            .on_page_load(|_, _| startup_trace("page-load"))
             .build()?;
+            startup_trace("splash-window-created");
             start_sidecar(
                 app_handle,
                 window,

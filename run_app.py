@@ -135,6 +135,7 @@ def _run_server() -> None:
     host = "127.0.0.1"
     port = int(os.getenv("FLASK_PORT", "5050"))
     app = create_app()
+    _install_startup_trace(app)
 
     # The desktop wrapper passes both values per launch.  Publishing only
     # after Werkzeug has bound its socket prevents another local listener
@@ -151,6 +152,25 @@ def _run_server() -> None:
         _publish_sidecar_ready(Path(ready_file), ready_token, server.server_port, launch_mode)
     _watch_desktop_parent()
     server.serve_forever()
+
+
+def _install_startup_trace(app) -> None:
+    """Emit only launch diagnostics requested by the native smoke test."""
+    if os.environ.get("IDJLM_STARTUP_TRACE") != "1":
+        return
+    from flask import request
+
+    allowed_paths = {"/", "/api/version", "/static/dist/main.js"}
+
+    @app.after_request
+    def trace_response(response):
+        if request.path in allowed_paths:
+            print(
+                f"[idjlm-startup] request {request.method} {request.path} {response.status_code}",
+                file=sys.stderr,
+                flush=True,
+            )
+        return response
 
 
 _desktop_instance_lock = None

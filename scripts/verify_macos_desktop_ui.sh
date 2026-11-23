@@ -101,6 +101,50 @@ show_startup_error() {
     | sed -E 's#(/[^[:space:]]+)+#<path>#g' >&2 || true
 }
 
+report_startup_diagnostics() {
+  local attempt=$1
+  local metadata_path="$runner_temp/idjlm-startup-ready-$expected_arch-$attempt.json"
+  local wrapper_log="$runner_temp/idjlm-wrapper-$expected_arch-$attempt.log"
+  python3 - "$metadata_path" "$wrapper_pid" "$dummy_pid" <<'PY'
+import json
+import os
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+
+metadata_path, wrapper_pid, dummy_pid = sys.argv[1:]
+def alive(pid):
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except (OSError, ValueError):
+        return False
+print(f"startup-diagnostic wrapper_alive={alive(wrapper_pid)} dummy_alive={alive(dummy_pid)} metadata_present={os.path.isfile(metadata_path)}")
+if not os.path.isfile(metadata_path):
+    raise SystemExit(0)
+try:
+    metadata = json.load(open(metadata_path, encoding="utf-8"))
+    url = metadata.get("url")
+    parsed = urllib.parse.urlparse(url if isinstance(url, str) else "")
+    if parsed.scheme != "http" or parsed.hostname != "127.0.0.1" or not parsed.port:
+        raise ValueError("invalid loopback URL")
+    mode = "primary" if parsed.port == 5050 else "fallback"
+    print(f"startup-diagnostic endpoint=127.0.0.1:{parsed.port} mode={mode}")
+    for path in ("/api/version", "/", "/static/dist/main.js"):
+        try:
+            with urllib.request.urlopen(f"{url}{path}", timeout=2) as response:
+                print(f"startup-diagnostic route={path} status={response.status}")
+        except urllib.error.HTTPError as error:
+            print(f"startup-diagnostic route={path} status={error.code}")
+        except Exception:
+            print(f"startup-diagnostic route={path} status=unreachable")
+except Exception:
+    print("startup-diagnostic metadata=unreadable")
+PY
+  show_startup_error "$wrapper_log"
+}
+
 cleanup() {
   stop_wrapper
   if [ -n "$dummy_pid" ]; then
@@ -198,6 +242,7 @@ launch_and_wait_for_library() {
   IDJLM_USER_DATA_DIR="$user_data_dir" \
     IDJLM_UI_READY_FILE="$witness_path" \
     IDJLM_STARTUP_READY_FILE="$metadata_path" \
+    IDJLM_STARTUP_TRACE=1 \
     "$main_binary" >"$wrapper_log" 2>&1 &
   wrapper_pid=$!
 
@@ -212,7 +257,7 @@ launch_and_wait_for_library() {
   done
 
   echo "Installed wrapper did not reach the interactive Library UI within 90 seconds (launch $attempt)." >&2
-  show_startup_error "$wrapper_log"
+  report_startup_diagnostics "$attempt"
   return 1
 }
 

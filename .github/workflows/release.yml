@@ -125,6 +125,17 @@ jobs:
           test -n "$dmg"
           scripts/verify_macos_desktop_ui.sh "$dmg" arm64 "$(cat VERSION)"
 
+      - name: Upload Apple Silicon startup diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: idjlm-startup-diagnostics-aarch64-apple-darwin
+          path: |
+            ${{ runner.temp }}/idjlm-wrapper-arm64-*.log
+            ${{ runner.temp }}/idjlm-owned-port-arm64.log
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Upload macOS Apple Silicon installer
         uses: actions/upload-artifact@v4
         with:
@@ -220,6 +231,17 @@ jobs:
           dmg=$(find src-tauri/target/x86_64-apple-darwin/release/bundle/dmg -name '*.dmg' -print -quit)
           test -n "$dmg"
           scripts/verify_macos_desktop_ui.sh "$dmg" x86_64 "$(cat VERSION)"
+
+      - name: Upload Intel startup diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: idjlm-startup-diagnostics-x86_64-apple-darwin
+          path: |
+            ${{ runner.temp }}/idjlm-wrapper-x86_64-*.log
+            ${{ runner.temp }}/idjlm-owned-port-x86_64.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Upload macOS Intel installer
         uses: actions/upload-artifact@v4
