@@ -306,11 +306,6 @@ fn start_sidecar(
         } else {
             DEFAULT_FLASK_PORT
         };
-        let launch_mode = if requested_port == DEFAULT_FLASK_PORT {
-            "primary"
-        } else {
-            "fallback"
-        };
         let token = match startup_token() {
             Ok(token) => token,
             Err(error) => {
@@ -332,7 +327,6 @@ fn start_sidecar(
             .env("PYTHONDONTWRITEBYTECODE", "1")
             .env("IDJLM_HEADLESS", "1")
             .env("IDJLM_DESKTOP_SAME_ORIGIN", "1")
-            .env("IDJLM_DESKTOP_LAUNCH_MODE", launch_mode)
             .env("IDJLM_SIDECAR_READY_FILE", &ready_file)
             .env("IDJLM_SIDECAR_READY_TOKEN", &token)
             .env("IDJLM_PARENT_PID", std::process::id().to_string());
