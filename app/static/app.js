@@ -72,13 +72,16 @@ function reportDesktopLibraryReady(attempt) {
   if (desktopLibraryReadyReported) return true;
   const token = window.__IDJLM_DESKTOP_UI_READY_TOKEN__;
   const library = document.getElementById('latin-page-library');
-  const shell = document.getElementById('latin-shell');
   const search = document.getElementById('latin-search');
+  const addFolder = document.getElementById('latin-add-folder');
   const rows = document.getElementById('latin-library-rows');
   const splash = document.getElementById('splash-screen');
   const renderedRow = rows?.querySelector('tr');
-  if (!token || splash || !library?.classList.contains('active') || !isHittable(shell)
-      || !isHittable(library) || !isHittable(search) || !isHittable(renderedRow)) return false;
+  // The successful library-load event proves the initial response rendered.
+  // Check controls that are actually above the fold rather than the center of
+  // the full page/rows container, which can be covered by the fixed player.
+  if (!token || splash || !library?.classList.contains('active') || !renderedRow
+      || !isHittable(search) || !isHittable(addFolder)) return false;
   fetch('/__desktop/ui-ready', {
     method: 'POST',
     headers: {
