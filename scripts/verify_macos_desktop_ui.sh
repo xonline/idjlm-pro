@@ -128,20 +128,19 @@ test -x "$main_binary"
 start_owned_dummy() {
   test ! -e "$dummy_ready_file"
   IDJLM_DUMMY_READY_FILE="$dummy_ready_file" python3 -u - <<'PY' >"$dummy_log" 2>&1 &
-from http.server import BaseHTTPRequestHandler, HTTPServer
 import os
 from pathlib import Path
+import socket
 
-class Handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(503)
-        self.end_headers()
-    def log_message(self, format, *args):
-        pass
-
-server = HTTPServer(("127.0.0.1", 5050), Handler)
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server.bind(("127.0.0.1", 5050))
+server.listen(8)
 Path(os.environ["IDJLM_DUMMY_READY_FILE"]).write_text("ready\n", encoding="utf-8")
-server.serve_forever()
+while True:
+    connection, _ = server.accept()
+    with connection:
+        connection.sendall(b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
 PY
   dummy_pid=$!
   for _ in {1..20}; do
@@ -150,7 +149,15 @@ PY
     sleep 1
   done
   echo "Owned port-5050 listener did not become ready." >&2
+  show_startup_error "$dummy_log"
   return 1
+}
+
+stop_owned_dummy() {
+  [ -n "$dummy_pid" ] || return 0
+  kill -TERM "$dummy_pid" 2>/dev/null || true
+  wait "$dummy_pid" 2>/dev/null || true
+  dummy_pid=""
 }
 
 verify_witness() {
@@ -209,17 +216,19 @@ launch_and_wait_for_library() {
   return 1
 }
 
-# Exercise the normal launch path before introducing a collision; the user may
-# not have another service on the old port.
-launch_and_wait_for_library 1 primary
-stop_wrapper
-verify_sidecar_stopped "$last_startup_metadata"
-
+# Exercise the collision first on a fresh runner, then normal relaunch on the
+# same disposable data directory. This prevents a recently closed primary
+# sidecar from obscuring whether the fixture actually owns 5050.
 start_owned_dummy
-launch_and_wait_for_library 2 fallback
+launch_and_wait_for_library 1 fallback
 stop_wrapper
 verify_sidecar_stopped "$last_startup_metadata"
 kill -0 "$dummy_pid"
+stop_owned_dummy
+
+launch_and_wait_for_library 2 primary
+stop_wrapper
+verify_sidecar_stopped "$last_startup_metadata"
 
 echo "### macOS $expected_arch installed desktop UI" >> "$summary_file"
 echo "- Normal and owned-port-5050 collision launches reached the real Library UI, and each tracked sidecar endpoint closed after app quit" >> "$summary_file"
