@@ -3,6 +3,8 @@
 import math
 import os
 import platform
+import errno
+import socket
 import sys
 import tempfile
 import json
@@ -139,9 +141,16 @@ def _run_server() -> None:
     # The desktop wrapper passes both values per launch.  Publishing only
     # after Werkzeug has bound its socket prevents another local listener
     # from being mistaken for our sidecar.
-    server = make_server(host, port, app, threaded=True)
+    try:
+        server = _make_desktop_server(app, port, make_server)
+    except RuntimeError as error:
+        if ready_file and ready_token:
+            _publish_sidecar_failure(Path(ready_file), ready_token, str(error))
+        raise
+    launch_mode = "primary" if server.server_port == 5050 else "fallback"
+    os.environ["IDJLM_DESKTOP_LAUNCH_MODE"] = launch_mode
     if ready_file and ready_token:
-        _publish_sidecar_ready(Path(ready_file), ready_token, server.server_port)
+        _publish_sidecar_ready(Path(ready_file), ready_token, server.server_port, launch_mode)
     _watch_desktop_parent()
     server.serve_forever()
 
@@ -207,13 +216,64 @@ def _acquire_desktop_instance_lock() -> None:
     _desktop_instance_lock = _DesktopInstanceLock(handle)
 
 
-def _publish_sidecar_ready(path: Path, token: str, port: int) -> None:
+def _open_loopback_listener(port: int) -> socket.socket:
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        listener.bind(("127.0.0.1", port))
+        listener.listen()
+        return listener
+    except BaseException:
+        listener.close()
+        raise
+
+
+def _is_idjlm_listener(port: int) -> bool:
+    """Read-only identity check for a listener that won the bind race."""
+    import urllib.error
+    import urllib.request
+
+    def get(path: str):
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=0.35) as response:
+                return json.load(response)
+        except (OSError, urllib.error.URLError, json.JSONDecodeError):
+            return None
+
+    version = get("/api/version")
+    if not isinstance(version, dict):
+        return False
+    if version.get("product") == "idjlm-pro":
+        return True
+    number = version.get("version")
+    if not isinstance(number, str) or not all(part.isdigit() and part for part in number.split(".")):
+        return False
+    health = get("/api/health")
+    return isinstance(health, dict) and health.get("status") == "ok" and {"taxonomy_loaded", "tracks_loaded"}.issubset(health)
+
+
+def _make_desktop_server(app, requested_port: int, make_server):
+    """Bind first so the 5050 preflight-to-bind race has a safe fallback."""
+    try:
+        listener = _open_loopback_listener(requested_port)
+    except OSError as error:
+        if error.errno != errno.EADDRINUSE or requested_port != 5050:
+            raise
+        if _is_idjlm_listener(requested_port):
+            raise RuntimeError("Another IDJLM Pro desktop window is already using this library. Close it before relaunching.") from error
+        listener = _open_loopback_listener(0)
+    try:
+        return make_server("127.0.0.1", listener.getsockname()[1], app, threaded=True, fd=listener.fileno())
+    finally:
+        listener.close()
+
+
+def _publish_sidecar_ready(path: Path, token: str, port: int, mode: str) -> None:
     """Atomically publish the exact socket bound by this sidecar."""
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     try:
         temporary.write_text(
-            json.dumps({"version": 1, "token": token, "port": port}),
+            json.dumps({"version": 1, "token": token, "port": port, "mode": mode}),
             encoding="utf-8",
         )
         os.replace(temporary, path)
