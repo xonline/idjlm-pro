@@ -4,7 +4,7 @@ import math
 import os
 import platform
 import errno
-import socket
+import http.client
 import sys
 import tempfile
 import json
@@ -132,8 +132,6 @@ def _run_server() -> None:
         raise
 
     from app import create_app
-    from werkzeug.serving import make_server
-
     host = "127.0.0.1"
     port = int(os.getenv("FLASK_PORT", "5050"))
     app = create_app()
@@ -142,7 +140,7 @@ def _run_server() -> None:
     # after Werkzeug has bound its socket prevents another local listener
     # from being mistaken for our sidecar.
     try:
-        server = _make_desktop_server(app, port, make_server)
+        server = _make_desktop_server(app, port)
     except RuntimeError as error:
         if ready_file and ready_token:
             _publish_sidecar_failure(Path(ready_file), ready_token, str(error))
@@ -216,28 +214,23 @@ def _acquire_desktop_instance_lock() -> None:
     _desktop_instance_lock = _DesktopInstanceLock(handle)
 
 
-def _open_loopback_listener(port: int) -> socket.socket:
-    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        listener.bind(("127.0.0.1", port))
-        listener.listen()
-        return listener
-    except BaseException:
-        listener.close()
-        raise
-
-
 def _is_idjlm_listener(port: int) -> bool:
     """Read-only identity check for a listener that won the bind race."""
-    import urllib.error
-    import urllib.request
-
     def get(path: str):
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=0.35)
         try:
-            with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=0.35) as response:
-                return json.load(response)
-        except (OSError, urllib.error.URLError, json.JSONDecodeError):
+            connection.request("GET", path, headers={"Connection": "close"})
+            response = connection.getresponse()
+            if response.status != 200:
+                return None
+            payload = response.read(64 * 1024 + 1)
+            if len(payload) > 64 * 1024:
+                return None
+            return json.loads(payload)
+        except (OSError, http.client.HTTPException, json.JSONDecodeError):
             return None
+        finally:
+            connection.close()
 
     version = get("/api/version")
     if not isinstance(version, dict):
@@ -251,20 +244,34 @@ def _is_idjlm_listener(port: int) -> bool:
     return isinstance(health, dict) and health.get("status") == "ok" and {"taxonomy_loaded", "tracks_loaded"}.issubset(health)
 
 
-def _make_desktop_server(app, requested_port: int, make_server):
-    """Bind first so the 5050 preflight-to-bind race has a safe fallback."""
-    try:
-        listener = _open_loopback_listener(requested_port)
-    except OSError as error:
-        if error.errno != errno.EADDRINUSE or requested_port != 5050:
-            raise
-        if _is_idjlm_listener(requested_port):
-            raise RuntimeError("Another IDJLM Pro desktop window is already using this library. Close it before relaunching.") from error
-        listener = _open_loopback_listener(0)
-    try:
-        return make_server("127.0.0.1", listener.getsockname()[1], app, threaded=True, fd=listener.fileno())
-    finally:
-        listener.close()
+class _DesktopThreadedWSGIServer:
+    """Construct a normal Werkzeug server with one narrow 5050 retry."""
+
+    @staticmethod
+    def create(app, requested_port: int, preferred_port: int = 5050):
+        from werkzeug.serving import ThreadedWSGIServer
+
+        class Server(ThreadedWSGIServer):
+            def server_bind(self):
+                try:
+                    return super().server_bind()
+                except OSError as error:
+                    if error.errno != errno.EADDRINUSE or requested_port != preferred_port:
+                        raise
+                    if _is_idjlm_listener(preferred_port):
+                        raise RuntimeError(
+                            "Another IDJLM Pro desktop window is already using this library. "
+                            "Close it before relaunching."
+                        ) from error
+                    self.server_address = ("127.0.0.1", 0)
+                    return super().server_bind()
+
+        return Server("127.0.0.1", requested_port, app)
+
+
+def _make_desktop_server(app, requested_port: int, preferred_port: int = 5050):
+    """Normal Werkzeug server with a safe late collision fallback."""
+    return _DesktopThreadedWSGIServer.create(app, requested_port, preferred_port)
 
 
 def _publish_sidecar_ready(path: Path, token: str, port: int, mode: str) -> None:

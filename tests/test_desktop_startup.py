@@ -2,8 +2,9 @@
 
 import json
 import os
-import errno
 import socket
+import threading
+import http.client
 
 import pytest
 
@@ -92,44 +93,64 @@ def test_desktop_lock_rejects_a_second_sidecar_before_app_startup(tmp_path, monk
         held_lock.close()
 
 
+def _wsgi_ok(environ, start_response):
+    start_response("200 OK", [("Content-Type", "text/plain")])
+    return [b"ready"]
+
+
+def test_desktop_server_binds_preferred_loopback_port_and_serves_http():
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    probe.bind(("127.0.0.1", 0))
+    preferred_port = probe.getsockname()[1]
+    probe.close()
+    server = run_app._make_desktop_server(_wsgi_ok, preferred_port, preferred_port)
+    thread = threading.Thread(target=server.serve_forever)
+    thread.start()
+    try:
+        assert server.server_port == preferred_port
+        connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=1)
+        connection.request("GET", "/")
+        assert connection.getresponse().read() == b"ready"
+        connection.close()
+    finally:
+        server.shutdown()
+        thread.join(timeout=1)
+        server.server_close()
+
+
 def test_late_5050_collision_retries_on_ephemeral_loopback(monkeypatch):
-    calls = []
-
-    def open_listener(port):
-        calls.append(port)
-        if port == 5050:
-            raise OSError(errno.EADDRINUSE, "Address already in use")
-        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        listener.bind(("127.0.0.1", 0))
-        listener.listen()
-        return listener
-
-    class FakeServer:
-        server_port = 0
-
-    def make_server(host, port, app, threaded, fd):
-        assert (host, threaded) == ("127.0.0.1", True)
-        assert port != 5050
-        assert fd >= 0
-        server = FakeServer()
-        server.server_port = port
-        return server
-
-    monkeypatch.setattr(run_app, "_open_loopback_listener", open_listener)
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    probe.bind(("127.0.0.1", 0))
+    preferred_port = probe.getsockname()[1]
+    probe.close()
+    occupant = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    occupant.bind(("127.0.0.1", preferred_port))
+    occupant.listen()
     monkeypatch.setattr(run_app, "_is_idjlm_listener", lambda port: False)
-
-    server = run_app._make_desktop_server(object(), 5050, make_server)
-
-    assert calls == [5050, 0]
-    assert server.server_port != 5050
+    server = run_app._make_desktop_server(_wsgi_ok, preferred_port, preferred_port)
+    thread = threading.Thread(target=server.serve_forever)
+    thread.start()
+    try:
+        assert server.server_port != preferred_port
+        connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=1)
+        connection.request("GET", "/")
+        assert connection.getresponse().read() == b"ready"
+        connection.close()
+    finally:
+        server.shutdown()
+        thread.join(timeout=1)
+        server.server_close()
+        occupant.close()
 
 
 def test_late_5050_idjlm_collision_does_not_start_second_sidecar(monkeypatch):
-    def occupied(port):
-        raise OSError(errno.EADDRINUSE, "Address already in use")
-
-    monkeypatch.setattr(run_app, "_open_loopback_listener", occupied)
+    occupant = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    occupant.bind(("127.0.0.1", 0))
+    preferred_port = occupant.getsockname()[1]
+    occupant.listen()
     monkeypatch.setattr(run_app, "_is_idjlm_listener", lambda port: True)
-
-    with pytest.raises(RuntimeError, match="Another IDJLM Pro desktop window"):
-        run_app._make_desktop_server(object(), 5050, lambda **_: None)
+    try:
+        with pytest.raises(RuntimeError, match="Another IDJLM Pro desktop window"):
+            run_app._make_desktop_server(_wsgi_ok, preferred_port, preferred_port)
+    finally:
+        occupant.close()
