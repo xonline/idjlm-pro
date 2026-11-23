@@ -136,19 +136,23 @@ fn read_sidecar_ready(path: &Path, token: &str) -> Result<Option<u16>, String> {
 fn wait_for_sidecar_ready(state: &SidecarProcess, token: &str) -> Result<u16, String> {
     let deadline = Instant::now() + Duration::from_secs(FLASK_TIMEOUT_SECS);
     while Instant::now() < deadline {
-        let ready_file = {
+        let (ready_file, exit_status) = {
             let mut runtime = state.0.lock().map_err(|_| "sidecar state lock failed")?;
-            let child = runtime.child.as_mut().ok_or("sidecar was not started")?;
-            if let Some(status) = child.try_wait().map_err(|error| error.to_string())? {
-                return Err(format!("sidecar exited early ({status})"));
-            }
-            runtime
+            let ready_file = runtime
                 .ready_file
                 .clone()
-                .ok_or("sidecar readiness file missing")?
+                .ok_or("sidecar readiness file missing")?;
+            let child = runtime.child.as_mut().ok_or("sidecar was not started")?;
+            (
+                ready_file,
+                child.try_wait().map_err(|error| error.to_string())?,
+            )
         };
         if let Some(port) = read_sidecar_ready(&ready_file, token)? {
             return Ok(port);
+        }
+        if let Some(status) = exit_status {
+            return Err(format!("sidecar exited early ({status})"));
         }
         thread::sleep(Duration::from_millis(100));
     }
