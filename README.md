@@ -4,11 +4,11 @@ IDJLM Pro is a desktop app for managing a Latin music library with local import,
 
 ## Try the current review build on a Mac
 
-The latest stable release remains [v4.1.0](https://github.com/xonline/idjlm-pro/releases/tag/v4.1.0). The current [4.2.3 Apple Silicon review build](https://github.com/xonline/idjlm-pro/releases/tag/review-4.2.3) fixes the reported desktop startup freeze and includes the local Latin-library workflow merged through [PR #44](https://github.com/xonline/idjlm-pro/pull/44).
+The latest stable release remains [v4.1.0](https://github.com/xonline/idjlm-pro/releases/tag/v4.1.0). The current [4.2.4 Apple Silicon review build](https://github.com/xonline/idjlm-pro/releases/tag/review-4.2.4) corrects the Tahoe sidecar signing failure in the prior review build and includes the local Latin-library workflow merged through [PR #44](https://github.com/xonline/idjlm-pro/pull/44).
 
 This is an **ad-hoc signed, unnotarized test prerelease**—not a stable release. macOS will quarantine a browser download and show its expected unidentified-developer warning on first launch. It needs one manual [Privacy & Security approval](https://support.apple.com/en-au/102445), and cannot receive normal Gatekeeper acceptance until a Developer ID certificate and notarization are configured.
 
-1. Download the Apple Silicon DMG and its `.sha256` checksum from the 4.2.3 review release; verify the checksum before opening it.
+1. Download the Apple Silicon DMG and its `.sha256` checksum from the 4.2.4 review release; verify the checksum before opening it.
 2. Open the DMG, copy **IDJLM Pro** to Applications, then eject the DMG.
 3. If macOS shows the expected unidentified-developer warning, open **System Settings → Privacy & Security** and choose **Open Anyway**. Use that override only after verifying the release and checksum. If macOS instead says the app is **damaged**, stop and download it again; do not override that alert.
 4. Test a copied sample folder: import, review, preview a write, restore it, then preview an export. Do not begin with an irreplaceable library.
@@ -34,7 +34,7 @@ See the [reliability check](https://github.com/xonline/idjlm-pro/blob/8817c5f/do
 To run the review branch without an installer, install Git, Node.js 20 with npm, and Python 3.11 or 3.12, then use the same Python version explicitly when creating the environment:
 
 ```bash
-git clone --branch review-4.2.3 https://github.com/xonline/idjlm-pro.git
+git clone --branch review-4.2.4 https://github.com/xonline/idjlm-pro.git
 cd idjlm-pro
 npm ci
 npm run build
