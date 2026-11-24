@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Verify the distributed macOS review bundle without claiming notarization.
 #
-# Usage: verify_macos_app_bundle.sh DMG_PATH EXPECTED_ARCH EXPECTED_VERSION
+# Usage: verify_macos_app_bundle.sh DMG_PATH EXPECTED_ARCH EXPECTED_VERSION STAGED_SIDECAR
 set -euo pipefail
 
 dmg_path=${1:?DMG path is required}
 expected_arch=${2:?Expected architecture is required}
 expected_version=${3:?Expected version is required}
+staged_sidecar=${4:?Staged sidecar path is required}
 runner_temp=${RUNNER_TEMP:?RUNNER_TEMP is required}
 
 mount_dir="$runner_temp/idjlm-signature-mount-$expected_arch"
@@ -30,17 +31,33 @@ main_binary="$installed_app/Contents/MacOS/idjlm-pro"
 sidecar_binary="$installed_app/Contents/MacOS/idjlm-server"
 test -x "$main_binary"
 test -x "$sidecar_binary"
+test -x "$staged_sidecar"
 file "$main_binary" | grep -q "$expected_arch"
 file "$sidecar_binary" | grep -q "$expected_arch"
+file "$staged_sidecar" | grep -q "$expected_arch"
 
 # The outer seal catches altered resources; the per-Mach-O walk makes the
 # sidecar and main binary failures visible instead of relying only on --deep.
 codesign --verify --deep --strict --verbose=4 "$installed_app"
 codesign -dvvv "$installed_app" 2>&1 | tee "$runner_temp/idjlm-codesign-$expected_arch.txt"
 grep -q 'Signature=adhoc' "$runner_temp/idjlm-codesign-$expected_arch.txt"
+grep -Eq 'flags=0x10002\(adhoc,runtime\)' "$runner_temp/idjlm-codesign-$expected_arch.txt"
+codesign --verify --strict --verbose=4 "$staged_sidecar"
+codesign -dvvv "$staged_sidecar" 2>&1 | tee "$runner_temp/idjlm-staged-sidecar-codesign-$expected_arch.txt"
+grep -q 'Signature=adhoc' "$runner_temp/idjlm-staged-sidecar-codesign-$expected_arch.txt"
+grep -Eq 'flags=0x2\(adhoc\)' "$runner_temp/idjlm-staged-sidecar-codesign-$expected_arch.txt"
 codesign --verify --strict --verbose=4 "$sidecar_binary"
 codesign -dvvv "$sidecar_binary" 2>&1 | tee "$runner_temp/idjlm-sidecar-codesign-$expected_arch.txt"
 grep -q 'Signature=adhoc' "$runner_temp/idjlm-sidecar-codesign-$expected_arch.txt"
+grep -Eq 'flags=0x2\(adhoc\)' "$runner_temp/idjlm-sidecar-codesign-$expected_arch.txt"
+cmp -s "$staged_sidecar" "$sidecar_binary"
+if [ "$expected_arch" = "arm64" ]; then
+  IDJLM_USER_DATA_DIR="$runner_temp/idjlm-signature-data-$expected_arch" \
+    "$sidecar_binary" --verify-audio-runtime
+else
+  IDJLM_USER_DATA_DIR="$runner_temp/idjlm-signature-data-$expected_arch" \
+    "$sidecar_binary" --verify-analyzer-runtime
+fi
 
 mach_o_count=0
 while IFS= read -r -d '' candidate; do
@@ -70,7 +87,8 @@ grep -Eiq 'rejected|not notarized|unidentified developer' "$assessment_log" || {
 
 {
   echo "### macOS $expected_arch review-bundle signature"
-  echo "- Ad-hoc app seal, required sidecar, and $mach_o_count executable signature(s): verified"
+  echo "- Hardened ad-hoc app seal; byte-identical, ordinary ad-hoc PyInstaller sidecar; and $mach_o_count executable signature(s): verified"
+  echo "- Mounted helper packaged runtime: verified"
   echo "- Quarantined Gatekeeper assessment: rejected as expected for this unnotarized review build"
   echo "- Packaged version expected by wrapper smoke test: $expected_version"
 } >> "$summary_file"

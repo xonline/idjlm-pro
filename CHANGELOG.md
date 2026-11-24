@@ -4,6 +4,18 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [4.2.4] — 2026-11-25
+
+### macOS sidecar signing
+
+- Fixed the Tahoe library-validation failure that could make the installed wrapper report an early sidecar exit. The sealed, hardened Tauri app now preserves the PyInstaller helper's ordinary ad-hoc signature instead of re-signing that helper with hardened runtime.
+- Added release checks for the outer app's hardened signature, byte-for-byte equality between the staged and packaged helper, the helper's ordinary signature, and its packaged runtime.
+- Added a clean macOS 15 Apple Silicon job that downloads the macOS 26-built DMG and proves the installed application reaches the interactive Library UI without Python or pip build setup.
+
+This remains an Apple Silicon **ad-hoc signed, unnotarized test prerelease**, not a stable release. Verify its checksum, copy it to Applications, eject the DMG, and use Privacy & Security approval only for the expected unidentified-developer warning. A damaged-app alert is a stop-and-redownload condition.
+
+---
+
 ## [4.2.3] — 2026-11-24
 
 ### Desktop startup recovery

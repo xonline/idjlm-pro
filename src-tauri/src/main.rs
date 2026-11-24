@@ -6,8 +6,8 @@ use std::fs;
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command};
-use std::sync::{Arc, Mutex};
+use std::process::{Child, Command, Stdio};
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -18,6 +18,8 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 const DEFAULT_FLASK_PORT: u16 = 5050;
 const FLASK_TIMEOUT_SECS: u64 = 90;
 const LOOPBACK_TIMEOUT: Duration = Duration::from_millis(350);
+const SIDECAR_STDERR_TAIL_BYTES: usize = 4096;
+const SIDECAR_STDERR_DRAIN_WAIT: Duration = Duration::from_millis(100);
 
 fn startup_trace(stage: &str) {
     if std::env::var_os("IDJLM_STARTUP_TRACE").is_some() {
@@ -28,6 +30,7 @@ fn startup_trace(stage: &str) {
 struct SidecarRuntime {
     child: Option<Child>,
     ready_file: Option<PathBuf>,
+    stderr_diagnostic: Option<mpsc::Receiver<Option<&'static str>>>,
 }
 /// Only a child launched by this wrapper is ever stopped.
 struct SidecarProcess(Arc<Mutex<SidecarRuntime>>);
@@ -38,15 +41,57 @@ struct SidecarReady {
     error: Option<String>,
 }
 
-fn stop_sidecar(state: &SidecarProcess) {
-    let Ok(mut runtime) = state.0.lock() else {
-        return;
+fn capture_stderr<R: Read + Send + 'static>(mut stderr: R) -> mpsc::Receiver<Option<&'static str>> {
+    let (sender, receiver) = mpsc::sync_channel(1);
+    let _ = thread::spawn(move || {
+        let mut tail = Vec::new();
+        let mut buffer = [0_u8; 1024];
+        loop {
+            let count = match stderr.read(&mut buffer) {
+                Ok(0) | Err(_) => break,
+                Ok(count) => count,
+            };
+            // Always drain the pipe. Retain only a small tail, then send a
+            // static classification rather than any untrusted child output.
+            let excess = tail
+                .len()
+                .saturating_add(count)
+                .saturating_sub(SIDECAR_STDERR_TAIL_BYTES);
+            if excess >= tail.len() {
+                tail.clear();
+            } else if excess > 0 {
+                tail.drain(..excess);
+            }
+            tail.extend_from_slice(&buffer[..count]);
+        }
+        let _ = sender.send(sidecar_boot_diagnostic(&tail));
+    });
+    receiver
+}
+
+fn take_sidecar_diagnostic(state: &SidecarProcess) -> Option<&'static str> {
+    let receiver = match state.0.lock() {
+        Ok(mut runtime) => runtime.stderr_diagnostic.take(),
+        Err(_) => return None,
     };
-    if let Some(mut child) = runtime.child.take() {
+    receiver.and_then(|receiver| {
+        receiver
+            .recv_timeout(SIDECAR_STDERR_DRAIN_WAIT)
+            .ok()
+            .flatten()
+    })
+}
+
+fn stop_sidecar(state: &SidecarProcess) {
+    let (child, ready_file) = match state.0.lock() {
+        Ok(mut runtime) => (runtime.child.take(), runtime.ready_file.take()),
+        Err(_) => return,
+    };
+    if let Some(mut child) = child {
         let _ = child.kill();
         let _ = child.wait();
     }
-    if let Some(path) = runtime.ready_file.take() {
+    if let Some(path) = ready_file {
         let _ = fs::remove_file(path);
     }
 }
@@ -140,6 +185,26 @@ fn read_sidecar_ready(path: &Path, token: &str) -> Result<Option<u16>, String> {
     Ok(ready.port.filter(|port| *port != 0))
 }
 
+fn sidecar_boot_diagnostic(stderr: &[u8]) -> Option<&'static str> {
+    let output = String::from_utf8_lossy(stderr).to_ascii_lowercase();
+    if output.contains("code signature")
+        && (output.contains("different team ids")
+            || output.contains("not valid for use in process")
+            || output.contains("mapping process and mapped file"))
+    {
+        Some("IDJLM Pro has a build signing error: macOS rejected mismatched signatures inside this app. Reinstalling this exact version or changing permissions will not help; download a corrected release when available.")
+    } else {
+        None
+    }
+}
+
+fn early_sidecar_exit_message(status: impl std::fmt::Display, diagnostic: Option<&str>) -> String {
+    match diagnostic {
+        Some(diagnostic) => format!("sidecar exited early ({status}). {diagnostic}"),
+        None => format!("sidecar exited early ({status})"),
+    }
+}
+
 fn wait_for_sidecar_ready(state: &SidecarProcess, token: &str) -> Result<u16, String> {
     let deadline = Instant::now() + Duration::from_secs(FLASK_TIMEOUT_SECS);
     while Instant::now() < deadline {
@@ -159,7 +224,10 @@ fn wait_for_sidecar_ready(state: &SidecarProcess, token: &str) -> Result<u16, St
             return Ok(port);
         }
         if let Some(status) = exit_status {
-            return Err(format!("sidecar exited early ({status})"));
+            return Err(early_sidecar_exit_message(
+                status,
+                take_sidecar_diagnostic(state),
+            ));
         }
         thread::sleep(Duration::from_millis(100));
     }
@@ -342,13 +410,14 @@ fn start_sidecar(
             .env("IDJLM_DESKTOP_SAME_ORIGIN", "1")
             .env("IDJLM_SIDECAR_READY_FILE", &ready_file)
             .env("IDJLM_SIDECAR_READY_TOKEN", &token)
-            .env("IDJLM_PARENT_PID", std::process::id().to_string());
+            .env("IDJLM_PARENT_PID", std::process::id().to_string())
+            .stderr(Stdio::piped());
         if let Some(path) = ui_ready_file.as_ref() {
             command
                 .env("IDJLM_UI_READY_FILE", path)
                 .env("IDJLM_UI_READY_TOKEN", &token);
         }
-        let child = match command.spawn() {
+        let mut child = match command.spawn() {
             Ok(child) => child,
             Err(error) => {
                 show_error(
@@ -359,10 +428,14 @@ fn start_sidecar(
             }
         };
         startup_trace("sidecar-spawned");
+        let stderr_diagnostic = child.stderr.take().map(capture_stderr);
         if let Ok(mut runtime) = sidecar_state.0.lock() {
             runtime.child = Some(child);
             runtime.ready_file = Some(ready_file);
+            runtime.stderr_diagnostic = stderr_diagnostic;
         } else {
+            let _ = child.kill();
+            let _ = child.wait();
             show_error(&window, "IDJLM could not track its local service safely.");
             return;
         }
@@ -430,6 +503,7 @@ fn main() {
     let sidecar = SidecarProcess(Arc::new(Mutex::new(SidecarRuntime {
         child: None,
         ready_file: None,
+        stderr_diagnostic: None,
     })));
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -484,6 +558,28 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn signature_mismatch_diagnostic_is_actionable_without_exposing_stderr() {
+        let message = early_sidecar_exit_message(
+            "exit status: 255",
+            sidecar_boot_diagnostic(b"Failed to load Python shared library: code signature is not valid for use in process: mapping process and mapped file have different Team IDs; private-launch-detail"),
+        );
+        assert!(message.contains("build signing error"));
+        assert!(message.contains("corrected release"));
+        assert!(!message.contains("private-launch-detail"));
+    }
+
+    #[test]
+    fn stderr_capture_keeps_only_a_bounded_classification() {
+        let input = vec![b'x'; SIDECAR_STDERR_TAIL_BYTES * 2];
+        let receiver = capture_stderr(std::io::Cursor::new(input));
+        assert_eq!(
+            receiver.recv_timeout(SIDECAR_STDERR_DRAIN_WAIT).unwrap(),
+            None
+        );
+    }
+
     #[test]
     fn sidecar_ready_file_requires_the_launch_token() {
         let root = std::env::temp_dir().join(format!("idjlm-ready-test-{}", std::process::id()));

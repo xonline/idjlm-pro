@@ -100,6 +100,8 @@ jobs:
           mkdir -p src-tauri/binaries
           mv src-tauri/binaries/tmp/idjlm-server \
             src-tauri/binaries/idjlm-server-aarch64-apple-darwin
+          cp src-tauri/binaries/idjlm-server-aarch64-apple-darwin \
+            src-tauri/binaries/idjlm-server
 
       - name: Verify spawned analyzer batch
         timeout-minutes: 5
@@ -109,14 +111,15 @@ jobs:
         run: npm install -g @tauri-apps/cli@^2.5.0
 
       - name: Build Tauri app
-        run: tauri build --target aarch64-apple-darwin
+        run: tauri build --target aarch64-apple-darwin --config src-tauri/tauri.macos.review.conf.json
 
       - name: Verify sealed Apple Silicon review bundle
         shell: bash
         run: |
           dmg=$(find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -name '*.dmg' -print -quit)
           test -n "$dmg"
-          scripts/verify_macos_app_bundle.sh "$dmg" arm64 "$(cat VERSION)"
+          scripts/verify_macos_app_bundle.sh "$dmg" arm64 "$(cat VERSION)" \
+            src-tauri/binaries/idjlm-server-aarch64-apple-darwin
 
       - name: Verify installed desktop wrapper reaches Library UI
         shell: bash
@@ -143,6 +146,33 @@ jobs:
           path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
           if-no-files-found: error
           retention-days: 30
+
+  verify-macos-arm64-macos15:
+    name: Verify Apple Silicon DMG on clean macOS 15
+    needs: build-macos-arm64
+    # This job deliberately downloads the DMG built on macOS 26 instead of
+    # rebuilding it. It proves the exact packaged artifact launches on a
+    # second supported Apple Silicon runtime without Python/pip build setup.
+    runs-on: macos-15
+    steps:
+      - name: Checkout verification script
+        uses: actions/checkout@v4
+
+      - name: Verify Apple Silicon runner
+        run: test "$(uname -m)" = "arm64"
+
+      - name: Download tested Apple Silicon DMG
+        uses: actions/download-artifact@v4
+        with:
+          name: idjlm-pro-dmg-aarch64-apple-darwin
+          path: artifact
+
+      - name: Verify installed DMG reaches Library UI without build tooling
+        shell: bash
+        run: |
+          dmg=$(find artifact -name '*.dmg' -print -quit)
+          test -n "$dmg"
+          scripts/verify_macos_desktop_ui.sh "$dmg" arm64 "$(cat VERSION)"
 
   build-macos-intel:
     name: Build macOS Intel installer
@@ -207,6 +237,8 @@ jobs:
           mkdir -p src-tauri/binaries
           mv src-tauri/binaries/tmp/idjlm-server \
             src-tauri/binaries/idjlm-server-x86_64-apple-darwin
+          cp src-tauri/binaries/idjlm-server-x86_64-apple-darwin \
+            src-tauri/binaries/idjlm-server
 
       - name: Verify spawned analyzer batch
         timeout-minutes: 5
@@ -216,14 +248,15 @@ jobs:
         run: npm install -g @tauri-apps/cli@^2.5.0
 
       - name: Build Tauri app
-        run: tauri build --target x86_64-apple-darwin
+        run: tauri build --target x86_64-apple-darwin --config src-tauri/tauri.macos.review.conf.json
 
       - name: Verify sealed Intel review bundle
         shell: bash
         run: |
           dmg=$(find src-tauri/target/x86_64-apple-darwin/release/bundle/dmg -name '*.dmg' -print -quit)
           test -n "$dmg"
-          scripts/verify_macos_app_bundle.sh "$dmg" x86_64 "$(cat VERSION)"
+          scripts/verify_macos_app_bundle.sh "$dmg" x86_64 "$(cat VERSION)" \
+            src-tauri/binaries/idjlm-server-x86_64-apple-darwin
 
       - name: Verify installed desktop wrapper reaches Library UI
         shell: bash
@@ -391,6 +424,7 @@ jobs:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs:
       - build-macos-arm64
+      - verify-macos-arm64-macos15
       - build-macos-intel
       - build-windows
     runs-on: ubuntu-latest
