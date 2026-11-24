@@ -167,7 +167,6 @@ def _install_startup_trace(app) -> None:
         if request.path in allowed_paths:
             print(
                 f"[idjlm-startup] request {request.method} {request.path} {response.status_code}",
-                file=sys.stderr,
                 flush=True,
             )
         return response
