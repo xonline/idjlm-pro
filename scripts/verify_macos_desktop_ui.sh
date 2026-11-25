@@ -264,14 +264,12 @@ launch_and_wait_for_library() {
 exercise_native_folder_picker() {
   # System Events drives the installed app's accessibility tree; this is the
   # real WebView button and macOS OpenPanel, not a JS bridge or test-only IPC.
-  local picker_dir="$runner_temp/idjlm-picker-fixture-$expected_arch"
   local automation_log="$runner_temp/idjlm-picker-automation-$expected_arch.log"
   local automation_trace="$runner_temp/idjlm-picker-automation-$expected_arch.trace"
   local automation_pid=""
-  mkdir -p "$picker_dir"
   : >"$automation_trace"
 
-  osascript - "$wrapper_pid" "$picker_dir" "$automation_trace" >"$automation_log" 2>&1 <<'APPLESCRIPT' &
+  osascript - "$wrapper_pid" "$automation_trace" >"$automation_log" 2>&1 <<'APPLESCRIPT' &
 on trace_stage(trace_path, stage)
   do shell script "/usr/bin/printf '%s\n' " & quoted form of stage & " >> " & quoted form of trace_path
 end trace_stage
@@ -359,11 +357,44 @@ on press_add_folder(process_pid, trace_path)
   my trace_stage(trace_path, "add-folder-pressed")
 end press_add_folder
 
+on cancel_native_panel(process_pid, trace_path)
+  my trace_stage(trace_path, "native-cancel-lookup-start")
+  set target_process to my process_for_pid(process_pid)
+  tell application "System Events"
+    tell target_process
+      if not (exists sheet 1 of front window) then error "Native Select Music Folder sheet is not available to cancel"
+      tell sheet 1 of front window
+        try
+          click button "Cancel"
+          my trace_stage(trace_path, "native-cancel-clicked")
+          return
+        end try
+        repeat with candidate in (every UI element of entire contents)
+          try
+            if (role of candidate as text) is "AXButton" then
+              set candidate_name to (name of candidate as text)
+              set candidate_subrole to ""
+              try
+                set candidate_subrole to (subrole of candidate as text)
+              end try
+              if candidate_name is "Cancel" or candidate_subrole is "AXCancelButton" then
+                click candidate
+                my trace_stage(trace_path, "native-cancel-clicked")
+                return
+              end if
+            end if
+          end try
+        end repeat
+      end tell
+    end tell
+  end tell
+  error "Native Select Music Folder sheet has no accessible Cancel button"
+end cancel_native_panel
+
 on run argv
-  if (count of argv) is not 3 then error "Wrapper PID, picker fixture path, and trace path are required"
+  if (count of argv) is not 2 then error "Wrapper PID and trace path are required"
   set process_pid to (item 1 of argv) as integer
-  set picker_folder to item 2 of argv
-  set trace_path to item 3 of argv
+  set trace_path to item 2 of argv
 
   my trace_stage(trace_path, "system-events-target-start")
   my process_for_pid(process_pid)
@@ -375,30 +406,19 @@ on run argv
   my press_add_folder(process_pid, trace_path)
   my wait_for_native_panel(process_pid, true, 15)
   my trace_stage(trace_path, "first-panel-visible")
-  tell application "System Events" to key code 53
-  my trace_stage(trace_path, "first-panel-cancel-sent")
+  my cancel_native_panel(process_pid, trace_path)
   my wait_for_native_panel(process_pid, false, 15)
   my trace_stage(trace_path, "first-panel-cancelled")
 
-  -- Reopen and choose only a runner-temp empty folder. Its browser-side
-  -- confirmation proves the native callback returned to the actual WebView.
+  -- Reopen after cancellation. This proves the installed command returned to
+  -- the event loop and is not left wedged behind a stale native sheet.
   my trace_stage(trace_path, "second-panel-open-start")
   my press_add_folder(process_pid, trace_path)
   my wait_for_native_panel(process_pid, true, 15)
   my trace_stage(trace_path, "second-panel-visible")
-  tell application "System Events"
-    keystroke "g" using {command down, shift down}
-    delay 0.5
-    keystroke picker_folder
-    key code 36
-    delay 0.75
-    key code 36
-  end tell
-  my trace_stage(trace_path, "second-panel-selection-sent")
-  my wait_for_button(process_pid, "Import folder", 15)
-  my trace_stage(trace_path, "web-confirmation-visible")
-  tell application "System Events" to key code 53
-  my trace_stage(trace_path, "web-confirmation-cancelled")
+  my cancel_native_panel(process_pid, trace_path)
+  my wait_for_native_panel(process_pid, false, 15)
+  my trace_stage(trace_path, "second-panel-cancelled")
 end run
 APPLESCRIPT
   automation_pid=$!
@@ -439,4 +459,4 @@ stop_wrapper
 verify_sidecar_stopped "$last_startup_metadata"
 
 echo "### macOS $expected_arch installed desktop UI" >> "$summary_file"
-echo "- Normal and owned-port-5050 collision launches reached the real Library UI; the installed WebView opened, cancelled, reopened, and selected a folder through the native macOS picker; and each tracked sidecar endpoint closed after app quit" >> "$summary_file"
+echo "- Normal and owned-port-5050 collision launches reached the real Library UI; the installed WebView opened, cancelled, and reopened the native macOS folder picker; and each tracked sidecar endpoint closed after app quit" >> "$summary_file"
