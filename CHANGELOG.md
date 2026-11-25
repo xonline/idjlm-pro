@@ -4,6 +4,25 @@ All notable changes to IDJLM Pro are documented here.
 
 ---
 
+## [4.2.5] — 2026-11-25
+
+### Desktop folder selection
+
+- Replaced the Tauri main-thread blocking folder dialog with its asynchronous
+  callback API, so **Add folder** can show the native chooser without freezing
+  the Library window.
+- When the desktop chooser cannot be opened, offer the existing manual
+  absolute-path entry rather than attempting to start Tk from the Flask
+  sidecar's WSGI thread.
+
+This remains an Apple Silicon **ad-hoc signed, unnotarized test prerelease**,
+not a stable release. Verify its checksum, copy it to Applications, eject the
+DMG, and use Privacy & Security approval only for the expected
+unidentified-developer warning. A damaged-app alert is a stop-and-redownload
+condition.
+
+---
+
 ## [4.2.4] — 2026-11-25
 
 ### macOS sidecar signing

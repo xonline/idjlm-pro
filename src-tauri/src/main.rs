@@ -340,15 +340,25 @@ fn find_sidecar(app: &AppHandle) -> PathBuf {
         .unwrap_or_else(|| PathBuf::from(format!("idjlm-server-{triple}")))
 }
 
+fn selected_folder_path(folder: Option<tauri_plugin_dialog::FilePath>) -> Option<String> {
+    folder
+        .and_then(|path| path.into_path().ok())
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
 #[tauri::command]
-fn pick_folder(app: AppHandle) -> Option<String> {
+async fn pick_folder(app: AppHandle) -> Option<String> {
     use tauri_plugin_dialog::DialogExt;
+
+    let (sender, mut receiver) = tauri::async_runtime::channel(1);
     app.dialog()
         .file()
         .set_title("Select Music Folder")
-        .blocking_pick_folder()
-        .and_then(|path| path.into_path().ok())
-        .map(|path| path.to_string_lossy().into_owned())
+        .pick_folder(move |folder| {
+            let _ = sender.try_send(selected_folder_path(folder));
+        });
+
+    receiver.recv().await.flatten()
 }
 
 fn allow_picker_for_verified_origin(app: &AppHandle, origin: &str) -> Result<(), String> {
@@ -590,5 +600,22 @@ mod tests {
         assert_eq!(read_sidecar_ready(&path, "other"), Ok(None));
         let _ = fs::remove_file(path);
         let _ = fs::remove_dir(root);
+    }
+
+    #[test]
+    fn folder_picker_response_allows_cancel_then_a_new_selection() {
+        let (sender, mut receiver) = tauri::async_runtime::channel(1);
+        sender.try_send(selected_folder_path(None)).unwrap();
+        assert_eq!(tauri::async_runtime::block_on(receiver.recv()), Some(None));
+
+        sender
+            .try_send(selected_folder_path(Some(
+                tauri_plugin_dialog::FilePath::Path(PathBuf::from("/tmp/synthetic-music")),
+            )))
+            .unwrap();
+        assert_eq!(
+            tauri::async_runtime::block_on(receiver.recv()),
+            Some(Some("/tmp/synthetic-music".to_string())),
+        );
     }
 }

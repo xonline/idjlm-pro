@@ -294,10 +294,14 @@ def main() -> int:
                     failed_requests.append(entry)
 
             page.on("requestfailed", record_failed_request)
-            # Native invoke is the normal desktop path. A failing native call
-            # reaches Flask's real headless/unavailable response shape, then
-            # the UI offers its labelled manual absolute-path fallback.
-            page.route("**/api/pick-folder", lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps({"unavailable": True})))
+            # Native invoke is the normal desktop path. A native failure must
+            # use the labelled manual fallback directly: the desktop sidecar
+            # must never attempt its Tk picker from a WSGI thread.
+            picker_requests = []
+            page.route(
+                "**/api/pick-folder",
+                lambda route: (picker_requests.append(route.request.url), route.fulfill(status=500)),
+            )
             page.goto(app_url, wait_until="networkidle", timeout=30000)
             page.wait_for_selector("#latin-shell:not([hidden])", timeout=10000)
             page.locator("#splash-screen").wait_for(state="detached", timeout=10000)
@@ -316,6 +320,17 @@ def main() -> int:
                 raise AssertionError(f"Legacy API-key onboarding is visible over the local-first redesign (redesign_active={active})")
             page.screenshot(path=str(SCREENSHOTS / "idjlm-latin-onboarding-empty.png"), full_page=True)
             checks.append("fresh first-run has no legacy API-key onboarding blocker")
+
+            set_native_picker(page, None, unavailable=True)
+            page.locator("#latin-add-folder").click()
+            page.locator("#latin-folder-path").wait_for()
+            if picker_requests:
+                raise AssertionError(
+                    "Native folder-picker failure called the sidecar Tk route: "
+                    f"{picker_requests}"
+                )
+            page.locator("#latin-modal-footer button").filter(has_text="Cancel").click()
+            checks.append("native picker failure opens manual path entry without sidecar Tk")
 
             # Import through the real redesign flow and real scanner.
             import_folder_from_ui(page, fixture_folder, app_url, 125)
