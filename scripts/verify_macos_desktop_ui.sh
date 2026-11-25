@@ -261,6 +261,108 @@ launch_and_wait_for_library() {
   return 1
 }
 
+exercise_native_folder_picker() {
+  # System Events drives the installed app's accessibility tree; this is the
+  # real WebView button and macOS OpenPanel, not a JS bridge or test-only IPC.
+  local picker_dir="$runner_temp/idjlm-picker-fixture-$expected_arch"
+  mkdir -p "$picker_dir"
+
+  osascript - "$picker_dir" <<'APPLESCRIPT'
+on wait_for_button(process_name, text_fragment, timeout_seconds)
+  tell application "System Events"
+    repeat with attempt from 1 to (timeout_seconds * 4)
+      tell process process_name
+        try
+          repeat with candidate in (every button of entire contents of front window)
+            set label_text to ""
+            try
+              set label_text to (name of candidate) as text
+            end try
+            if label_text contains text_fragment then return candidate
+          end repeat
+        end try
+      end tell
+      delay 0.25
+    end repeat
+  end tell
+  error "Timed out waiting for WebView control: " & text_fragment
+end wait_for_button
+
+on native_panel_visible(process_name)
+  tell application "System Events"
+    tell process process_name
+      try
+        if exists sheet 1 of front window then return true
+      end try
+      try
+        repeat with candidate in windows
+          set title_text to ""
+          try
+            set title_text to (name of candidate) as text
+          end try
+          if title_text contains "Select Music Folder" then return true
+        end repeat
+      end try
+    end tell
+  end tell
+  return false
+end native_panel_visible
+
+on wait_for_native_panel(process_name, expected_visible, timeout_seconds)
+  repeat with attempt from 1 to (timeout_seconds * 4)
+    if (native_panel_visible(process_name) is expected_visible) then return
+    delay 0.25
+  end repeat
+  if expected_visible then
+    error "Timed out waiting for the native Select Music Folder panel"
+  end if
+  error "Native Select Music Folder panel did not close"
+end wait_for_native_panel
+
+on press_add_folder(process_name)
+  tell application "System Events"
+    tell process process_name
+      set frontmost to true
+      click (wait_for_button(process_name, "Add folder", 15))
+    end tell
+  end tell
+end press_add_folder
+
+on run argv
+  if (count of argv) is not 1 then error "Picker fixture path was not supplied"
+  set process_name to "IDJLM Pro"
+  set picker_folder to item 1 of argv
+
+  tell application id "au.idjlm.pro" to activate
+  tell application "System Events"
+    if not (exists process process_name) then error "Installed IDJLM Pro process is not available to macOS accessibility automation"
+  end tell
+
+  -- First panel must cancel promptly: the prior synchronous command path
+  -- deadlocked here before any native panel could be dismissed.
+  press_add_folder(process_name)
+  wait_for_native_panel(process_name, true, 15)
+  tell application "System Events" to key code 53
+  wait_for_native_panel(process_name, false, 15)
+
+  -- Reopen and choose only a runner-temp empty folder. Its browser-side
+  -- confirmation proves the native callback returned to the actual WebView.
+  press_add_folder(process_name)
+  wait_for_native_panel(process_name, true, 15)
+  tell application "System Events"
+    keystroke "g" using {command down, shift down}
+    delay 0.5
+    keystroke picker_folder
+    key code 36
+    delay 0.75
+    key code 36
+  end tell
+  wait_for_button(process_name, "Import folder", 15)
+  tell application "System Events" to key code 53
+end run
+APPLESCRIPT
+}
+
 # Exercise the collision first on a fresh runner, then normal relaunch on the
 # same disposable data directory. This prevents a recently closed primary
 # sidecar from obscuring whether the fixture actually owns 5050.
@@ -272,8 +374,9 @@ kill -0 "$dummy_pid"
 stop_owned_dummy
 
 launch_and_wait_for_library 2 primary
+exercise_native_folder_picker
 stop_wrapper
 verify_sidecar_stopped "$last_startup_metadata"
 
 echo "### macOS $expected_arch installed desktop UI" >> "$summary_file"
-echo "- Normal and owned-port-5050 collision launches reached the real Library UI, and each tracked sidecar endpoint closed after app quit" >> "$summary_file"
+echo "- Normal and owned-port-5050 collision launches reached the real Library UI; the installed WebView opened, cancelled, reopened, and selected a folder through the native macOS picker; and each tracked sidecar endpoint closed after app quit" >> "$summary_file"

@@ -1092,7 +1092,10 @@ async function latinPickFolder() {
     try {
       const path = await invoke('pick_folder');
       return path ? { path } : { cancelled: true };
-    } catch (error) { console.warn('[idjlm] Native folder picker unavailable:', error); }
+    } catch (error) {
+      console.warn('[idjlm] Native folder picker unavailable:', error);
+      return { unavailable: true };
+    }
   }
   try {
     const picker = await latinRequest('/api/pick-folder');

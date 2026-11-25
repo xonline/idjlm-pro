@@ -29,6 +29,16 @@ def pick_folder():
     implementation broke the import flow on Windows/Linux); the tkinter path
     below works everywhere Python runs.
     """
+    # Tauri owns the desktop picker.  This endpoint runs in the sidecar's
+    # WSGI worker and must not create Tk there on macOS: doing so can block
+    # before a dialog is shown.  The desktop UI already has an explicit
+    # manual-path fallback for a failed native invocation.
+    if os.getenv("IDJLM_DESKTOP_SAME_ORIGIN") == "1":
+        return jsonify({
+            "unavailable": True,
+            "message": "Use the desktop folder picker or enter a folder path manually",
+        }), 200
+
     try:
         import tkinter as tk
         from tkinter import filedialog

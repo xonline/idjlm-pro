@@ -116,6 +116,36 @@ class TestPickFolderCrossPlatform:
         assert not body.get("cancelled")
         assert not body.get("unavailable")
 
+    def test_desktop_sidecar_does_not_open_tkinter_picker(
+        self, client, monkeypatch
+    ):
+        """The desktop has Tauri's picker; its WSGI thread must not open Tk.
+
+        If the native bridge is unavailable, the desktop UI offers manual
+        path entry.  Starting Tk from the sidecar request thread is unsafe on
+        macOS and can itself hang before a chooser appears.
+        """
+        monkeypatch.setenv("IDJLM_DESKTOP_SAME_ORIGIN", "1")
+
+        class _UnexpectedTk:
+            def __init__(self, *args, **kwargs):
+                raise AssertionError("desktop /api/pick-folder must not start Tk")
+
+        import types
+
+        fake_tk = types.ModuleType("tkinter")
+        fake_tk.Tk = _UnexpectedTk
+        monkeypatch.setitem(sys.modules, "tkinter", fake_tk)
+        monkeypatch.setitem(sys.modules, "tkinter.filedialog", types.ModuleType("tkinter.filedialog"))
+
+        resp = client.get("/api/pick-folder")
+
+        assert resp.status_code == 200
+        assert resp.get_json() == {
+            "unavailable": True,
+            "message": "Use the desktop folder picker or enter a folder path manually",
+        }
+
     def test_pick_folder_returns_cancelled_on_empty(self, client, monkeypatch):
         """User dismissing the dialog returns {cancelled: true}, not 500."""
         _stub_tkinter(monkeypatch, askdirectory_returns="")
