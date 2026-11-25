@@ -265,32 +265,50 @@ exercise_native_folder_picker() {
   # System Events drives the installed app's accessibility tree; this is the
   # real WebView button and macOS OpenPanel, not a JS bridge or test-only IPC.
   local picker_dir="$runner_temp/idjlm-picker-fixture-$expected_arch"
+  local automation_log="$runner_temp/idjlm-picker-automation-$expected_arch.log"
+  local automation_pid=""
   mkdir -p "$picker_dir"
 
-  osascript - "$picker_dir" <<'APPLESCRIPT'
-on wait_for_button(process_name, text_fragment, timeout_seconds)
+  osascript - "$wrapper_pid" "$picker_dir" >"$automation_log" 2>&1 <<'APPLESCRIPT' &
+on process_for_pid(process_pid)
   tell application "System Events"
-    repeat with attempt from 1 to (timeout_seconds * 4)
-      tell process process_name
-        try
-          repeat with candidate in (every button of entire contents of front window)
-            set label_text to ""
-            try
-              set label_text to (name of candidate) as text
-            end try
-            if label_text contains text_fragment then return candidate
-          end repeat
-        end try
-      end tell
-      delay 0.25
-    end repeat
+    try
+      return first process whose unix id is process_pid
+    on error
+      error "Installed wrapper process is not available to macOS accessibility automation"
+    end try
   end tell
+end process_for_pid
+
+on wait_for_button(process_pid, text_fragment, timeout_seconds)
+  repeat with attempt from 1 to (timeout_seconds * 4)
+    set target_process to my process_for_pid(process_pid)
+    tell application "System Events"
+      tell target_process
+        try
+          set elements to entire contents of front window
+        on error
+          set elements to {}
+        end try
+        repeat with candidate in elements
+          try
+            if (role of candidate as text) is "AXButton" then
+              set label_text to (name of candidate) as text
+              if label_text contains text_fragment then return candidate
+            end if
+          end try
+        end repeat
+      end tell
+    end tell
+    delay 0.25
+  end repeat
   error "Timed out waiting for WebView control: " & text_fragment
 end wait_for_button
 
-on native_panel_visible(process_name)
+on native_panel_visible(process_pid)
+  set target_process to my process_for_pid(process_pid)
   tell application "System Events"
-    tell process process_name
+    tell target_process
       try
         if exists sheet 1 of front window then return true
       end try
@@ -308,9 +326,9 @@ on native_panel_visible(process_name)
   return false
 end native_panel_visible
 
-on wait_for_native_panel(process_name, expected_visible, timeout_seconds)
+on wait_for_native_panel(process_pid, expected_visible, timeout_seconds)
   repeat with attempt from 1 to (timeout_seconds * 4)
-    if (native_panel_visible(process_name) is expected_visible) then return
+    if (my native_panel_visible(process_pid)) is expected_visible then return
     delay 0.25
   end repeat
   if expected_visible then
@@ -319,36 +337,36 @@ on wait_for_native_panel(process_name, expected_visible, timeout_seconds)
   error "Native Select Music Folder panel did not close"
 end wait_for_native_panel
 
-on press_add_folder(process_name)
+on press_add_folder(process_pid)
+  set add_folder_button to my wait_for_button(process_pid, "Add folder", 15)
+  set target_process to my process_for_pid(process_pid)
   tell application "System Events"
-    tell process process_name
+    tell target_process
       set frontmost to true
-      click (wait_for_button(process_name, "Add folder", 15))
+      click add_folder_button
     end tell
   end tell
 end press_add_folder
 
 on run argv
-  if (count of argv) is not 1 then error "Picker fixture path was not supplied"
-  set process_name to "IDJLM Pro"
-  set picker_folder to item 1 of argv
+  if (count of argv) is not 2 then error "Wrapper PID and picker fixture path are required"
+  set process_pid to (item 1 of argv) as integer
+  set picker_folder to item 2 of argv
 
   tell application id "au.idjlm.pro" to activate
-  tell application "System Events"
-    if not (exists process process_name) then error "Installed IDJLM Pro process is not available to macOS accessibility automation"
-  end tell
+  my process_for_pid(process_pid)
 
   -- First panel must cancel promptly: the prior synchronous command path
   -- deadlocked here before any native panel could be dismissed.
-  press_add_folder(process_name)
-  wait_for_native_panel(process_name, true, 15)
+  my press_add_folder(process_pid)
+  my wait_for_native_panel(process_pid, true, 15)
   tell application "System Events" to key code 53
-  wait_for_native_panel(process_name, false, 15)
+  my wait_for_native_panel(process_pid, false, 15)
 
   -- Reopen and choose only a runner-temp empty folder. Its browser-side
   -- confirmation proves the native callback returned to the actual WebView.
-  press_add_folder(process_name)
-  wait_for_native_panel(process_name, true, 15)
+  my press_add_folder(process_pid)
+  my wait_for_native_panel(process_pid, true, 15)
   tell application "System Events"
     keystroke "g" using {command down, shift down}
     delay 0.5
@@ -357,10 +375,27 @@ on run argv
     delay 0.75
     key code 36
   end tell
-  wait_for_button(process_name, "Import folder", 15)
+  my wait_for_button(process_pid, "Import folder", 15)
   tell application "System Events" to key code 53
 end run
 APPLESCRIPT
+  automation_pid=$!
+  for _ in {1..90}; do
+    if ! kill -0 "$automation_pid" 2>/dev/null; then
+      if wait "$automation_pid"; then
+        sed -E 's#(/[^[:space:]]+)+#<path>#g' "$automation_log"
+        return 0
+      fi
+      sed -E 's#(/[^[:space:]]+)+#<path>#g' "$automation_log" >&2
+      return 1
+    fi
+    sleep 1
+  done
+  kill -TERM "$automation_pid" 2>/dev/null || true
+  wait "$automation_pid" 2>/dev/null || true
+  echo "Native picker accessibility automation exceeded 90 seconds." >&2
+  sed -E 's#(/[^[:space:]]+)+#<path>#g' "$automation_log" >&2
+  return 1
 }
 
 # Exercise the collision first on a fresh runner, then normal relaunch on the
