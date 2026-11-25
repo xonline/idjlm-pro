@@ -266,10 +266,16 @@ exercise_native_folder_picker() {
   # real WebView button and macOS OpenPanel, not a JS bridge or test-only IPC.
   local picker_dir="$runner_temp/idjlm-picker-fixture-$expected_arch"
   local automation_log="$runner_temp/idjlm-picker-automation-$expected_arch.log"
+  local automation_trace="$runner_temp/idjlm-picker-automation-$expected_arch.trace"
   local automation_pid=""
   mkdir -p "$picker_dir"
+  : >"$automation_trace"
 
-  osascript - "$wrapper_pid" "$picker_dir" >"$automation_log" 2>&1 <<'APPLESCRIPT' &
+  osascript - "$wrapper_pid" "$picker_dir" "$automation_trace" >"$automation_log" 2>&1 <<'APPLESCRIPT' &
+on trace_stage(trace_path, stage)
+  do shell script "/usr/bin/printf '%s\n' " & quoted form of stage & " >> " & quoted form of trace_path
+end trace_stage
+
 on process_for_pid(process_pid)
   tell application "System Events"
     try
@@ -337,36 +343,49 @@ on wait_for_native_panel(process_pid, expected_visible, timeout_seconds)
   error "Native Select Music Folder panel did not close"
 end wait_for_native_panel
 
-on press_add_folder(process_pid)
-  set add_folder_button to my wait_for_button(process_pid, "Add folder", 15)
+on press_add_folder(process_pid, trace_path)
+  my trace_stage(trace_path, "add-folder-frontmost-start")
   set target_process to my process_for_pid(process_pid)
+  tell application "System Events" to tell target_process to set frontmost to true
+  my trace_stage(trace_path, "add-folder-frontmost-ready")
+  my trace_stage(trace_path, "add-folder-lookup-start")
+  set add_folder_button to my wait_for_button(process_pid, "Add folder", 15)
+  my trace_stage(trace_path, "add-folder-lookup-ready")
   tell application "System Events"
     tell target_process
-      set frontmost to true
       click add_folder_button
     end tell
   end tell
+  my trace_stage(trace_path, "add-folder-pressed")
 end press_add_folder
 
 on run argv
-  if (count of argv) is not 2 then error "Wrapper PID and picker fixture path are required"
+  if (count of argv) is not 3 then error "Wrapper PID, picker fixture path, and trace path are required"
   set process_pid to (item 1 of argv) as integer
   set picker_folder to item 2 of argv
+  set trace_path to item 3 of argv
 
-  tell application id "au.idjlm.pro" to activate
+  my trace_stage(trace_path, "system-events-target-start")
   my process_for_pid(process_pid)
+  my trace_stage(trace_path, "system-events-target-ready")
 
   -- First panel must cancel promptly: the prior synchronous command path
   -- deadlocked here before any native panel could be dismissed.
-  my press_add_folder(process_pid)
+  my trace_stage(trace_path, "first-panel-open-start")
+  my press_add_folder(process_pid, trace_path)
   my wait_for_native_panel(process_pid, true, 15)
+  my trace_stage(trace_path, "first-panel-visible")
   tell application "System Events" to key code 53
+  my trace_stage(trace_path, "first-panel-cancel-sent")
   my wait_for_native_panel(process_pid, false, 15)
+  my trace_stage(trace_path, "first-panel-cancelled")
 
   -- Reopen and choose only a runner-temp empty folder. Its browser-side
   -- confirmation proves the native callback returned to the actual WebView.
-  my press_add_folder(process_pid)
+  my trace_stage(trace_path, "second-panel-open-start")
+  my press_add_folder(process_pid, trace_path)
   my wait_for_native_panel(process_pid, true, 15)
+  my trace_stage(trace_path, "second-panel-visible")
   tell application "System Events"
     keystroke "g" using {command down, shift down}
     delay 0.5
@@ -375,8 +394,11 @@ on run argv
     delay 0.75
     key code 36
   end tell
+  my trace_stage(trace_path, "second-panel-selection-sent")
   my wait_for_button(process_pid, "Import folder", 15)
+  my trace_stage(trace_path, "web-confirmation-visible")
   tell application "System Events" to key code 53
+  my trace_stage(trace_path, "web-confirmation-cancelled")
 end run
 APPLESCRIPT
   automation_pid=$!
@@ -384,9 +406,11 @@ APPLESCRIPT
     if ! kill -0 "$automation_pid" 2>/dev/null; then
       if wait "$automation_pid"; then
         sed -E 's#(/[^[:space:]]+)+#<path>#g' "$automation_log"
+        cat "$automation_trace"
         return 0
       fi
       sed -E 's#(/[^[:space:]]+)+#<path>#g' "$automation_log" >&2
+      cat "$automation_trace" >&2
       return 1
     fi
     sleep 1
@@ -395,6 +419,7 @@ APPLESCRIPT
   wait "$automation_pid" 2>/dev/null || true
   echo "Native picker accessibility automation exceeded 90 seconds." >&2
   sed -E 's#(/[^[:space:]]+)+#<path>#g' "$automation_log" >&2
+  cat "$automation_trace" >&2
   return 1
 }
 
