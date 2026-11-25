@@ -31,6 +31,9 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[1]
 SCREENSHOTS = Path.home() / "docs" / "screenshots"
 PYTHON = ROOT / ".venv" / "bin" / "python"
+CHROMIUM_EXECUTABLE = os.environ.get(
+    "IDJLM_CHROMIUM_EXECUTABLE", "/usr/bin/chromium-browser"
+)
 
 
 def free_port() -> int:
@@ -276,7 +279,11 @@ def main() -> int:
         if vite:
             wait_for_app("http://localhost:5173/main.js", vite)
         with sync_playwright() as p:
-            browser = p.chromium.launch(executable_path="/usr/bin/chromium-browser", headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
+            browser = p.chromium.launch(
+                executable_path=CHROMIUM_EXECUTABLE,
+                headless=True,
+                args=["--no-sandbox", "--disable-dev-shm-usage"],
+            )
             page = browser.new_page(viewport={"width": 1440, "height": 1000})
             page.on("pageerror", lambda error: errors.append(f"pageerror: {error}"))
             page.on("console", lambda message: errors.append(f"console.error: {message.text}") if message.type == "error" else None)
@@ -300,7 +307,14 @@ def main() -> int:
             picker_requests = []
             page.route(
                 "**/api/pick-folder",
-                lambda route: (picker_requests.append(route.request.url), route.fulfill(status=500)),
+                lambda route: (
+                    picker_requests.append(route.request.url),
+                    route.fulfill(
+                        status=200,
+                        content_type="application/json",
+                        body=json.dumps({"unavailable": True}),
+                    ),
+                ),
             )
             page.goto(app_url, wait_until="networkidle", timeout=30000)
             page.wait_for_selector("#latin-shell:not([hidden])", timeout=10000)
