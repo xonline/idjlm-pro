@@ -369,7 +369,8 @@ on cancel_native_panel(process_pid, trace_path)
           my trace_stage(trace_path, "native-cancel-clicked")
           return
         end try
-        repeat with candidate in (every UI element of entire contents)
+        set elements to entire contents
+        repeat with candidate in elements
           try
             if (role of candidate as text) is "AXButton" then
               set candidate_name to (name of candidate as text)
